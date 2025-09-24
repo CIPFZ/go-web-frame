@@ -38,3 +38,7 @@ web/pnpm-lock.yaml
 *.db
 *.sqlite
 *.sqlite3
+
+logs
+build
+test

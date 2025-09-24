@@ -1,4 +1,6 @@
-project-root/
+GoWebFrame —— A general-purpose, high-performance, observable Web framework based on Gin.
+
+go-web-frame/
 ├── cmd/                    # 启动入口
 │   └── server/             # 主服务
 │       └── main.go
@@ -31,6 +33,8 @@ project-root/
 │   │   └── config.go
 │   ├── logger/             # zap 日志封装
 │   │   └── logger.go
+│   ├── i18n/               # i18n 国际化
+│   │   └── i18n.go
 │   └── utils/              # 通用工具
 ├── go.mod
 └── go.sum

@@ -1,0 +1,45 @@
+app:
+    name: "GoWebFrame"
+    mode: "debug"
+    environment: "dev"
+
+server:
+    port: 8080
+    mode: "release"
+
+logger:
+    level: "debug"
+    output: "stdout" # stdout / file
+    file_path: "logs/app.log"
+    enable_caller: true
+    max_size_mb: 100
+    max_backups: 5
+    max_age_days: 30
+    compress: true
+
+i18n:
+    path: "etc/locales"
+
+mysql:
+    enable: true
+    dsn: "root:password@tcp(127.0.0.1:3306)/test?charset=utf8mb4&parseTime=True&loc=Local"
+
+redis:
+    enable: true
+    addr: "127.0.0.1:6379"
+    password: ""
+    db: 0
+
+observable:
+    service_name: "gin-demo"
+    service_version: "1.0.0"
+    exporter: "otel" # stdout | otel
+    otel:
+        protocol: "http" # http | grpc
+        endpoint: "172.20.10.13:5080"
+        authorization: "Basic NTQ1MjRAc2FuZ2Zvci5jb206UVFHV1VoV0tXWVpHczBPZA=="
+        organization: "default"
+        stream_name: "default"
+        insecure: true
+        trace_sample_ratio: 1.0
+
