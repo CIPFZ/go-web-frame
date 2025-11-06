@@ -3,17 +3,19 @@ package main
 import (
 	"flag"
 	"fmt"
-	"go.opentelemetry.io/otel"
+	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/CIPFZ/gowebframe/internal/api"
-	"github.com/CIPFZ/gowebframe/internal/config"
-	"github.com/CIPFZ/gowebframe/internal/global"
+	"github.com/CIPFZ/gowebframe/internal/initialize"
+	"github.com/CIPFZ/gowebframe/internal/server"
+	"github.com/CIPFZ/gowebframe/internal/svc"
+	"github.com/CIPFZ/gowebframe/internal/utils"
 	"github.com/CIPFZ/gowebframe/pkg/i18n"
 	"github.com/CIPFZ/gowebframe/pkg/logger"
 	"github.com/CIPFZ/gowebframe/pkg/observability"
 
-	"github.com/gin-gonic/gin"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -24,74 +26,74 @@ import (
 // @description :
 // -------------------------------------------
 
-func main() { // 命令行参数 -f 指定配置文件路径
+func main() {
+	// ---------------- 1. 初始化系统 ----------------
 	configPath := flag.String("f", "etc/config.yaml", "config file path")
 	flag.Parse()
 
+	serviceCtx := svc.NewServiceContext()
+	initializeSystem(*configPath, serviceCtx)
+
+	// ---------------- 2. 启动 HTTP 服务 ----------------
+	server.RunServer(serviceCtx)
+
+	// ---------------- 3. 优雅退出 ----------------
+	waitForExitSignal(serviceCtx)
+	server.ShutdownServer(serviceCtx)
+	initialize.ShutdownMongo(serviceCtx)
+}
+
+// initializeSystem 初始化系统所有组件
+func initializeSystem(configPath string, serviceCtx *svc.ServiceContext) {
 	// Step1: 加载配置
-	cfg, err := config.InitConfig(*configPath)
-	if err != nil {
-		panic(err)
-	}
-	global.G.Config = cfg
+	serviceCtx.Viper = utils.MustInit(func() (*viper.Viper, error) {
+		return initialize.InitConfig(configPath, serviceCtx)
+	}, "Config")
+
+	initialize.OtherInit(serviceCtx)
 
 	// Step2: 初始化 Logger + 配置日志推送
-	lp, err := observability.InitLogs(cfg.Observable)
+	lp, err := observability.InitLogs(serviceCtx.Config.Observable)
 	if err != nil {
 		fmt.Printf("failed to init logs error: %+v\n", err)
 	}
 	defer observability.SafeShutdown(lp)
 
-	log, err := logger.NewLogger(&cfg.Logger, &logger.OTELLoggerConfig{
-		LogProvider: lp,
-		ServiceName: cfg.Observable.ServiceName,
-		ServiceVer:  cfg.Observable.ServiceVersion,
-		Environment: cfg.App.Environment,
-	})
-	if err != nil {
-		panic(err)
-	}
-	defer logger.Sync(log)
-	global.G.Logger = log
+	serviceCtx.Logger = utils.MustInit(func() (*zap.Logger, error) {
+		return logger.NewLogger(&serviceCtx.Config.Logger, &logger.OTELLoggerConfig{
+			LogProvider: lp,
+			ServiceName: serviceCtx.Config.Observable.ServiceName,
+			ServiceVer:  serviceCtx.Config.Observable.ServiceVersion,
+			Environment: serviceCtx.Config.System.Environment,
+		})
+	}, "Logger")
+	defer logger.Sync(serviceCtx.Logger)
 	// 全局替换 logger - zap.L()
-	zap.ReplaceGlobals(log)
+	zap.ReplaceGlobals(serviceCtx.Logger)
 
 	// Step3: 初始化 I18n
-	i18nService, err := i18n.NewI18n(&cfg.I18n, log)
-	if err != nil {
-		global.G.Logger.Fatal("failed to init i18n", zap.Error(err))
-	}
-	global.G.I18n = i18nService
+	serviceCtx.I18n = utils.MustInit(func() (*i18n.Service, error) {
+		return i18n.NewI18n(&serviceCtx.Config.I18n, serviceCtx.Logger)
+	}, "I18n")
 
-	// Step4: 初始化链路追踪
-	tp, err := observability.InitTracer(cfg.Observable)
-	if err != nil {
-		global.G.Logger.Fatal("failed init tracer", zap.Error(err))
-	}
-	defer observability.SafeShutdown(tp)
+	// Step5: 数据库连接
+	serviceCtx.DB = initialize.Gorm(serviceCtx)
+	// Mongo 连接
+	initialize.MustInitMongo(serviceCtx)
+	// Redis 连接
+	initialize.MustInitRedis(serviceCtx)
+	// Step6: 初始化定时任务
+	initialize.Timer(serviceCtx)
+	// Step6: 注册全局函数
+	initialize.SetupHandlers(serviceCtx)
+	// Step8: 初始化监控指标
+	initialize.InitObservability(serviceCtx)
+}
 
-	// Step5: 开启指标meter
-	mp, err := observability.InitMeter(cfg.Observable)
-	if err != nil {
-		global.G.Logger.Fatal("failed init meter", zap.Error(err))
-	}
-	defer observability.SafeShutdown(mp)
-
-	// 创建 HTTP Metrics
-	meter := otel.Meter(cfg.Observable.ServiceName)
-	httpMetrics, _ := observability.NewHTTPMetrics(meter)
-
-	// 初始化 Gin
-	r := gin.Default()
-	r.Use(otelgin.Middleware(cfg.Observable.ServiceName)) // tracing
-	r.Use(httpMetrics.Middleware())                       // metrics
-	r.Use(logger.GinLoggerMiddleware(log))                // log
-
-	// 注册路由
-	api.RegisterRoutes(r)
-
-	// 启动服务
-	if err := r.Run(":8080"); err != nil {
-		global.G.Logger.Fatal("failed to start server", zap.Error(err))
-	}
+// 等待退出信号
+func waitForExitSignal(serviceCtx *svc.ServiceContext) {
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	s := <-quit
+	serviceCtx.Logger.Info("收到退出信号，准备关闭服务...", zap.String("signal", s.String()))
 }

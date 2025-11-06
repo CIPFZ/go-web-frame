@@ -3,10 +3,11 @@ package observability
 import (
 	"context"
 	"fmt"
+	"log"
+
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
-	"log"
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
@@ -153,6 +154,9 @@ func CreateMetricExporter(cfg Config) (metric.Exporter, error) {
 
 // CreateLogsExporter 创建 Logs 导出器
 func CreateLogsExporter(cfg Config) (sdklog.Exporter, error) {
+	if cfg.Otel.Protocol == "" || cfg.Otel.Endpoint == "" {
+		return nil, nil
+	}
 	var exp sdklog.Exporter
 	var err error
 
