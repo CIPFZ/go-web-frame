@@ -6,11 +6,13 @@ import (
 	"time"
 
 	"github.com/CIPFZ/gowebframe/internal/svc"
+	"go.opentelemetry.io/otel"
 
 	"github.com/qiniu/qmgo"
 	"github.com/qiniu/qmgo/options"
 	"go.mongodb.org/mongo-driver/event"
 	opt "go.mongodb.org/mongo-driver/mongo/options"
+	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
 	"go.uber.org/zap"
 )
 
@@ -41,17 +43,31 @@ func MustInitMongo(serviceCtx *svc.ServiceContext) {
 	}
 
 	var opts []options.ClientOptions
+	// Otel Monitor 会自动捕获命令、耗时、错误并创建 Span
+	monitor := otelmongo.NewMonitor(
+		otelmongo.WithTracerProvider(otel.GetTracerProvider()),
+	)
 	if cfg.IsZap {
 		opts = append(opts, zapOptions()) // 自定义 zap logger
 	}
+	opts = append(opts, options.ClientOptions{
+		ClientOptions: &opt.ClientOptions{
+			Monitor: monitor,
+		},
+	})
 
 	c, err := qmgo.Open(ctx, config, opts...)
 	if err != nil {
 		panic(fmt.Errorf("init mongo failed: %w", err))
 	}
 
+	// 添加 Ping 健康检查 (保留 panic)
+	if err := c.Ping(int64(5 * time.Second)); err != nil {
+		panic(fmt.Errorf("mongo ping failed: %w", err))
+	}
+
 	serviceCtx.Mongo = c
-	serviceCtx.Logger.Info("✅ MongoDB 连接成功")
+	serviceCtx.Logger.Info("✅ MongoDB 连接成功 (已启用 Otel 追踪)")
 	err = initIndexes(ctx)
 	if err != nil {
 		panic(err)
@@ -61,8 +77,16 @@ func MustInitMongo(serviceCtx *svc.ServiceContext) {
 // ShutdownMongo 优雅关闭 Mongo
 func ShutdownMongo(serviceCtx *svc.ServiceContext) {
 	if serviceCtx.Mongo != nil {
-		_ = serviceCtx.Mongo.Close(context.Background())
-		serviceCtx.Logger.Info("🛑 MongoDB 已关闭")
+		// ✨ 2. 使用 5 秒超时，而不是 Background()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		serviceCtx.Logger.Info("🛑 正在关闭 MongoDB...")
+		if err := serviceCtx.Mongo.Close(ctx); err != nil {
+			serviceCtx.Logger.Error("MongoDB 关闭异常", zap.Error(err))
+			return
+		}
+		serviceCtx.Logger.Info("MongoDB 已关闭")
 	}
 }
 

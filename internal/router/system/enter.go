@@ -9,7 +9,6 @@ type Group struct {
 	serviceCtx            *svc.ServiceContext
 	ApiRouter             ApiRouter             // 接口路由
 	AuthorityRouter       AuthorityRouter       // 权限路由
-	AuthorityBtnRouter    AuthorityBtnRouter    // 权限按钮路由
 	CasbinRouter          CasbinRouter          // 访问控制路由
 	MenuRouter            MenuRouter            // 菜单路由
 	OperationRecordRouter OperationRecordRouter // 操作记录路由
@@ -23,7 +22,6 @@ func NewSystemGroup(serviceCtx *svc.ServiceContext) *Group {
 		serviceCtx:            serviceCtx,
 		ApiRouter:             ApiRouter{serviceCtx: serviceCtx},
 		AuthorityRouter:       AuthorityRouter{serviceCtx: serviceCtx},
-		AuthorityBtnRouter:    AuthorityBtnRouter{serviceCtx: serviceCtx},
 		CasbinRouter:          CasbinRouter{serviceCtx: serviceCtx},
 		MenuRouter:            MenuRouter{serviceCtx: serviceCtx},
 		OperationRecordRouter: OperationRecordRouter{serviceCtx: serviceCtx},
@@ -38,7 +36,6 @@ func (g *Group) RegisterRoutes(privateGroup *gin.RouterGroup, publicGroup *gin.R
 	// 私有路由（需要鉴权）
 	g.ApiRouter.InitApiRouter(privateGroup, publicGroup)
 	g.AuthorityRouter.InitAuthorityRouter(privateGroup)
-	g.AuthorityBtnRouter.InitAuthorityBtnRouterRouter(privateGroup)
 	g.CasbinRouter.InitCasbinRouter(privateGroup)
 	g.MenuRouter.InitMenuRouter(privateGroup)
 	g.OperationRecordRouter.InitSysOperationRecordRouter(privateGroup)

@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -13,13 +12,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// RunServer 启动 HTTP 服务
-func RunServer(serviceCtx *svc.ServiceContext) {
+// NewServer 创建 HTTP 服务
+func NewServer(serviceCtx *svc.ServiceContext) *http.Server {
 	// 初始化路由
 	engine := initialize.InitRouters(serviceCtx)
 	address := fmt.Sprintf(":%d", serviceCtx.Config.System.Port)
-	// 打印 banner
-	printBanner(address)
 
 	serviceCtx.SRV = &http.Server{
 		Addr:           address,
@@ -28,23 +25,16 @@ func RunServer(serviceCtx *svc.ServiceContext) {
 		WriteTimeout:   10 * time.Minute,
 		MaxHeaderBytes: 1 << 20,
 	}
-
-	go func() {
-		if err := serviceCtx.SRV.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serviceCtx.Logger.Fatal("HTTP服务启动失败", zap.Error(err))
-		}
-	}()
-
-	serviceCtx.Logger.Info("HTTP服务启动成功", zap.String("addr", address))
+	return serviceCtx.SRV
 }
 
 // ShutdownServer 优雅关闭 HTTP 服务
-func ShutdownServer(serviceCtx *svc.ServiceContext) {
+func ShutdownServer(ctx context.Context, serviceCtx *svc.ServiceContext) error {
 	serviceCtx.Logger.Info("正在关闭 HTTP 服务...")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 	if err := serviceCtx.SRV.Shutdown(ctx); err != nil {
-		serviceCtx.Logger.Fatal("HTTP服务关闭异常", zap.Error(err))
+		serviceCtx.Logger.Error("HTTP服务关闭异常", zap.Error(err))
+		return err
 	}
 	serviceCtx.Logger.Info("HTTP 服务已优雅退出 ✅")
+	return nil
 }

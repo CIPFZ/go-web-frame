@@ -2,7 +2,7 @@ package server
 
 import "fmt"
 
-func printBanner(address string) {
+func PrintBanner(address string) {
 	fmt.Printf(`
 🚀 欢迎使用 gin-vue-admin
 📦 当前版本: v2.8.3

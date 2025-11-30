@@ -1,30 +1,26 @@
 package system
 
 import (
+	"context"
 	"errors"
-	"strconv"
 
-	"github.com/CIPFZ/gowebframe/internal/model/common/request"
 	systemModel "github.com/CIPFZ/gowebframe/internal/model/system"
+	systemReq "github.com/CIPFZ/gowebframe/internal/model/system/request"
 	"github.com/CIPFZ/gowebframe/internal/svc"
-	"github.com/gin-gonic/gin"
-
+	"github.com/CIPFZ/gowebframe/pkg/logger"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 type IMenuService interface {
-	getMenuTreeMap(authorityId uint) (map[uint][]systemModel.SysBaseMenu, error)
-	GetMenuTree(authorityId uint) ([]systemModel.SysBaseMenu, error)
-	buildChildrenTree(menu *systemModel.SysBaseMenu, treeMap map[uint][]systemModel.SysBaseMenu) (err error)
-	getChildrenList(menu *systemModel.SysMenu, treeMap map[uint][]systemModel.SysMenu) (err error)
-	GetInfoList(authorityID uint) (list interface{}, err error)
-	getBaseChildrenList(menu *systemModel.SysBaseMenu, treeMap map[uint][]systemModel.SysBaseMenu) (err error)
-	AddBaseMenu(menu systemModel.SysBaseMenu) error
-	getBaseMenuTreeMap(authorityID uint) (treeMap map[uint][]systemModel.SysBaseMenu, err error)
-	GetBaseMenuTree(authorityID uint) (menus []systemModel.SysBaseMenu, err error)
-	AddMenuAuthority(menus []systemModel.SysBaseMenu, adminAuthorityID, authorityId uint) (err error)
-	GetMenuAuthority(info *request.GetAuthorityId) (menus []systemModel.SysMenu, err error)
-	UserAuthorityDefaultRouter(c *gin.Context, user *systemModel.SysUser)
+	// GetUserMenuTree 根据角色ID获取动态菜单树
+	GetUserMenuTree(ctx context.Context, authorityId uint) ([]systemModel.SysMenu, error)
+	// GetMenuList 获取
+	GetMenuList(ctx context.Context) ([]systemModel.SysMenu, error)
+	AddBaseMenu(ctx context.Context, req systemReq.AddMenuReq) error
+	UpdateBaseMenu(ctx context.Context, req systemReq.UpdateMenuReq) error
+	DeleteBaseMenu(ctx context.Context, id uint) error
+	GetMenuAuthority(ctx context.Context, authorityId uint) ([]systemModel.SysMenu, error)
 }
 
 type MenuService struct {
@@ -35,337 +31,214 @@ func NewMenuService(svcCtx *svc.ServiceContext) IMenuService {
 	return &MenuService{svcCtx: svcCtx}
 }
 
-// GetMenuTree 获取动态菜单树 (给前端, 适配 Antd Pro)
-// 返回 []systemModel.SysBaseMenu，其 Children 字段的 json tag 应为 "routes"
-func (s *MenuService) GetMenuTree(authorityId uint) ([]systemModel.SysBaseMenu, error) {
-	// 1. 获取该角色有权限的菜单 Map
-	menuTreeMap, err := s.getMenuTreeMap(authorityId)
+// GetUserMenuTree 获取用户菜单树
+func (s *MenuService) GetUserMenuTree(ctx context.Context, authorityId uint) ([]systemModel.SysMenu, error) {
+	var allMenus []systemModel.SysMenu
+
+	// 1. 查询数据库 (联表查询)
+	// 利用 GORM 的 Join 查询，通过 sys_authority_menus 过滤出该角色拥有的菜单
+	// 必须按 sort 排序，保证前端菜单顺序正确
+	err := s.svcCtx.DB.WithContext(ctx).
+		Table("sys_menus").
+		Select("sys_menus.*").
+		Joins("JOIN sys_authority_menus ON sys_menus.id = sys_authority_menus.menu_id").
+		Where("sys_authority_menus.authority_id = ?", authorityId).
+		Where("sys_menus.deleted_at IS NULL").
+		Order("sys_menus.sort").
+		Find(&allMenus).Error
+
 	if err != nil {
-		return nil, err
+		s.svcCtx.Logger.Error("get_menu_tree_db_error", zap.Error(err), zap.Uint("authority_id", authorityId))
+		return nil, errors.New("获取菜单数据失败")
 	}
 
-	// 2. 从根 (ParentId = 0) 开始构建树
-	menus := menuTreeMap[0]
-	for i := 0; i < len(menus); i++ {
-		// 递归填充 Children
-		err = s.buildChildrenTree(&menus[i], menuTreeMap)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return menus, nil
+	// 2. 列表转树 (List -> Tree)
+	return s.buildMenuTree(allMenus), nil
 }
 
-//// getMenuTreeMap 获取路由总树map
-//func (s *MenuService) getMenuTreeMap(authorityId uint) (map[uint][]systemModel.SysMenu, error) {
-//	var allMenus []systemModel.SysMenu
-//	var baseMenu []systemModel.SysBaseMenu
-//	var btns []systemModel.SysAuthorityBtn
-//	var err error
-//	treeMap := make(map[uint][]systemModel.SysMenu)
-//
-//	var SysAuthorityMenus []systemModel.SysAuthorityMenu
-//	err = s.svcCtx.DB.Where("sys_authority_authority_id = ?", authorityId).Find(&SysAuthorityMenus).Error
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	var MenuIds []string
-//
-//	for i := range SysAuthorityMenus {
-//		MenuIds = append(MenuIds, SysAuthorityMenus[i].MenuId)
-//	}
-//
-//	err = s.svcCtx.DB.Where("id in (?)", MenuIds).Order("sort").Preload("Parameters").Find(&baseMenu).Error
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	for i := range baseMenu {
-//		allMenus = append(allMenus, systemModel.SysMenu{
-//			SysBaseMenu: baseMenu[i],
-//			AuthorityId: authorityId,
-//			MenuId:      baseMenu[i].ID,
-//			Parameters:  nil,
-//		})
-//	}
-//
-//	err = s.svcCtx.DB.Where("authority_id = ?", authorityId).Preload("SysBaseMenuBtn").Find(&btns).Error
-//	if err != nil {
-//		return nil, err
-//	}
-//	var btnMap = make(map[uint]map[string]uint)
-//	for _, v := range btns {
-//		if btnMap[v.SysMenuID] == nil {
-//			btnMap[v.SysMenuID] = make(map[string]uint)
-//		}
-//		btnMap[v.SysMenuID][v.SysBaseMenuBtn.Name] = authorityId
-//	}
-//	for _, v := range allMenus {
-//		v.Btns = btnMap[v.SysBaseMenu.ID]
-//		treeMap[v.ParentId] = append(treeMap[v.ParentId], v)
-//	}
-//	return treeMap, err
-//}
+// buildMenuTree 内存中构建树形结构 (O(n) 复杂度)
+func (s *MenuService) buildMenuTree(menus []systemModel.SysMenu) []systemModel.SysMenu {
+	// 使用 map 存储 parentId -> []children 的映射
+	// 注意：这里存储的是切片索引或指针，为了方便组装
+	treeMap := make(map[uint][]*systemModel.SysMenu)
 
-// GetMenuTree 获取动态菜单树
-//func (s *MenuService) GetMenuTree(authorityId uint) (menus []systemModel.SysMenu, err error) {
-//	menuTree, err := s.getMenuTreeMap(authorityId)
-//	menus = menuTree[0]
-//	for i := 0; i < len(menus); i++ {
-//		err = s.getChildrenList(&menus[i], menuTree)
-//	}
-//	return menus, err
-//}
-
-// getMenuTreeMap (内部) - 获取角色有权限的菜单并构建 ParentId -> []Menus 的 Map
-func (s *MenuService) getMenuTreeMap(authorityId uint) (map[uint][]systemModel.SysBaseMenu, error) {
-	var baseMenus []systemModel.SysBaseMenu
-	treeMap := make(map[uint][]systemModel.SysBaseMenu)
-
-	// 1. 仍然使用 GVA 的方式，通过联结表获取菜单 ID
-	var SysAuthorityMenus []systemModel.SysAuthorityMenu
-	err := s.svcCtx.DB.Where("sys_authority_authority_id = ?", authorityId).Find(&SysAuthorityMenus).Error
-	if err != nil {
-		return nil, err
+	// 第一次遍历：将所有菜单按 ParentId 分组放入 Map
+	for i := range menus {
+		// 必须取地址，否则 range 中的 v 是拷贝，无法修改 Children
+		treeMap[menus[i].ParentId] = append(treeMap[menus[i].ParentId], &menus[i])
 	}
 
-	var MenuIds []string
-	for i := range SysAuthorityMenus {
-		MenuIds = append(MenuIds, SysAuthorityMenus[i].MenuId)
-	}
-
-	// 2. 查询 SysBaseMenu
-	// 优化：不再 Preload 已被移除的 GVA 字段 (Parameters, MenuBtn)
-	err = s.svcCtx.DB.Where("id IN (?)", MenuIds).Order("sort").Find(&baseMenus).Error
-	if err != nil {
-		return nil, err
-	}
-
-	// 3. 构建 Map
-	// 优化：不再需要 SysMenu 包装器，也不再需要处理按钮权限 (Btns)
-	for _, v := range baseMenus {
-		treeMap[v.ParentId] = append(treeMap[v.ParentId], v)
-	}
-	return treeMap, nil
-}
-
-// buildChildrenTree (内部) - 递归构建子菜单树
-// (替换旧的 getChildrenList，逻辑相同，签名更新)
-func (s *MenuService) buildChildrenTree(menu *systemModel.SysBaseMenu, treeMap map[uint][]systemModel.SysBaseMenu) (err error) {
-	// 关键：使用 menu.ID (主键) 作为 key 来查找子菜单
-	menu.Children = treeMap[menu.ID]
-	for i := 0; i < len(menu.Children); i++ {
-		err = s.buildChildrenTree(&menu.Children[i], treeMap)
-	}
-	return err
-}
-
-// getChildrenList 获取子菜单
-func (s *MenuService) getChildrenList(menu *systemModel.SysMenu, treeMap map[uint][]systemModel.SysMenu) (err error) {
-	menu.Children = treeMap[menu.MenuId]
-	for i := 0; i < len(menu.Children); i++ {
-		err = s.getChildrenList(&menu.Children[i], treeMap)
-	}
-	return err
-}
-
-// GetInfoList 获取路由分页
-func (s *MenuService) GetInfoList(authorityID uint) (list interface{}, err error) {
-	var menuList []systemModel.SysBaseMenu
-	treeMap, err := s.getBaseMenuTreeMap(authorityID)
-	menuList = treeMap[0]
-	for i := 0; i < len(menuList); i++ {
-		err = s.getBaseChildrenList(&menuList[i], treeMap)
-	}
-	return menuList, err
-}
-
-// getBaseChildrenList 获取菜单的子菜单
-func (s *MenuService) getBaseChildrenList(menu *systemModel.SysBaseMenu, treeMap map[uint][]systemModel.SysBaseMenu) (err error) {
-	menu.Children = treeMap[menu.ID]
-	for i := 0; i < len(menu.Children); i++ {
-		err = s.getBaseChildrenList(&menu.Children[i], treeMap)
-	}
-	return err
-}
-
-// AddBaseMenu 添加基础路由
-func (s *MenuService) AddBaseMenu(menu systemModel.SysBaseMenu) error {
-	return s.svcCtx.DB.Transaction(func(tx *gorm.DB) error {
-		// 检查name是否重复
-		if !errors.Is(tx.Where("name = ?", menu.Name).First(&systemModel.SysBaseMenu{}).Error, gorm.ErrRecordNotFound) {
-			return errors.New("存在重复name，请修改name")
-		}
-
-		if menu.ParentId != 0 {
-			// 检查父菜单是否存在
-			var parentMenu systemModel.SysBaseMenu
-			if err := tx.First(&parentMenu, menu.ParentId).Error; err != nil {
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return errors.New("父菜单不存在")
-				}
-				return err
-			}
-
-			// 检查父菜单下现有子菜单数量
-			var existingChildrenCount int64
-			err := tx.Model(&systemModel.SysBaseMenu{}).Where("parent_id = ?", menu.ParentId).Count(&existingChildrenCount).Error
-			if err != nil {
-				return err
-			}
-
-			// 如果父菜单原本是叶子菜单（没有子菜单），现在要变成枝干菜单，需要清空其权限分配
-			if existingChildrenCount == 0 {
-				// 检查父菜单是否被其他角色设置为首页
-				var defaultRouterCount int64
-				err := tx.Model(&systemModel.SysAuthority{}).Where("default_router = ?", parentMenu.Name).Count(&defaultRouterCount).Error
-				if err != nil {
-					return err
-				}
-				if defaultRouterCount > 0 {
-					return errors.New("父菜单已被其他角色的首页占用，请先释放父菜单的首页权限")
-				}
-
-				// 清空父菜单的所有权限分配
-				err = tx.Where("sys_base_menu_id = ?", menu.ParentId).Delete(&systemModel.SysAuthorityMenu{}).Error
-				if err != nil {
-					return err
-				}
+	// 第二次遍历：将子节点挂载到父节点上
+	// 我们只需要处理那些“是父亲”的节点
+	for i := range menus {
+		// 尝试从 Map 中找到当前节点的子节点
+		if children, ok := treeMap[menus[i].ID]; ok {
+			// 因为 children 是 []*SysMenu，我们需要解引用放入切片
+			// 这里稍微繁琐一点因为 Go 的切片类型匹配
+			for _, child := range children {
+				menus[i].Children = append(menus[i].Children, *child)
 			}
 		}
+	}
 
-		// 创建菜单
-		return tx.Create(&menu).Error
-	})
+	// 第三次遍历：提取根节点 (ParentId == 0)
+	var rootMenus []systemModel.SysMenu
+	// 这里直接从 treeMap[0] 取更高效
+	if roots, ok := treeMap[0]; ok {
+		for _, root := range roots {
+			rootMenus = append(rootMenus, *root)
+		}
+	}
+
+	return rootMenus
 }
 
-// getBaseMenuTreeMap 获取路由总树map
-func (s *MenuService) getBaseMenuTreeMap(authorityID uint) (treeMap map[uint][]systemModel.SysBaseMenu, err error) {
-	authorityService := NewAuthorityService(s.svcCtx)
-	parentAuthorityID, err := authorityService.GetParentAuthorityID(authorityID)
+// GetMenuList 获取所有菜单列表 (管理后台用)
+func (s *MenuService) GetMenuList(ctx context.Context) ([]systemModel.SysMenu, error) {
+	var allMenus []systemModel.SysMenu
+	// 查询所有未删除的菜单
+	err := s.svcCtx.DB.WithContext(ctx).
+		Order("sort").
+		Find(&allMenus).Error
+
 	if err != nil {
 		return nil, err
 	}
 
-	var allMenus []systemModel.SysBaseMenu
-	treeMap = make(map[uint][]systemModel.SysBaseMenu)
-	db := s.svcCtx.DB.Order("sort").Preload("MenuBtn").Preload("Parameters")
-
-	// 当开启了严格的树角色并且父角色不为0时需要进行菜单筛选
-	if s.svcCtx.Config.System.UseStrictAuth && parentAuthorityID != 0 {
-		var authorityMenus []systemModel.SysAuthorityMenu
-		err = s.svcCtx.DB.Where("sys_authority_authority_id = ?", authorityID).Find(&authorityMenus).Error
-		if err != nil {
-			return nil, err
-		}
-		var menuIds []string
-		for i := range authorityMenus {
-			menuIds = append(menuIds, authorityMenus[i].MenuId)
-		}
-		db = db.Where("id in (?)", menuIds)
-	}
-
-	err = db.Find(&allMenus).Error
-	for _, v := range allMenus {
-		treeMap[v.ParentId] = append(treeMap[v.ParentId], v)
-	}
-	return treeMap, err
+	// 复用之前的 buildMenuTree 方法生成树形结构
+	return s.buildMenuTree(allMenus), nil
 }
 
-// GetBaseMenuTree 获取基础路由树
-func (s *MenuService) GetBaseMenuTree(authorityID uint) (menus []systemModel.SysBaseMenu, err error) {
-	treeMap, err := s.getBaseMenuTreeMap(authorityID)
-	menus = treeMap[0]
-	for i := 0; i < len(menus); i++ {
-		err = s.getBaseChildrenList(&menus[i], treeMap)
+// AddBaseMenu 新增菜单
+func (s *MenuService) AddBaseMenu(ctx context.Context, req systemReq.AddMenuReq) error {
+	// 获取带 TraceID 的 Logger
+	log := logger.GetLogger(ctx)
+
+	// 1. ✨ 校验 Path 是否重复 (仅校验未删除的)
+	var existed systemModel.SysMenu
+	err := s.svcCtx.DB.WithContext(ctx).
+		Where("path = ?", req.Path).
+		First(&existed).Error
+
+	if err == nil {
+		log.Warn("添加菜单失败，Path已存在", zap.String("path", req.Path))
+		return errors.New("路由Path已存在，请更换")
 	}
-	return menus, err
-}
-
-// AddMenuAuthority 为角色增加menu树
-func (s *MenuService) AddMenuAuthority(menus []systemModel.SysBaseMenu, adminAuthorityID, authorityId uint) (err error) {
-	var auth systemModel.SysAuthority
-	auth.AuthorityId = authorityId
-	auth.SysBaseMenus = menus
-
-	authorityService := NewAuthorityService(s.svcCtx)
-	err = authorityService.CheckAuthorityIDAuth(adminAuthorityID, authorityId)
-	if err != nil {
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Error("检查Path重复时数据库出错", zap.Error(err))
 		return err
 	}
 
-	var authority systemModel.SysAuthority
-	_ = s.svcCtx.DB.First(&authority, "authority_id = ?", adminAuthorityID).Error
-	var menuIds []string
+	// 2. 创建菜单
+	menu := systemModel.SysMenu{
+		ParentId:   req.ParentId,
+		Path:       req.Path,
+		Name:       req.Name,
+		Component:  req.Component,
+		Sort:       req.Sort,
+		Icon:       req.Icon,
+		HideInMenu: req.HideInMenu,
+		Access:     req.Access,
+		Target:     req.Target,
+		Locale:     req.Locale,
+	}
 
-	// 当开启了严格的树角色并且父角色不为0时需要进行菜单筛选
-	if s.svcCtx.Config.System.UseStrictAuth && *authority.ParentId != 0 {
-		var authorityMenus []systemModel.SysAuthorityMenu
-		err = s.svcCtx.DB.Where("sys_authority_authority_id = ?", adminAuthorityID).Find(&authorityMenus).Error
-		if err != nil {
+	if err := s.svcCtx.DB.WithContext(ctx).Create(&menu).Error; err != nil {
+		log.Error("创建菜单失败", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+// UpdateBaseMenu 更新菜单
+func (s *MenuService) UpdateBaseMenu(ctx context.Context, req systemReq.UpdateMenuReq) error {
+	log := logger.GetLogger(ctx)
+
+	// 1. 检查是否存在
+	var menu systemModel.SysMenu
+	if err := s.svcCtx.DB.WithContext(ctx).First(&menu, req.ID).Error; err != nil {
+		return errors.New("菜单不存在")
+	}
+
+	// 2. ✨ 校验 Path 是否与其他菜单重复 (排除自己)
+	if req.Path != menu.Path {
+		var duplicate systemModel.SysMenu
+		if err := s.svcCtx.DB.WithContext(ctx).Where("path = ? AND id != ?", req.Path, req.ID).First(&duplicate).Error; err == nil {
+			return errors.New("路由Path已存在")
+		}
+	}
+
+	// 3. 更新字段 (使用 Map 以支持零值更新)
+	updMap := map[string]interface{}{
+		"parent_id":    req.ParentId,
+		"path":         req.Path,
+		"name":         req.Name,
+		"component":    req.Component,
+		"sort":         req.Sort,
+		"icon":         req.Icon,
+		"hide_in_menu": req.HideInMenu,
+		"access":       req.Access,
+		// ✨ 新增字段
+		"target": req.Target,
+		"locale": req.Locale,
+	}
+
+	if err := s.svcCtx.DB.WithContext(ctx).Model(&menu).Updates(updMap).Error; err != nil {
+		log.Error("更新菜单失败", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+// DeleteBaseMenu 删除菜单
+func (s *MenuService) DeleteBaseMenu(ctx context.Context, id uint) error {
+	log := logger.GetLogger(ctx)
+
+	return s.svcCtx.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 1. 检查子菜单
+		var count int64
+		if err := tx.Model(&systemModel.SysMenu{}).Where("parent_id = ?", id).Count(&count).Error; err != nil {
 			return err
 		}
-		for i := range authorityMenus {
-			menuIds = append(menuIds, authorityMenus[i].MenuId)
+		if count > 0 {
+			return errors.New("此菜单存在子菜单，不可删除")
 		}
 
-		for i := range menus {
-			hasMenu := false
-			for j := range menuIds {
-				idStr := strconv.Itoa(int(menus[i].ID))
-				if idStr == menuIds[j] {
-					hasMenu = true
-				}
-			}
-			if !hasMenu {
-				return errors.New("添加失败,请勿跨级操作")
-			}
+		// 2. ✨ 级联硬删除：sys_authority_menus (角色-菜单关联)
+		// 这里必须使用 Unscoped() 进行硬删除，否则会有脏数据残留
+		if err := tx.Table("sys_authority_menus").
+			Where("menu_id = ?", id).
+			Delete(nil).Error; err != nil {
+			log.Error("删除菜单关联失败", zap.Error(err))
+			return err
 		}
-	}
 
-	err = authorityService.SetMenuAuthority(&auth)
-	return err
+		// 3. 删除菜单自身 (软删除)
+		if err := tx.Delete(&systemModel.SysMenu{}, id).Error; err != nil {
+			log.Error("删除菜单失败", zap.Error(err))
+			return err
+		}
+
+		return nil
+	})
 }
 
-// GetMenuAuthority 查看当前角色树
-func (s *MenuService) GetMenuAuthority(info *request.GetAuthorityId) (menus []systemModel.SysMenu, err error) {
-	var baseMenu []systemModel.SysBaseMenu
-	var SysAuthorityMenus []systemModel.SysAuthorityMenu
-	err = s.svcCtx.DB.Where("sys_authority_authority_id = ?", info.AuthorityId).Find(&SysAuthorityMenus).Error
+// GetMenuAuthority 查看指定角色拥有的菜单 (用于权限分配回显)
+func (s *MenuService) GetMenuAuthority(ctx context.Context, authorityId uint) ([]systemModel.SysMenu, error) {
+	var menus []systemModel.SysMenu
+
+	// 使用 INNER JOIN 关联查询
+	// 只需要查出关联表中存在的菜单即可
+	err := s.svcCtx.DB.WithContext(ctx).
+		Model(&systemModel.SysMenu{}).
+		Joins("INNER JOIN sys_authority_menus ON sys_menus.id = sys_authority_menus.menu_id").
+		Where("sys_authority_menus.authority_id = ?", authorityId).
+		Order("sys_menus.sort").
+		Find(&menus).Error
+
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	var MenuIds []string
-
-	for i := range SysAuthorityMenus {
-		MenuIds = append(MenuIds, SysAuthorityMenus[i].MenuId)
-	}
-
-	err = s.svcCtx.DB.Where("id in (?) ", MenuIds).Order("sort").Find(&baseMenu).Error
-
-	for i := range baseMenu {
-		menus = append(menus, systemModel.SysMenu{
-			SysBaseMenu: baseMenu[i],
-			AuthorityId: info.AuthorityId,
-			MenuId:      baseMenu[i].ID,
-			Parameters:  nil,
-		})
-	}
-	return menus, err
-}
-
-// UserAuthorityDefaultRouter 用户角色默认路由检查
-func (s *MenuService) UserAuthorityDefaultRouter(c *gin.Context, user *systemModel.SysUser) {
-	var menuIds []string
-	err := s.svcCtx.DB.Model(&systemModel.SysAuthorityMenu{}).Where("sys_authority_authority_id = ?", user.AuthorityId).Pluck("sys_base_menu_id", &menuIds).Error
-	if err != nil {
-		return
-	}
-	var am systemModel.SysBaseMenu
-	err = s.svcCtx.DB.First(&am, "name = ? and id in (?)", user.Authority.DefaultRouter, menuIds).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		user.Authority.DefaultRouter = "404"
-	}
+	return menus, nil
 }

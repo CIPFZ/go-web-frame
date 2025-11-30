@@ -9,9 +9,8 @@ system:
   iplimit_count: 15000
   #  IP限制一个小时
   iplimit_time: 3600
-
   use_minio: false # 使用 minio
-  use_redis: false # 使用redis
+  use_redis: true # 使用redis
   use_mongo: false     # 使用mongo
   use_multipoint: false
   #  严格角色模式 打开后权限将会存在上下级关系
@@ -37,22 +36,6 @@ jwt:
   buffer_time: 1d
   issuer: GWF
 
-#mysql:
-#  enable: true
-#  dsn: "admin:MySQL@2025@tcp(127.0.0.1:3306)/test?charset=utf8mb4&parseTime=True&loc=Local"
-
-#mysql:
-#  path: "127.0.0.1"
-#  port: 3306
-#  config: "charset=utf8mb4&parseTime=True&loc=Local"
-#  db_name: "gwf"
-#  username: "admin"
-#  password: "MySQL@2025"
-#  max_idle_conns: 10
-#  max_open_conns: 100
-#  log_mode: ""
-#  log_zap: false
-
 mysql:
   path: "127.0.0.1"
   port: 3306
@@ -64,30 +47,6 @@ mysql:
   max_open_conns: 100
   log_mode: ""
   log_zap: false
-
-# redis configuration
-redis:
-  #是否使用redis集群模式
-  useCluster: false
-  #使用集群模式addr和db默认无效
-  addr: 127.0.0.1:6379
-  username: "admin"
-  password: "123456"
-  db: 0
-  clusterAddrs: []
-
-observable:
-  service_name: "gin-demo"
-  service_version: "1.0.0"
-  exporter: "otel" # stdout | otel
-  otel:
-    protocol: "http" # http | grpc
-    endpoint: "192.168.1.10:8005"
-    authorization: "Basic YWRtaW5Ab3Blbm9ic2VydmUuY29tOmtmVURRQ25IUnBLZFl5Vzk="
-    organization: "default"
-    stream_name: "default"
-    insecure: true
-    trace_sample_ratio: 1.0
 
 # mongo configuration
 mongo:
@@ -105,6 +64,27 @@ mongo:
   hosts:
     - host: '192.168.1.10'
       port: '27017'
+
+# redis configuration
+redis:
+  #是否使用redis集群模式
+  useCluster: false
+  #使用集群模式addr和db默认无效
+  addr: 192.168.1.10:6379
+  username: "admin"
+  password: "123456"
+  db: 0
+  clusterAddrs: []
+
+# minio oss configuration
+minio:
+  endpoint: ""
+  access_key_id: ""
+  access_key_secret: ""
+  bucket_name: ""
+  use_ssl: false
+  base_path: ""
+  bucket_url: "http://host:9000/yourBucketName"
 
 # email configuration
 email:
@@ -125,16 +105,6 @@ captcha:
   open_captcha: 0 # 0代表一直开启，大于0代表限制次数
   open_captcha_timeout: 3600 # open-captcha大于0时才生效
 
-# minio oss configuration
-minio:
-  endpoint: ""
-  access_key_id: ""
-  access_key_secret: ""
-  bucket_name: ""
-  use_ssl: false
-  base_path: ""
-  bucket_url: "http://host:9000/yourBucketName"
-
 # 跨域配置
 # 需要配合 server/initialize/router.go -> `Router.Use(middleware.CorsByRules())` 使用
 cors:
@@ -150,3 +120,18 @@ cors:
       allow_methods: GET, POST
       expose_headers: Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type
       allow_credentials: true # 布尔值
+
+observable:
+  service_name: "gin-demo"
+  service_version: "1.0.0"
+  exporter: "otel" # 确保启用 Otel
+  environment: "dev"
+  trace_sample_ratio: 1.0 # 100% 采样
+
+  otel_exporter:
+    # 1. 协议: 推荐使用 gRPC (性能更好)
+    protocol: "grpc"
+    # 2. 端点: 必须指向 Otel Collector 的 gRPC 接收器端口
+    endpoint: "192.168.1.10:4317"
+    # 3. Collector 的接收器没有 TLS，所以这是 true
+    insecure: true

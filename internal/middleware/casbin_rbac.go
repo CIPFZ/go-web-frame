@@ -1,29 +1,45 @@
 package middleware
 
 import (
+	"fmt"
+	"strconv"
+
+	"github.com/CIPFZ/gowebframe/internal/model/common/response"
+	"github.com/CIPFZ/gowebframe/internal/model/system/request"
 	"github.com/CIPFZ/gowebframe/internal/svc"
 	"github.com/gin-gonic/gin"
 )
 
-// CasbinHandler 拦截器
-func CasbinHandler(serviceCtx *svc.ServiceContext) gin.HandlerFunc {
-	//prefix := serviceCtx.Config.System.RouterPrefix
+func CasbinHandler(svcCtx *svc.ServiceContext) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		//waitUse, _ := utils.GetClaims(c)
-		////获取请求的PATH
-		//path := c.Request.URL.Path
-		//obj := strings.TrimPrefix(path, prefix)
-		//// 获取请求方法
-		//act := c.Request.Method
-		//// 获取用户的角色
-		//sub := strconv.Itoa(int(waitUse.AuthorityId))
-		//e := utils.GetCasbin(serviceCtx) // 判断策略中是否存在
-		//success, _ := e.Enforce(sub, obj, act)
-		//if !success {
-		//	response.FailWithDetailed(gin.H{}, "权限不足", c)
-		//	c.Abort()
-		//	return
-		//}
+		// 1. 获取请求信息
+		waitUse, _ := c.Get("claims")
+		waitUseClaims := waitUse.(*request.CustomClaims)
+
+		// 获取请求的 PATH 和 METHOD
+		obj := c.Request.URL.Path
+		act := c.Request.Method
+		// 获取用户的角色ID (Casbin 中通常存为字符串)
+		sub := strconv.Itoa(int(waitUseClaims.AuthorityId))
+
+		e := svcCtx.CasbinEnforcer
+
+		// 2. 判断权限
+		// 格式: Enforce(sub, obj, act) -> (角色ID, 路径, 方法)
+		success, _ := e.Enforce(sub, obj, act)
+		fmt.Printf("TTT ---> obj:%v,act:%v,sub:%v; success: %t\n", obj, act, sub, success)
+
+		// 如果是超级管理员，直接放行
+		if waitUseClaims.AuthorityId == 1 {
+			success = true
+		}
+
+		if !success {
+			response.FailWithDetailed(gin.H{}, "权限不足", c)
+			c.Abort()
+			return
+		}
+
 		c.Next()
 	}
 }

@@ -27,12 +27,12 @@ func (r *PageInfo) Paginate() func(db *gorm.DB) *gorm.DB {
 	}
 }
 
-// GetById Find by id structure
-type GetById struct {
+// GetByIdReq Find by id structure
+type GetByIdReq struct {
 	ID int `json:"id" form:"id"` // 主键ID
 }
 
-func (r *GetById) Uint() uint {
+func (r *GetByIdReq) Uint() uint {
 	return uint(r.ID)
 }
 

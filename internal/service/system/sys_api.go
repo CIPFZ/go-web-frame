@@ -1,316 +1,185 @@
 package system
 
 import (
+	"context"
 	"errors"
-	"fmt"
-	"strings"
 
-	"github.com/CIPFZ/gowebframe/internal/model/common/request"
 	systemModel "github.com/CIPFZ/gowebframe/internal/model/system"
-	systemRes "github.com/CIPFZ/gowebframe/internal/model/system/response"
+	systemReq "github.com/CIPFZ/gowebframe/internal/model/system/request"
 	"github.com/CIPFZ/gowebframe/internal/svc"
+
 	"gorm.io/gorm"
 )
 
 type IApiService interface {
-	CreateApi(api systemModel.SysApi) (err error)
-	GetApiGroups() (groups []string, groupApiMap map[string]string, err error)
-	SyncApi() (newApis, deleteApis, ignoreApis []systemModel.SysApi, err error)
-	IgnoreApi(ignoreApi systemModel.SysIgnoreApi) (err error)
-	EnterSyncApi(syncApis systemRes.SysSyncApis) (err error)
-	DeleteApi(api systemModel.SysApi) (err error)
-	GetAPIInfoList(api systemModel.SysApi, info request.PageInfo, order string, desc bool) (list interface{}, total int64, err error)
-	GetAllApis(authorityID uint) (apis []systemModel.SysApi, err error)
-	GetApiById(id int) (api systemModel.SysApi, err error)
-	UpdateApi(api systemModel.SysApi) (err error)
-	DeleteApisByIds(ids request.IdsReq) (err error)
+	GetApiList(ctx context.Context, req systemReq.SearchApiReq) ([]systemModel.SysApi, int64, error)
+	CreateApi(ctx context.Context, req systemReq.CreateApiReq) error
+	UpdateApi(ctx context.Context, req systemReq.UpdateApiReq) error
+	DeleteApi(ctx context.Context, req systemReq.DeleteApiReq) error
 }
 
 type ApiService struct {
-	svcCtx        *svc.ServiceContext
-	casbinService *CasbinService
+	svcCtx *svc.ServiceContext
 }
 
 func NewApiService(svcCtx *svc.ServiceContext) IApiService {
-	return &ApiService{
-		svcCtx:        svcCtx,
-		casbinService: &CasbinService{svcCtx: svcCtx},
-	}
+	return &ApiService{svcCtx: svcCtx}
 }
 
-// CreateApi 新增基础api
-func (s *ApiService) CreateApi(api systemModel.SysApi) (err error) {
-	if !errors.Is(s.svcCtx.DB.Where("path = ? AND method = ?", api.Path, api.Method).First(&systemModel.SysApi{}).Error, gorm.ErrRecordNotFound) {
-		return errors.New("存在相同api")
+// GetApiList 分页获取
+func (s *ApiService) GetApiList(ctx context.Context, req systemReq.SearchApiReq) ([]systemModel.SysApi, int64, error) {
+	var list []systemModel.SysApi
+	var total int64
+
+	db := s.svcCtx.DB.WithContext(ctx).Model(&systemModel.SysApi{})
+
+	// 动态查询条件
+	if req.Path != "" {
+		db = db.Where("path LIKE ?", "%"+req.Path+"%")
 	}
-	return s.svcCtx.DB.Create(&api).Error
+	if req.Description != "" {
+		db = db.Where("description LIKE ?", "%"+req.Description+"%")
+	}
+	if req.Method != "" {
+		db = db.Where("method = ?", req.Method)
+	}
+	if req.ApiGroup != "" {
+		db = db.Where("api_group = ?", req.ApiGroup)
+	}
+
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 默认按 ID 倒序
+	err := db.Order("id desc").
+		Limit(req.PageSize).Offset((req.Page - 1) * req.PageSize).
+		Find(&list).Error
+
+	return list, total, err
 }
 
-func (s *ApiService) GetApiGroups() (groups []string, groupApiMap map[string]string, err error) {
-	var apis []systemModel.SysApi
-	err = s.svcCtx.DB.Find(&apis).Error
+// CreateApi 新增
+func (s *ApiService) CreateApi(ctx context.Context, req systemReq.CreateApiReq) error {
+	// 1. 检查是否存在 (Path + Method 必须唯一)
+	var existed systemModel.SysApi
+	if !errors.Is(s.svcCtx.DB.WithContext(ctx).Where("path = ? AND method = ?", req.Path, req.Method).First(&existed).Error, gorm.ErrRecordNotFound) {
+		return errors.New("存在相同路径和方法的API")
+	}
+
+	api := systemModel.SysApi{
+		Path:        req.Path,
+		Description: req.Description,
+		ApiGroup:    req.ApiGroup,
+		Method:      req.Method,
+	}
+
+	return s.svcCtx.DB.WithContext(ctx).Create(&api).Error
+}
+
+// UpdateApi 更新 (重点：同步 Casbin)
+func (s *ApiService) UpdateApi(ctx context.Context, req systemReq.UpdateApiReq) error {
+	var oldApi systemModel.SysApi
+	err := s.svcCtx.DB.WithContext(ctx).First(&oldApi, req.ID).Error
 	if err != nil {
-		return
+		return errors.New("API不存在")
 	}
-	groupApiMap = make(map[string]string, 0)
-	for i := range apis {
-		pathArr := strings.Split(apis[i].Path, "/")
-		newGroup := true
-		for i2 := range groups {
-			if groups[i2] == apis[i].ApiGroup {
-				newGroup = false
+
+	// 1. 检查是否更改了关键字段 (Path 或 Method)
+	if oldApi.Path != req.Path || oldApi.Method != req.Method {
+		// 检查新值是否冲突
+		var existed systemModel.SysApi
+		if !errors.Is(s.svcCtx.DB.WithContext(ctx).Where("path = ? AND method = ? AND id != ?", req.Path, req.Method, req.ID).First(&existed).Error, gorm.ErrRecordNotFound) {
+			return errors.New("修改后的API路径和方法已存在")
+		}
+	}
+
+	// 2. 开启事务
+	return s.svcCtx.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// a. 更新 API 表
+		api := systemModel.SysApi{
+			Path:        req.Path,
+			Description: req.Description,
+			ApiGroup:    req.ApiGroup,
+			Method:      req.Method,
+		}
+		// 这里手动设置 ID 以便 GORM 知道更新哪条
+		api.ID = req.ID
+
+		if err := tx.Model(&oldApi).Updates(api).Error; err != nil {
+			return err
+		}
+
+		// b. ✨ 关键：如果 Path 或 Method 变了，同步更新 Casbin 规则
+		if oldApi.Path != req.Path || oldApi.Method != req.Method {
+			// Casbin UpdatePolicy(oldRule, newRule)
+			// 参数顺序依赖于你的 Model 定义，通常是: sub, obj, act
+			// 这里的 obj=Path, act=Method
+			// 我们需要更新所有角色 (sub) 的这条规则，这比较麻烦
+			// 简单的做法是：UpdateFilteredPolicy 也就是直接用 SQL 更新 sys_casbin_rules 表更直接
+
+			// GVA 的做法是直接操作 Casbin API：
+			// UpdatePolicy(oldParams, newParams)
+			// 但 UpdatePolicy 只能更新单条特定的规则。
+
+			// 最稳妥的“批量更新”做法是：
+			// 在 sys_casbin_rules 表中，将所有 v1=oldPath AND v2=oldMethod 的记录
+			// 更新为 v1=newPath AND v2=newMethod
+
+			if err := tx.Table("sys_casbin_rules").
+				Where("v1 = ? AND v2 = ?", oldApi.Path, oldApi.Method).
+				Updates(map[string]interface{}{
+					"v1": req.Path,
+					"v2": req.Method,
+				}).Error; err != nil {
+				return err
 			}
-		}
-		if newGroup {
-			groups = append(groups, apis[i].ApiGroup)
-		}
-		groupApiMap[pathArr[1]] = apis[i].ApiGroup
-	}
-	return
-}
 
-func (s *ApiService) SyncApi() (newApis, deleteApis, ignoreApis []systemModel.SysApi, err error) {
-	newApis = make([]systemModel.SysApi, 0)
-	deleteApis = make([]systemModel.SysApi, 0)
-	ignoreApis = make([]systemModel.SysApi, 0)
-	var apis []systemModel.SysApi
-	err = s.svcCtx.DB.Find(&apis).Error
-	if err != nil {
-		return
-	}
-	var ignores []systemModel.SysIgnoreApi
-	err = s.svcCtx.DB.Find(&ignores).Error
-	if err != nil {
-		return
-	}
+			// 更新完数据库后，记得在 Controller 层或这里 reload Casbin 策略
+			// 稍后在 API 层调用 LoadPolicy
+		}
 
-	for i := range ignores {
-		ignoreApis = append(ignoreApis, systemModel.SysApi{
-			Path:        ignores[i].Path,
-			Description: "",
-			ApiGroup:    "",
-			Method:      ignores[i].Method,
-		})
-	}
-
-	var cacheApis []systemModel.SysApi
-	routers := s.svcCtx.Routers
-	for i := range routers {
-		ignoresFlag := false
-		for j := range ignores {
-			if ignores[j].Path == routers[i].Path && ignores[j].Method == routers[i].Method {
-				ignoresFlag = true
-			}
-		}
-		if !ignoresFlag {
-			cacheApis = append(cacheApis, systemModel.SysApi{
-				Path:   routers[i].Path,
-				Method: routers[i].Method,
-			})
-		}
-	}
-
-	//对比数据库中的api和内存中的api，如果数据库中的api不存在于内存中，则把api放入删除数组，如果内存中的api不存在于数据库中，则把api放入新增数组
-	for i := range cacheApis {
-		var flag bool
-		// 如果存在于内存不存在于api数组中
-		for j := range apis {
-			if cacheApis[i].Path == apis[j].Path && cacheApis[i].Method == apis[j].Method {
-				flag = true
-			}
-		}
-		if !flag {
-			newApis = append(newApis, systemModel.SysApi{
-				Path:        cacheApis[i].Path,
-				Description: "",
-				ApiGroup:    "",
-				Method:      cacheApis[i].Method,
-			})
-		}
-	}
-
-	for i := range apis {
-		var flag bool
-		// 如果存在于api数组不存在于内存
-		for j := range cacheApis {
-			if cacheApis[j].Path == apis[i].Path && cacheApis[j].Method == apis[i].Method {
-				flag = true
-			}
-		}
-		if !flag {
-			deleteApis = append(deleteApis, apis[i])
-		}
-	}
-	return
-}
-
-func (s *ApiService) IgnoreApi(ignoreApi systemModel.SysIgnoreApi) (err error) {
-	if ignoreApi.Flag {
-		return s.svcCtx.DB.Create(&ignoreApi).Error
-	}
-	return s.svcCtx.DB.Unscoped().Delete(&ignoreApi, "path = ? AND method = ?", ignoreApi.Path, ignoreApi.Method).Error
-}
-
-func (s *ApiService) EnterSyncApi(syncApis systemRes.SysSyncApis) (err error) {
-	return s.svcCtx.DB.Transaction(func(tx *gorm.DB) error {
-		var txErr error
-		if len(syncApis.NewApis) > 0 {
-			txErr = tx.Create(&syncApis.NewApis).Error
-			if txErr != nil {
-				return txErr
-			}
-		}
-		for i := range syncApis.DeleteApis {
-			s.casbinService.ClearCasbin(1, syncApis.DeleteApis[i].Path, syncApis.DeleteApis[i].Method)
-			txErr = tx.Delete(&systemModel.SysApi{}, "path = ? AND method = ?", syncApis.DeleteApis[i].Path, syncApis.DeleteApis[i].Method).Error
-			if txErr != nil {
-				return txErr
-			}
-		}
 		return nil
 	})
 }
 
-// DeleteApi 删除基础api
-func (s *ApiService) DeleteApi(api systemModel.SysApi) (err error) {
-	var entity systemModel.SysApi
-	err = s.svcCtx.DB.First(&entity, "id = ?", api.ID).Error // 根据id查询api记录
-	if errors.Is(err, gorm.ErrRecordNotFound) {              // api记录不存在
-		return err
+// DeleteApi 删除/批量删除 (重点：同步 Casbin)
+func (s *ApiService) DeleteApi(ctx context.Context, req systemReq.DeleteApiReq) error {
+	var ids []uint
+	if req.ID != 0 {
+		ids = append(ids, req.ID)
 	}
-	err = s.svcCtx.DB.Delete(&entity).Error
-	if err != nil {
-		return err
+	if len(req.IDs) > 0 {
+		ids = append(ids, req.IDs...)
 	}
-	s.casbinService.ClearCasbin(1, entity.Path, entity.Method)
-	return nil
-}
-
-// GetAPIInfoList 分页获取数据
-func (s *ApiService) GetAPIInfoList(api systemModel.SysApi, info request.PageInfo, order string, desc bool) (list interface{}, total int64, err error) {
-	limit := info.PageSize
-	offset := info.PageSize * (info.Page - 1)
-	db := s.svcCtx.DB.Model(&systemModel.SysApi{})
-	var apiList []systemModel.SysApi
-
-	if api.Path != "" {
-		db = db.Where("path LIKE ?", "%"+api.Path+"%")
+	if len(ids) == 0 {
+		return errors.New("未选择数据")
 	}
 
-	if api.Description != "" {
-		db = db.Where("description LIKE ?", "%"+api.Description+"%")
-	}
-
-	if api.Method != "" {
-		db = db.Where("method = ?", api.Method)
-	}
-
-	if api.ApiGroup != "" {
-		db = db.Where("api_group = ?", api.ApiGroup)
-	}
-
-	err = db.Count(&total).Error
-
-	if err != nil {
-		return apiList, total, err
-	}
-
-	db = db.Limit(limit).Offset(offset)
-	OrderStr := "id desc"
-	if order != "" {
-		orderMap := make(map[string]bool, 5)
-		orderMap["id"] = true
-		orderMap["path"] = true
-		orderMap["api_group"] = true
-		orderMap["description"] = true
-		orderMap["method"] = true
-		if !orderMap[order] {
-			err = fmt.Errorf("非法的排序字段: %v", order)
-			return apiList, total, err
-		}
-		OrderStr = order
-		if desc {
-			OrderStr = order + " desc"
-		}
-	}
-	err = db.Order(OrderStr).Find(&apiList).Error
-	return apiList, total, err
-}
-
-// GetAllApis 获取所有的api
-func (s *ApiService) GetAllApis(authorityID uint) (apis []systemModel.SysApi, err error) {
-	authorityService := NewAuthorityService(s.svcCtx)
-	parentAuthorityID, err := authorityService.GetParentAuthorityID(authorityID)
-	if err != nil {
-		return nil, err
-	}
-	err = s.svcCtx.DB.Order("id desc").Find(&apis).Error
-	if parentAuthorityID == 0 || !s.svcCtx.Config.System.UseStrictAuth {
-		return
-	}
-	paths := s.casbinService.GetPolicyPathByAuthorityId(authorityID)
-	// 挑选 apis里面的path和method也在paths里面的api
-	var authApis []systemModel.SysApi
-	for i := range apis {
-		for j := range paths {
-			if paths[j].Path == apis[i].Path && paths[j].Method == apis[i].Method {
-				authApis = append(authApis, apis[i])
-			}
-		}
-	}
-	return authApis, err
-}
-
-// GetApiById 根据id获取api
-func (s *ApiService) GetApiById(id int) (api systemModel.SysApi, err error) {
-	err = s.svcCtx.DB.First(&api, "id = ?", id).Error
-	return
-}
-
-// UpdateApi 根据id更新api
-func (s *ApiService) UpdateApi(api systemModel.SysApi) (err error) {
-	var oldA systemModel.SysApi
-	err = s.svcCtx.DB.First(&oldA, "id = ?", api.ID).Error
-	if oldA.Path != api.Path || oldA.Method != api.Method {
-		var duplicateApi systemModel.SysApi
-		if ferr := s.svcCtx.DB.First(&duplicateApi, "path = ? AND method = ?", api.Path, api.Method).Error; ferr != nil {
-			if !errors.Is(ferr, gorm.ErrRecordNotFound) {
-				return ferr
-			}
-		} else {
-			if duplicateApi.ID != api.ID {
-				return errors.New("存在相同api路径")
-			}
-		}
-
-	}
-	if err != nil {
-		return err
-	}
-
-	err = s.casbinService.UpdateCasbinApi(oldA.Path, api.Path, oldA.Method, api.Method)
-	if err != nil {
-		return err
-	}
-
-	return s.svcCtx.DB.Save(&api).Error
-}
-
-// DeleteApisByIds 删除选中API
-func (s *ApiService) DeleteApisByIds(ids request.IdsReq) (err error) {
-	return s.svcCtx.DB.Transaction(func(tx *gorm.DB) error {
+	return s.svcCtx.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 1. 先查出要删除的 API 详情 (为了拿 Path 和 Method 去清理 Casbin)
 		var apis []systemModel.SysApi
-		err = tx.Find(&apis, "id in ?", ids.Ids).Error
-		if err != nil {
+		if err := tx.Find(&apis, ids).Error; err != nil {
 			return err
 		}
-		err = tx.Delete(&[]systemModel.SysApi{}, "id in ?", ids.Ids).Error
-		if err != nil {
+
+		// 2. 删除 API 表记录 (软删除或硬删除，GVA API通常是硬删除或软删除均可，这里用软删除)
+		if err := tx.Delete(&systemModel.SysApi{}, ids).Error; err != nil {
 			return err
 		}
-		for _, sysApi := range apis {
-			s.casbinService.ClearCasbin(1, sysApi.Path, sysApi.Method)
+
+		// 3. ✨ 清理 Casbin 规则
+		// 必须把关联的权限策略也删掉，否则会残留垃圾数据
+		for _, api := range apis {
+			// 删除所有包含此 (Path, Method) 的规则
+			// 对应 Casbin 字段: v1=path, v2=method
+			if err := tx.Table("sys_casbin_rules").
+				Where("v1 = ? AND v2 = ?", api.Path, api.Method).
+				Delete(nil).Error; err != nil {
+				return err
+			}
 		}
-		return err
+
+		return nil
 	})
 }

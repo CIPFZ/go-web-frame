@@ -1,11 +1,11 @@
 package system
 
-// SysUserAuthority 是 sysUser 和 sysAuthority 的连接表
+// SysUserAuthority 用户-角色 关联表
 type SysUserAuthority struct {
-	SysUserId               uint `gorm:"column:sys_user_id"`
-	SysAuthorityAuthorityId uint `gorm:"column:sys_authority_authority_id"`
+	UserId      uint `gorm:"column:user_id;primaryKey"`      // 必须是 uint
+	AuthorityId uint `gorm:"column:authority_id;primaryKey"` // 必须是 uint
 }
 
-func (s *SysUserAuthority) TableName() string {
-	return "sys_user_authority"
+func (SysUserAuthority) TableName() string {
+	return "sys_user_authorities"
 }

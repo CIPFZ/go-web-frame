@@ -2,13 +2,36 @@ package request
 
 import (
 	"github.com/CIPFZ/gowebframe/internal/model/common/request"
-	"github.com/CIPFZ/gowebframe/internal/model/system"
 )
 
-// SearchApiParams api分页条件查询及排序结构体
-type SearchApiParams struct {
-	system.SysApi
+// SearchApiReq API分页查询
+type SearchApiReq struct {
+	Path        string `json:"path"`        // 路径关键字
+	Description string `json:"description"` // 描述关键字
+	Method      string `json:"method"`      // 方法关键字
+	ApiGroup    string `json:"apiGroup"`    // 分组关键字
 	request.PageInfo
-	OrderKey string `json:"orderKey"` // 排序
-	Desc     bool   `json:"desc"`     // 排序方式:升序false(默认)|降序true
+}
+
+// CreateApiReq 新增 API
+type CreateApiReq struct {
+	Path        string `json:"path" binding:"required"`
+	Description string `json:"description" binding:"required"`
+	ApiGroup    string `json:"apiGroup" binding:"required"`
+	Method      string `json:"method" binding:"required"`
+}
+
+// UpdateApiReq 更新 API
+type UpdateApiReq struct {
+	ID          uint   `json:"id" binding:"required"`
+	Path        string `json:"path" binding:"required"`
+	Description string `json:"description" binding:"required"`
+	ApiGroup    string `json:"apiGroup" binding:"required"`
+	Method      string `json:"method" binding:"required"`
+}
+
+// DeleteApiReq 删除/批量删除 API
+type DeleteApiReq struct {
+	ID  uint   `json:"id"`  // 单个删除用
+	IDs []uint `json:"ids"` // 批量删除用
 }

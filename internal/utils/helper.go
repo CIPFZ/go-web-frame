@@ -1,6 +1,8 @@
 package utils
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func MustInit[T any](fn func() (T, error), name string) T {
 	v, err := fn()

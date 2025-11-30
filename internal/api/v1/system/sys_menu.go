@@ -3,183 +3,156 @@ package system
 import (
 	"github.com/CIPFZ/gowebframe/internal/model/common/request"
 	"github.com/CIPFZ/gowebframe/internal/model/common/response"
-	systemModel "github.com/CIPFZ/gowebframe/internal/model/system"
 	systemReq "github.com/CIPFZ/gowebframe/internal/model/system/request"
-	systemRes "github.com/CIPFZ/gowebframe/internal/model/system/response"
 	systemService "github.com/CIPFZ/gowebframe/internal/service/system"
 	"github.com/CIPFZ/gowebframe/internal/svc"
 	"github.com/CIPFZ/gowebframe/internal/utils"
-	"github.com/CIPFZ/gowebframe/pkg/logger"
-
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
-type AuthorityMenuApi struct {
-	svcCtx          *svc.ServiceContext
-	menuService     systemService.IMenuService
-	baseMenuService systemService.IBaseMenuService
+type MenuApi struct {
+	svcCtx      *svc.ServiceContext
+	menuService systemService.IMenuService
 }
 
-func NewAuthorityMenuApi(svcCtx *svc.ServiceContext) *AuthorityMenuApi {
-	return &AuthorityMenuApi{
-		svcCtx:          svcCtx,
-		menuService:     systemService.NewMenuService(svcCtx),
-		baseMenuService: systemService.NewBaseMenuService(svcCtx),
+func NewMenuApi(svcCtx *svc.ServiceContext) *MenuApi {
+	return &MenuApi{
+		svcCtx:      svcCtx,
+		menuService: systemService.NewMenuService(svcCtx),
 	}
 }
 
-// GetMenu 获取用户动态路由
-func (a *AuthorityMenuApi) GetMenu(c *gin.Context) {
-	log := logger.GetLogger(c)
-	menus, err := a.menuService.GetMenuTree(utils.GetUserAuthorityId(c, a.svcCtx))
-	if err != nil {
-		log.Error("获取失败!", zap.Error(err))
-		response.FailWithMessage("获取失败", c)
+// GetMenu 获取当前用户的动态菜单
+// @Tags Menu
+// @Summary 获取动态菜单
+// @Security ApiKeyAuth
+// @Produce application/json
+// @Success 200 {object} response.Response{data=[]system.SysMenu}
+// @Router /menu/getMenu [get]
+func (a *MenuApi) GetMenu(c *gin.Context) {
+	// 1. 从 Context 获取当前用户的角色 ID
+	authorityId := utils.GetAuthorityId(c)
+	if authorityId == 0 {
+		response.FailWithMessage("无法获取用户角色信息", c)
 		return
 	}
-	if menus == nil {
-		menus = []systemModel.SysBaseMenu{}
-	}
-	response.OkWithDetailed(menus, "获取成功", c)
-}
 
-// GetBaseMenuTree 获取用户动态路由
-func (a *AuthorityMenuApi) GetBaseMenuTree(c *gin.Context) {
-	log := logger.GetLogger(c)
-	authority := utils.GetUserAuthorityId(c, a.svcCtx)
-	menus, err := a.menuService.GetBaseMenuTree(authority)
+	// 2. 调用 Service
+	menus, err := a.menuService.GetUserMenuTree(c.Request.Context(), authorityId)
 	if err != nil {
-		log.Error("获取失败!", zap.Error(err))
-		response.FailWithMessage("获取失败", c)
-		return
-	}
-	response.OkWithDetailed(systemRes.SysBaseMenusResponse{Menus: menus}, "获取成功", c)
-}
-
-// AddMenuAuthority 增加menu和角色关联关系
-func (a *AuthorityMenuApi) AddMenuAuthority(c *gin.Context) {
-	var authorityMenu systemReq.AddMenuAuthorityInfo
-	err := c.ShouldBindJSON(&authorityMenu)
-	if err != nil {
+		// 错误日志已在 Service 层记录
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	// TODO 参数校验
-	log := logger.GetLogger(c)
-	adminAuthorityID := utils.GetUserAuthorityId(c, a.svcCtx)
-	if err := a.menuService.AddMenuAuthority(authorityMenu.Menus, adminAuthorityID, authorityMenu.AuthorityId); err != nil {
-		log.Error("添加失败!", zap.Error(err))
-		response.FailWithMessage("添加失败", c)
-	} else {
-		response.OkWithMessage("添加成功", c)
-	}
+
+	// 3. 返回结果
+	// 注意：这里返回的是 []SysMenu，前端(layout.menu.request)会接收到这个数组
+	// 然后通过我们之前写的 processMenuData 将 icon 字符串转为组件
+	response.OkWithData(menus, c)
 }
 
-// GetMenuAuthority 获取指定角色menu
-func (a *AuthorityMenuApi) GetMenuAuthority(c *gin.Context) {
-	var param request.GetAuthorityId
-	err := c.ShouldBindJSON(&param)
+// GetMenuList 获取所有菜单
+// @Tags Menu
+// @Summary 分页获取基础menu列表 (虽然名字叫分页，实际上通常返回全量树)
+// @Security ApiKeyAuth
+// @Success 200 {object} response.Response{data=[]system.SysMenu}
+// @Router /menu/getMenuList [post]
+func (a *MenuApi) GetMenuList(c *gin.Context) {
+	// GVA 习惯用 POST 做查询，RESTful 建议 GET，这里兼容你的前端 API 定义
+	menus, err := a.menuService.GetMenuList(c.Request.Context())
 	if err != nil {
-		response.FailWithMessage(err.Error(), c)
+		a.svcCtx.Logger.Error("get_menu_list_error", zap.Error(err))
+		response.FailWithMessage("获取失败", c)
 		return
 	}
-	// TODO 参数校验
-	log := logger.GetLogger(c)
-	menus, err := a.menuService.GetMenuAuthority(&param)
-	if err != nil {
-		log.Error("获取失败!", zap.Error(err))
-		response.FailWithDetailed(systemRes.SysMenusResponse{Menus: menus}, "获取失败", c)
-		return
-	}
-	response.OkWithDetailed(gin.H{"menus": menus}, "获取成功", c)
+	response.OkWithData(menus, c)
 }
 
 // AddBaseMenu 新增菜单
-func (a *AuthorityMenuApi) AddBaseMenu(c *gin.Context) {
-	var menu systemModel.SysBaseMenu
-	err := c.ShouldBindJSON(&menu)
-	if err != nil {
+// @Tags Menu
+// @Summary 新增菜单
+// @Security ApiKeyAuth
+// @Param data body request.AddMenuReq true "参数"
+// @Router /menu/addBaseMenu [post]
+func (a *MenuApi) AddBaseMenu(c *gin.Context) {
+	var req systemReq.AddMenuReq
+	if err := c.ShouldBindJSON(&req); err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	// TODO 参数校验
-	log := logger.GetLogger(c)
-	err = a.menuService.AddBaseMenu(menu)
-	if err != nil {
-		log.Error("添加失败!", zap.Error(err))
-		response.FailWithMessage("添加失败："+err.Error(), c)
+
+	if err := a.menuService.AddBaseMenu(c.Request.Context(), req); err != nil {
+		a.svcCtx.Logger.Error("add_menu_error", zap.Error(err))
+		response.FailWithMessage("添加失败", c)
 		return
 	}
 	response.OkWithMessage("添加成功", c)
 }
 
 // DeleteBaseMenu 删除菜单
-func (a *AuthorityMenuApi) DeleteBaseMenu(c *gin.Context) {
-	var menu request.GetById
-	err := c.ShouldBindJSON(&menu)
-	if err != nil {
+// @Tags Menu
+// @Summary 删除菜单
+// @Security ApiKeyAuth
+// @Param data body request.GetByIdReq true "ID"
+// @Router /menu/deleteBaseMenu [post]
+func (a *MenuApi) DeleteBaseMenu(c *gin.Context) {
+	var req request.GetByIdReq
+	if err := c.ShouldBindJSON(&req); err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	// TODO 参数校验
-	log := logger.GetLogger(c)
-	err = a.baseMenuService.DeleteBaseMenu(c, menu.ID)
-	if err != nil {
-		log.Error("删除失败!", zap.Error(err))
-		response.FailWithMessage("删除失败:"+err.Error(), c)
+
+	if err := a.menuService.DeleteBaseMenu(c.Request.Context(), req.Uint()); err != nil {
+		a.svcCtx.Logger.Error("delete_menu_error", zap.Error(err))
+		// 直接把 Service 层的错误（如“存在子菜单”）返回给前端
+		response.FailWithMessage(err.Error(), c)
 		return
 	}
 	response.OkWithMessage("删除成功", c)
 }
 
 // UpdateBaseMenu 更新菜单
-func (a *AuthorityMenuApi) UpdateBaseMenu(c *gin.Context) {
-	var menu systemModel.SysBaseMenu
-	err := c.ShouldBindJSON(&menu)
-	if err != nil {
+// @Tags Menu
+// @Summary 更新菜单
+// @Security ApiKeyAuth
+// @Param data body request.UpdateMenuReq true "参数"
+// @Router /menu/updateBaseMenu [post]
+func (a *MenuApi) UpdateBaseMenu(c *gin.Context) {
+	var req systemReq.UpdateMenuReq
+	if err := c.ShouldBindJSON(&req); err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	// TODO 参数校验
-	log := logger.GetLogger(c)
-	err = a.baseMenuService.UpdateBaseMenu(c, menu)
-	if err != nil {
-		log.Error("更新失败!", zap.Error(err))
+
+	if err := a.menuService.UpdateBaseMenu(c.Request.Context(), req); err != nil {
+		a.svcCtx.Logger.Error("update_menu_error", zap.Error(err))
 		response.FailWithMessage("更新失败", c)
 		return
 	}
 	response.OkWithMessage("更新成功", c)
 }
 
-// GetBaseMenuById 根据id获取菜单
-func (a *AuthorityMenuApi) GetBaseMenuById(c *gin.Context) {
-	var idInfo request.GetById
-	err := c.ShouldBindJSON(&idInfo)
-	if err != nil {
+// GetMenuAuthority 获取指定角色的菜单
+// @Tags Menu
+// @Summary 获取指定角色的菜单
+// @Security ApiKeyAuth
+// @Param data body request.GetAuthorityIdReq true "参数"
+// @Router /menu/getMenuAuthority [post]
+func (a *MenuApi) GetMenuAuthority(c *gin.Context) {
+	var req systemReq.GetAuthorityIdReq
+	if err := c.ShouldBindJSON(&req); err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	// TODO 参数校验
-	log := logger.GetLogger(c)
-	menu, err := a.baseMenuService.GetBaseMenuById(c, idInfo.ID)
-	if err != nil {
-		log.Error("获取失败!", zap.Error(err))
-		response.FailWithMessage("获取失败", c)
-		return
-	}
-	response.OkWithDetailed(systemRes.SysBaseMenuResponse{Menu: menu}, "获取成功", c)
-}
 
-// GetMenuList 页获取基础menu列表
-func (a *AuthorityMenuApi) GetMenuList(c *gin.Context) {
-	authorityID := utils.GetUserAuthorityId(c, a.svcCtx)
-	log := logger.GetLogger(c)
-	menuList, err := a.menuService.GetInfoList(authorityID)
+	menus, err := a.menuService.GetMenuAuthority(c.Request.Context(), req.AuthorityId)
 	if err != nil {
-		log.Error("获取失败!", zap.Error(err))
+		a.svcCtx.Logger.Error("get_menu_authority_error", zap.Error(err))
 		response.FailWithMessage("获取失败", c)
 		return
 	}
-	response.OkWithDetailed(menuList, "获取成功", c)
+
+	// 直接返回菜单数组
+	response.OkWithData(menus, c)
 }

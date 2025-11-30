@@ -11,10 +11,8 @@ type OperationRecordRouter struct {
 }
 
 func (s *OperationRecordRouter) InitSysOperationRecordRouter(Router *gin.RouterGroup) {
-	operationRecordRouter := Router.Group("sysOperationRecord")
-	operationRecordApi := system.NewOperationRecordApi(s.serviceCtx)
-	operationRecordRouter.DELETE("deleteSysOperationRecord", operationRecordApi.DeleteSysOperationRecord)           // 删除SysOperationRecord
-	operationRecordRouter.DELETE("deleteSysOperationRecordByIds", operationRecordApi.DeleteSysOperationRecordByIds) // 批量删除SysOperationRecord
-	operationRecordRouter.GET("findSysOperationRecord", operationRecordApi.FindSysOperationRecord)                  // 根据ID获取SysOperationRecord
-	operationRecordRouter.POST("getSysOperationRecordList", operationRecordApi.GetSysOperationRecordList)           // 获取SysOperationRecord列表
+	operationRecordRouter := Router.Group("operationLog")
+	operationRecordApi := system.NewOperationLogApi(s.serviceCtx)
+	operationRecordRouter.POST("getOperationLogList", operationRecordApi.GetOperationLogList)         // 分页获取列表
+	operationRecordRouter.POST("deleteOperationLogByIds", operationRecordApi.DeleteOperationLogByIds) // 批量删除
 }

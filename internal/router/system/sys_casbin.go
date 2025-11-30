@@ -14,7 +14,7 @@ type CasbinRouter struct {
 
 func (s *CasbinRouter) InitCasbinRouter(Router *gin.RouterGroup) {
 	casbinApi := system.NewCasbinApi(s.serviceCtx)
-	casbinRouter := Router.Group("casbin").Use(middleware.OperationRecord())
+	casbinRouter := Router.Group("casbin").Use(middleware.OperationRecord(s.serviceCtx))
 	casbinRouter.POST("updateCasbin", casbinApi.UpdateCasbin)
 
 	casbinRouterWithoutRecord := Router.Group("casbin")

@@ -148,20 +148,33 @@ func GinLoggerMiddleware(base *zap.Logger) gin.HandlerFunc {
 		// 替换 request.Context()，让下游也能取到
 		ctx := c.Request.Context()
 		ctx = trace.ContextWithSpanContext(ctx, spanCtx)
-		c.Request = c.Request.WithContext(ctx)
+		newCtx := context.WithValue(ctx, Key, loggerWithTrace)
+		c.Request = c.Request.WithContext(newCtx)
 
 		c.Next()
 	}
 }
 
-// GetLogger 从 gin.Context 获取 logger
-func GetLogger(c *gin.Context) *zap.Logger {
-	if l, ok := c.Get(Key); ok {
-		if logger, ok := l.(*zap.Logger); ok {
-			return logger
+// GetLogger 支持从 gin.Context 或 context.Context 中获取
+func GetLogger(ctx interface{}) *zap.Logger {
+	var logger interface{}
+	var ok bool
+
+	switch c := ctx.(type) {
+	case *gin.Context:
+		logger, ok = c.Get(Key)
+	case context.Context:
+		logger = c.Value(Key)
+	default:
+		return zap.L()
+	}
+
+	if ok && logger != nil {
+		if l, ok := logger.(*zap.Logger); ok {
+			return l
 		}
 	}
-	return zap.L() // fallback
+	return zap.L() // Fallback 到全局 Logger
 }
 
 // Helper: Create an io.Writer that writes to both stdout and an io.Writer (unused now, kept for extension)
