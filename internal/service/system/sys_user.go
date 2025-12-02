@@ -12,6 +12,7 @@ import (
 	"github.com/CIPFZ/gowebframe/internal/svc"
 	"github.com/CIPFZ/gowebframe/internal/utils"
 	"github.com/CIPFZ/gowebframe/internal/vars"
+	"github.com/CIPFZ/gowebframe/pkg/logger"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -234,6 +235,7 @@ func (s *UserService) AddUser(ctx context.Context, req systemReq.AddUserReq) err
 
 	// 3. 构建用户
 	user := systemModel.SysUser{
+		UUID:        uuid.New(),
 		Username:    req.Username,
 		Password:    hashPwd,
 		NickName:    req.NickName,
@@ -356,8 +358,27 @@ func (s *UserService) SwitchAuthority(ctx context.Context, uuid uuid.UUID, autho
 
 // DeleteUser 删除用户
 func (s *UserService) DeleteUser(ctx context.Context, id uint) error {
+	log := logger.GetLogger(ctx)
 	// 软删除，GORM 会自动处理
-	return s.svcCtx.DB.WithContext(ctx).Delete(&systemModel.SysUser{}, id).Error
+	//return s.svcCtx.DB.WithContext(ctx).Delete(&systemModel.SysUser{}, id).Error
+	return s.svcCtx.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 1. 清理用户与角色的关联 (硬删除)
+		// 必须先删除这个，否则删除角色时会报错 "有用户正在使用"
+		if err := tx.Table("sys_user_authorities").
+			Where("user_id = ?", id).
+			Delete(nil).Error; err != nil {
+			log.Error("delete_user_authority_failed", zap.Error(err))
+			return err
+		}
+
+		// 2. 删除用户自身 (软删除)
+		if err := tx.Delete(&systemModel.SysUser{}, id).Error; err != nil {
+			log.Error("delete_user_failed", zap.Error(err))
+			return err
+		}
+
+		return nil
+	})
 }
 
 // ResetPassword 重置密码
