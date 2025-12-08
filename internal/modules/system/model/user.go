@@ -1,0 +1,47 @@
+package model
+
+import (
+	"github.com/google/uuid"
+	"gorm.io/datatypes"
+)
+
+const (
+	UserActive             = 1
+	UserInactive           = 0
+	DefaultUserAuthorityID = 2
+	DefaultUserAvatar      = "/default_avatar.jpg"
+)
+
+type SysUser struct {
+	BaseModel // 包含 ID, CreatedAt, UpdatedAt, DeletedAt
+
+	// --- 身份认证 ---
+	UUID     uuid.UUID `json:"uuid" gorm:"type:char(36);index;comment:用户UUID"`
+	Username string    `json:"username" gorm:"type:varchar(64);uniqueIndex;comment:用户名"`
+	Password string    `json:"-" gorm:"type:varchar(128);comment:密码"` // JSON 隐藏
+
+	// --- 个人信息 ---
+	NickName string `json:"nickName" gorm:"type:varchar(64);default:系统用户;comment:昵称"`
+	Avatar   string `json:"avatar" gorm:"type:varchar(255);default:https://gw.alipayobjects.com/zos/antfincdn/XAosXuNZyF/BiazfanxmamNRoxxVxka.png;comment:头像"`
+	Phone    string `json:"phone" gorm:"type:varchar(20);comment:手机号"`
+	Email    string `json:"email" gorm:"type:varchar(128);comment:邮箱"`
+	Bio      string `json:"bio" gorm:"type:varchar(255);comment:个人简介"`
+
+	// --- 状态与配置 ---
+	Status   int            `json:"status" gorm:"type:tinyint(1);default:1;comment:用户状态 1正常 2冻结"`
+	Settings datatypes.JSON `json:"settings" gorm:"type:json;comment:个性化设置"`
+
+	// --- 权限关联 ---
+	AuthorityID uint         `json:"authorityId" gorm:"default:888;comment:当前角色ID"`
+	Authority   SysAuthority `json:"authority" gorm:"foreignKey:AuthorityID;references:AuthorityId;comment:当前角色"`
+
+	// 多对多关联：用户 <-> 角色
+	// 关联表: sys_user_authorities
+	// joinForeignKey: 当前表在关联表中的列名 (user_id)
+	// joinReferences: 对方表在关联表中的列名 (authority_id)
+	Authorities []SysAuthority `json:"authorities" gorm:"many2many:sys_user_authorities;joinForeignKey:user_id;joinReferences:authority_id;"`
+}
+
+func (SysUser) TableName() string {
+	return "sys_users"
+}

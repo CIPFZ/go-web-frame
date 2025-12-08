@@ -1,0 +1,14 @@
+user.login.success: "Login successful"
+user.login.failed: "Login failed"
+user.register.success: "Register success"
+
+errors.unauthorized: "Unauthorized"
+errors.internal: "Internal server error"
+
+ui.button.submit: "Submit"
+ui.button.cancel: "Cancel"
+ui.label.username: "Username"
+ui.label.password: "Password"
+
+common.yes: "Yes"
+common.no: "No"

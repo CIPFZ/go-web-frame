@@ -1,0 +1,148 @@
+# system configuration
+system:
+  name: GoWebFrame
+  environment: "dev"
+  port: 8080
+  #  路由全局前缀
+  router_prefix: "api/v1"
+  # IP限制次数 一个小时15000次
+  iplimit_count: 15000
+  #  IP限制一个小时
+  iplimit_time: 3600
+  use_redis: true # 使用redis
+  use_mongo: false     # 使用mongo
+  use_multipoint: false
+
+logger:
+  level: "debug"
+  output: "file" # stdout / file
+  file_path: "logs/app.log"
+  enable_caller: true
+  max_size_mb: 100
+  max_backups: 5
+  max_age_days: 30
+  compress: true
+
+i18n:
+  path: "C://Users//ytq//work//go//go-web-frame//configs//locales"
+
+# jwt configuration
+jwt:
+  signing_key: GWF
+  expires_time: 7d
+  buffer_time: 1d
+  issuer: GWF
+
+mysql:
+  path: "192.168.1.10"
+  port: 3306
+  config: "charset=utf8mb4&parseTime=True&loc=Local"
+  db_name: "gva"
+  username: "gva"
+  password: "Gva_Pass!2025"
+  max_idle_conns: 10
+  max_open_conns: 100
+  log_mode: ""
+  log_zap: false
+
+# mongo configuration
+mongo:
+  coll: 'test'
+  options: ''
+  database: 'test'
+  username: 'admin'
+  password: '123456'
+  auth_source: ''
+  min_pool_size: 0
+  max_pool_size: 100
+  socket_timeout_ms: 0
+  connect_timeout_ms: 0
+  is_zap: false
+  hosts:
+    - host: '192.168.1.10'
+      port: '27017'
+
+# redis configuration
+redis:
+  #是否使用redis集群模式
+  useCluster: false
+  #使用集群模式addr和db默认无效
+  addr: 192.168.1.10:6379
+  username: "admin"
+  password: "123456"
+  db: 0
+  clusterAddrs: []
+
+file:
+  driver: "minio" # ✨ 切换驱动为 minio
+  max_mb: 10
+  allow_ext: [".jpg", ".png", ".jpeg", ".gif"]
+
+  local:
+    path: "uploads/file"
+    store_path: "/uploads/file"
+
+  # ✨ MinIO 配置
+  minio:
+    endpoint: "192.168.1.10:9000"
+    access_key: "minioadmin"
+    secret_key: "minioadmin"
+    bucket: "gowebframe"
+    use_ssl: false
+    # 访问图片的 URL 前缀 (通常是 Endpoint/BucketName)
+    preview_base_path: "http://192.168.1.10:9000/gowebframe"
+
+# email configuration
+email:
+  to: xxx@qq.com
+  port: 465
+  from: xxx@163.com
+  host: smtp.163.com
+  is_ssl: true
+  secret: xxx
+  nickname: test
+
+  # captcha configuration
+
+captcha:
+  key_long: 6
+  img_width: 240
+  img_height: 80
+  open_captcha: 0 # 0代表一直开启，大于0代表限制次数
+  open_captcha_timeout: 3600 # open-captcha大于0时才生效
+
+# 跨域配置
+# 需要配合 server/initialize/router.go -> `Router.Use(middleware.CorsByRules())` 使用
+cors:
+  mode: allow-all # 放行模式: allow-all, 放行全部; whitelist, 白名单模式, 来自白名单内域名的请求添加 cors 头; strict-whitelist 严格白名单模式, 白名单外的请求一律拒绝
+  whitelist:
+    - allow_origin: example1.com
+      allow_headers: Content-Type,AccessToken,X-CSRF-Token, Authorization, Token,X-Token,X-User-Id
+      allow_methods: POST, GET
+      expose_headers: Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type
+      allow_credentials: true # 布尔值
+    - allow_origin: example2.com
+      allow_headers: content-type
+      allow_methods: GET, POST
+      expose_headers: Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type
+      allow_credentials: true # 布尔值
+
+observable:
+  service_name: "gin-demo"
+  service_version: "1.0.0"
+  exporter: "otel" # 确保启用 Otel
+  environment: "dev"
+  trace_sample_ratio: 1.0 # 100% 采样
+
+  otel_exporter:
+    # 1. 协议: 推荐使用 gRPC (性能更好)
+    protocol: "grpc"
+    # 2. 端点: 必须指向 Otel Collector 的 gRPC 接收器端口
+    endpoint: "192.168.1.10:4317"
+    # 3. Collector 的接收器没有 TLS，所以这是 true
+    insecure: true
+
+rate_limit:
+  enabled: true
+  qps: 100   # 每秒允许 100 个请求
+  burst: 200 # 允许短时间突发 200 个
