@@ -1,7 +1,9 @@
 package model
 
+import "github.com/CIPFZ/gowebframe/internal/modules/common"
+
 type SysMenu struct {
-	BaseModel
+	common.BaseModel
 
 	ParentId  uint   `json:"parentId" gorm:"default:0;index;comment:父菜单ID"`
 	Path      string `json:"path" gorm:"comment:路由path"`

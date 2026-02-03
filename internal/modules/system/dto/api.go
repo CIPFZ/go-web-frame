@@ -1,12 +1,14 @@
 package dto
 
+import "github.com/CIPFZ/gowebframe/internal/modules/common"
+
 // SearchApiReq API分页查询
 type SearchApiReq struct {
 	Path        string `json:"path"`        // 路径关键字
 	Description string `json:"description"` // 描述关键字
 	Method      string `json:"method"`      // 方法关键字
 	ApiGroup    string `json:"apiGroup"`    // 分组关键字
-	PageInfo
+	common.PageInfo
 }
 
 // CreateApiReq 新增 API

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/CIPFZ/gowebframe/internal/modules/common"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/repository"
@@ -15,7 +16,7 @@ import (
 // IAuthorityService 定义了角色（权限）管理的服务层接口
 type IAuthorityService interface {
 	// GetAuthorityList 获取角色列表，以树状结构返回
-	GetAuthorityList(ctx context.Context, pageInfo dto.PageInfo) ([]model.SysAuthority, int64, error)
+	GetAuthorityList(ctx context.Context, pageInfo common.PageInfo) ([]model.SysAuthority, int64, error)
 	// CreateAuthority 创建一个新的角色
 	CreateAuthority(ctx context.Context, req dto.CreateAuthorityReq) error
 	// UpdateAuthority 更新一个已存在的角色
@@ -41,7 +42,7 @@ func NewAuthorityService(svcCtx *svc.ServiceContext, authRepo repository.IAuthor
 }
 
 // GetAuthorityList 获取所有角色并构建成树状结构
-func (s *AuthorityService) GetAuthorityList(ctx context.Context, pageInfo dto.PageInfo) ([]model.SysAuthority, int64, error) {
+func (s *AuthorityService) GetAuthorityList(ctx context.Context, pageInfo common.PageInfo) ([]model.SysAuthority, int64, error) {
 	// 1. 从仓库获取所有角色的扁平列表
 	list, total, err := s.authRepo.GetAll(ctx)
 	if err != nil {

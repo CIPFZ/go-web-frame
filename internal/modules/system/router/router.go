@@ -15,6 +15,7 @@ type SystemApis struct {
 	SysApiApi    *api.SysApiApi
 	CasbinApi    *api.CasbinApi
 	OpLogApi     *api.OperationLogApi
+	FileApi      *api.FileApi
 }
 
 // SystemRouter 负责注册 system 模块的所有路由
@@ -72,6 +73,7 @@ func (s *SystemRouter) initPrivateRoutes(private *gin.RouterGroup) {
 	s.initApiRoutes(systemGroup)
 	s.initCasbinRoutes(systemGroup)
 	s.initOperationLogRoutes(systemGroup)
+	s.initFileUploadRoutes(systemGroup)
 }
 
 // initUserRoutes 注册用户管理相关路由
@@ -180,4 +182,9 @@ func (s *SystemRouter) initOperationLogRoutes(group *gin.RouterGroup) {
 			opLogWriteGroup.DELETE("deleteOperationLogByIds", s.apis.OpLogApi.DeleteOperationLogByIds) // 建议: DELETE
 		}
 	}
+}
+
+// initFileUploadRoutes 注册文件上传相关路由
+func (s *SystemRouter) initFileUploadRoutes(group *gin.RouterGroup) {
+	group.POST("file/upload", s.apis.FileApi.Upload)
 }

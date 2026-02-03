@@ -2,6 +2,7 @@ package api
 
 import (
 	logger "github.com/CIPFZ/gowebframe/internal/core/log"
+	"github.com/CIPFZ/gowebframe/internal/modules/common"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/service"
 	"github.com/CIPFZ/gowebframe/internal/svc"
@@ -46,7 +47,7 @@ func (a *OperationLogApi) GetOperationLogList(c *gin.Context) {
 		return
 	}
 
-	response.OkWithDetailed(dto.PageResult{
+	response.OkWithDetailed(common.PageResult{
 		List:     list,
 		Total:    total,
 		Page:     req.Page,

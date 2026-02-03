@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/CIPFZ/gowebframe/internal/modules/common"
+
 type RegisterReq struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
@@ -18,7 +20,7 @@ type LoginReq struct {
 
 // SearchUserReq 用户列表查询
 type SearchUserReq struct {
-	PageInfo
+	common.PageInfo
 	Username string `json:"username"`
 	NickName string `json:"nickName"`
 	Phone    string `json:"phone"`

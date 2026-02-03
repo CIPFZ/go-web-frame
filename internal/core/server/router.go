@@ -7,10 +7,14 @@ import (
 
 	"github.com/CIPFZ/gowebframe/internal/docs"
 	"github.com/CIPFZ/gowebframe/internal/middleware"
-	"github.com/CIPFZ/gowebframe/internal/modules/system/api"
-	"github.com/CIPFZ/gowebframe/internal/modules/system/repository"
+	poetryApi "github.com/CIPFZ/gowebframe/internal/modules/poetry/api"
+	poetryRepo "github.com/CIPFZ/gowebframe/internal/modules/poetry/repository"
+	poetryRouter "github.com/CIPFZ/gowebframe/internal/modules/poetry/router"
+	poetryService "github.com/CIPFZ/gowebframe/internal/modules/poetry/service"
+	systemApi "github.com/CIPFZ/gowebframe/internal/modules/system/api"
+	systemRepo "github.com/CIPFZ/gowebframe/internal/modules/system/repository"
 	systemRouter "github.com/CIPFZ/gowebframe/internal/modules/system/router"
-	"github.com/CIPFZ/gowebframe/internal/modules/system/service"
+	systemService "github.com/CIPFZ/gowebframe/internal/modules/system/service"
 	"github.com/CIPFZ/gowebframe/internal/svc"
 
 	"github.com/gin-gonic/gin"
@@ -51,7 +55,8 @@ func InitRouters(svcCtx *svc.ServiceContext) *gin.Engine {
 	sysRouter := wireSystemModule(svcCtx)
 	sysRouter.InitSystemRoutes(privateGroup, publicGroup)
 
-	// --- 在此注册其他业务模块 ---
+	// --- Poetry 模块 ---
+	wirePoetryModule(svcCtx).InitPoetryRoutes(privateGroup, publicGroup)
 
 	// 将所有已注册的路由信息存入 ServiceContext，便于调试或展示。
 	svcCtx.Routers = r.Routes()
@@ -112,32 +117,50 @@ func registerBaseRoutes(r *gin.Engine, svcCtx *svc.ServiceContext) {
 // 这种方式将模块的创建细节封装起来，保持了 InitRouters 的整洁。
 func wireSystemModule(svcCtx *svc.ServiceContext) *systemRouter.SystemRouter {
 	// --- 1. 实例化 Repositories (数据访问层) ---
-	userRepo := repository.NewUserRepository(svcCtx.DB)
-	menuRepo := repository.NewMenuRepository(svcCtx.DB)
-	authRepo := repository.NewAuthorityRepository(svcCtx.DB)
-	apiRepo := repository.NewApiRepository(svcCtx.DB)
-	casbinRepo := repository.NewCasbinRepository(svcCtx.CasbinEnforcer)
-	opLogRepo := repository.NewOperationLogRepository(svcCtx.DB)
+	userRepo := systemRepo.NewUserRepository(svcCtx.DB)
+	menuRepo := systemRepo.NewMenuRepository(svcCtx.DB)
+	authRepo := systemRepo.NewAuthorityRepository(svcCtx.DB)
+	apiRepo := systemRepo.NewApiRepository(svcCtx.DB)
+	casbinRepo := systemRepo.NewCasbinRepository(svcCtx.CasbinEnforcer)
+	opLogRepo := systemRepo.NewOperationLogRepository(svcCtx.DB)
 
 	// --- 2. 实例化 Services (业务逻辑层) ---
-	opLogService := service.NewOperationLogService(svcCtx, opLogRepo)
-	userService := service.NewUserService(svcCtx, userRepo)
-	menuService := service.NewMenuService(svcCtx, menuRepo)
-	authService := service.NewAuthorityService(svcCtx, authRepo)
-	apiService := service.NewApiService(svcCtx, apiRepo)
-	casbinService := service.NewCasbinService(svcCtx, casbinRepo)
+	opLogService := systemService.NewOperationLogService(svcCtx, opLogRepo)
+	userService := systemService.NewUserService(svcCtx, userRepo)
+	menuService := systemService.NewMenuService(svcCtx, menuRepo)
+	authService := systemService.NewAuthorityService(svcCtx, authRepo)
+	apiService := systemService.NewApiService(svcCtx, apiRepo)
+	casbinService := systemService.NewCasbinService(svcCtx, casbinRepo)
 
 	// --- 3. 实例化 APIs (接口表现层) ---
 	// 使用 SystemApis 结构体来聚合所有 API 处理器，使传递更简洁。
 	apis := &systemRouter.SystemApis{
-		UserApi:      api.NewUserApi(svcCtx, userService),
-		MenuApi:      api.NewMenuApi(svcCtx, menuService),
-		AuthorityApi: api.NewAuthorityApi(svcCtx, authService),
-		SysApiApi:    api.NewSysApiApi(svcCtx, apiService),
-		CasbinApi:    api.NewCasbinApi(svcCtx, casbinService),
-		OpLogApi:     api.NewOperationLogApi(svcCtx, opLogService),
+		UserApi:      systemApi.NewUserApi(svcCtx, userService),
+		MenuApi:      systemApi.NewMenuApi(svcCtx, menuService),
+		AuthorityApi: systemApi.NewAuthorityApi(svcCtx, authService),
+		SysApiApi:    systemApi.NewSysApiApi(svcCtx, apiService),
+		CasbinApi:    systemApi.NewCasbinApi(svcCtx, casbinService),
+		OpLogApi:     systemApi.NewOperationLogApi(svcCtx, opLogService),
+		FileApi:      systemApi.NewFileApi(svcCtx),
 	}
 
 	// --- 4. 创建并返回模块的路由器 ---
 	return systemRouter.NewSystemRouter(svcCtx, apis)
+}
+
+// wirePoetryModule 负责处理 `poetry` 模块内部的所有依赖注入（DI）。
+// 它创建并连接了 Repository、Service 和 API 各层，最终返回一个完全配置好的模块化路由器。
+// 这种方式将模块的创建细节封装起来，保持了 InitRouters 的整洁。
+func wirePoetryModule(svcCtx *svc.ServiceContext) *poetryRouter.PoetryRouter {
+	// --- 1. 实例化 Repositories (数据访问层) ---
+	repo := poetryRepo.NewPoetryRepo(svcCtx.DB)
+
+	// --- 2. 实例化 Services (业务逻辑层) ---
+	service := poetryService.NewPoetryService(svcCtx, repo)
+
+	// --- 3. 实例化 APIs (接口表现层) ---
+	apis := poetryApi.NewPoetryApi(svcCtx, service)
+
+	// --- 4. 创建并返回模块的路由器 ---
+	return poetryRouter.NewPoetryRouter(svcCtx, apis)
 }

@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	logger "github.com/CIPFZ/gowebframe/internal/core/log"
+	"github.com/CIPFZ/gowebframe/internal/modules/common"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/service"
 	"github.com/CIPFZ/gowebframe/internal/svc"
@@ -214,7 +215,7 @@ func (u *UserApi) GetUserList(c *gin.Context) {
 		list[i].Password = ""
 	}
 
-	response.OkWithDetailed(dto.PageResult{
+	response.OkWithDetailed(common.PageResult{
 		List:     list,
 		Total:    total,
 		Page:     req.Page,
@@ -277,7 +278,7 @@ func (u *UserApi) UpdateUser(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Router /user/deleteUser [delete]
 func (u *UserApi) DeleteUser(c *gin.Context) {
-	var req dto.GetByIdReq
+	var req common.GetByIdReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return

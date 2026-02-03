@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"github.com/CIPFZ/gowebframe/pkg/errcode"
 	"strconv"
 
 	"github.com/CIPFZ/gowebframe/internal/core/claims"
@@ -33,7 +34,7 @@ func CasbinHandler(svcCtx *svc.ServiceContext) gin.HandlerFunc {
 		}
 
 		if !success {
-			response.FailWithDetailed(gin.H{}, "权限不足", c)
+			response.FailWithError(errcode.AssessDenied, c)
 			c.Abort()
 			return
 		}

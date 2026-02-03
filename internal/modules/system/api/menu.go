@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/CIPFZ/gowebframe/internal/modules/common"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/service"
 	"github.com/CIPFZ/gowebframe/internal/svc"
@@ -102,7 +103,7 @@ func (a *MenuApi) AddBaseMenu(c *gin.Context) {
 // @Success 200 {object} response.Response{} "成功"
 // @Router /menu/deleteBaseMenu [post]
 func (a *MenuApi) DeleteBaseMenu(c *gin.Context) {
-	var req dto.GetByIdReq
+	var req common.GetByIdReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.FailWithMessage("参数校验失败: "+err.Error(), c)
 		return

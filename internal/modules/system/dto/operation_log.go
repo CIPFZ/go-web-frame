@@ -1,10 +1,13 @@
 package dto
 
-import "time"
+import (
+	"github.com/CIPFZ/gowebframe/internal/modules/common"
+	"time"
+)
 
 // SearchOperationLogReq 操作日志搜索参数
 type SearchOperationLogReq struct {
-	PageInfo
+	common.PageInfo
 	Method    string     `json:"method" form:"method"`
 	Path      string     `json:"path" form:"path"`
 	Status    *int       `json:"status" form:"status"`       // 使用指针以允许传 0

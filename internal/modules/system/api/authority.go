@@ -2,6 +2,7 @@ package api
 
 import (
 	logger "github.com/CIPFZ/gowebframe/internal/core/log"
+	"github.com/CIPFZ/gowebframe/internal/modules/common"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/service"
 	"github.com/CIPFZ/gowebframe/internal/svc"
@@ -33,7 +34,7 @@ func NewAuthorityApi(svcCtx *svc.ServiceContext, authService service.IAuthorityS
 // @Success 200 {object} response.Response{data=dto.PageResult{list=[]model.SysAuthority}} "成功, 返回角色树"
 // @Router /authority/getAuthorityList [post]
 func (a *AuthorityApi) GetAuthorityList(c *gin.Context) {
-	var pageInfo dto.PageInfo
+	var pageInfo common.PageInfo
 	_ = c.ShouldBindJSON(&pageInfo) // 允许请求体为空
 
 	log := logger.GetLogger(c)
@@ -44,7 +45,7 @@ func (a *AuthorityApi) GetAuthorityList(c *gin.Context) {
 		return
 	}
 	// 返回树状结构，通常不分页，所以 Page 和 PageSize 硬编码以适应 PageResult 结构
-	response.OkWithDetailed(dto.PageResult{
+	response.OkWithDetailed(common.PageResult{
 		List:     list,
 		Total:    total,
 		Page:     1,
@@ -107,7 +108,7 @@ func (a *AuthorityApi) UpdateAuthority(c *gin.Context) {
 // @Success 200 {object} response.Response{} "删除成功"
 // @Router /authority/deleteAuthority [post]
 func (a *AuthorityApi) DeleteAuthority(c *gin.Context) {
-	var req dto.GetByIdReq // 复用通用的按ID获取的请求结构
+	var req common.GetByIdReq // 复用通用的按ID获取的请求结构
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.FailWithMessage("参数校验失败: "+err.Error(), c)
 		return

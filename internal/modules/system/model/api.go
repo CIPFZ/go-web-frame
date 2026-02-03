@@ -1,8 +1,10 @@
 package model
 
+import "github.com/CIPFZ/gowebframe/internal/modules/common"
+
 // SysApi 系统API表
 type SysApi struct {
-	BaseModel
+	common.BaseModel
 	Path        string `json:"path" gorm:"comment:api路径"`             // e.g. /api/v1/user/list
 	Description string `json:"description" gorm:"comment:api中文描述"`    // e.g. 获取用户列表
 	ApiGroup    string `json:"apiGroup" gorm:"comment:api组"`          // e.g. 用户管理

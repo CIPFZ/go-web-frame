@@ -1,6 +1,7 @@
 package model
 
 import (
+	"github.com/CIPFZ/gowebframe/internal/modules/common"
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 )
@@ -13,7 +14,7 @@ const (
 )
 
 type SysUser struct {
-	BaseModel // 包含 ID, CreatedAt, UpdatedAt, DeletedAt
+	common.BaseModel // 包含 ID, CreatedAt, UpdatedAt, DeletedAt
 
 	// --- 身份认证 ---
 	UUID     uuid.UUID `json:"uuid" gorm:"type:char(36);index;comment:用户UUID"`

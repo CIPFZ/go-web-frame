@@ -42,19 +42,13 @@ func (a *SysApiApi) GetApiList(c *gin.Context) {
 	}
 
 	log := logger.GetLogger(c)
-	log.Info("AAAAAAAA --->")
 	list, total, err := a.apiService.GetApiList(c.Request.Context(), req)
 	if err != nil {
 		log.Error("get_api_list_error", zap.Error(err))
 		response.FailWithMessage("获取失败", c)
 		return
 	}
-	response.OkWithDetailed(dto.PageResult{
-		List:     list,
-		Total:    total,
-		Page:     req.Page,
-		PageSize: req.PageSize,
-	}, "获取成功", c)
+	response.OkWithPage(list, total, req.Page, req.PageSize, c)
 }
 
 // CreateApi 创建新的 API

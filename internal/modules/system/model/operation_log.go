@@ -1,10 +1,13 @@
 package model
 
-import "time"
+import (
+	"github.com/CIPFZ/gowebframe/internal/modules/common"
+	"time"
+)
 
 // SysOperationLog 操作审计日志
 type SysOperationLog struct {
-	BaseModel
+	common.BaseModel
 
 	// --- OTel 链路信息 ---
 	TraceID string `json:"traceId" gorm:"type:varchar(64);comment:OpenTelemetry TraceID"`
