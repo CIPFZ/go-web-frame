@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+
+set -eu
+
+# Block obvious accidental commits.
+BLOCK_LIST='(^|/)(node_modules|mysql_data|redis_data|minio_data)(/|$)'
+
+STAGED="$(git diff --cached --name-only)"
+
+if [ -n "$STAGED" ] && printf "%s\n" "$STAGED" | grep -Eq "$BLOCK_LIST"; then
+  echo "ERROR: Staged files contain generated/runtime directories (node_modules or *_data)."
+  echo "Please unstage them before commit."
+  exit 1
+fi
+

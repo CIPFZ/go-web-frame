@@ -1,0 +1,127 @@
+﻿system:
+  name: GoWebFrame
+  environment: production
+  port: 8080
+  router_prefix: /api/v1
+  iplimit_count: 8000
+  iplimit_time: 3600
+  use_redis: true
+  use_mongo: false
+  use_multipoint: true
+
+logger:
+  level: info
+  output: file
+  format: json
+  file_path: logs/app.log
+  max_size_mb: 200
+  max_backups: 10
+  max_age_days: 30
+  compress: true
+  enable_caller: true
+  enable_sample: true
+
+i18n:
+  path: locales
+
+jwt:
+  signing_key: CHANGE_ME_TO_A_STRONG_RANDOM_SECRET
+  expires_time: 7d
+  buffer_time: 1d
+  issuer: GoWebFrame
+
+mysql:
+  path: mysql
+  port: "3306"
+  config: charset=utf8mb4&parseTime=True&loc=Local
+  db_name: gva
+  username: gva
+  password: CHANGE_ME_DB_PASSWORD
+  max_idle_conns: 20
+  max_open_conns: 200
+  log_mode: warn
+  log_zap: false
+
+mongo:
+  coll: test
+  options: ""
+  database: test
+  username: admin
+  password: "CHANGE_ME_MONGO_PASSWORD"
+  auth_source: admin
+  min_pool_size: 0
+  max_pool_size: 100
+  socket_timeout_ms: 0
+  connect_timeout_ms: 0
+  is_zap: false
+  hosts:
+    - host: mongo
+      port: "27017"
+
+redis:
+  useCluster: false
+  addr: redis:6379
+  username: ""
+  password: "CHANGE_ME_REDIS_PASSWORD"
+  db: 0
+  clusterAddrs: []
+
+file:
+  driver: minio
+  max_mb: 10
+  allow_ext: [".jpg", ".png", ".jpeg", ".gif"]
+  local:
+    path: uploads/file
+    store_path: /uploads/file
+  minio:
+    endpoint: minio:9000
+    access_key: CHANGE_ME_MINIO_ACCESS_KEY
+    secret_key: CHANGE_ME_MINIO_SECRET_KEY
+    bucket: gowebframe
+    use_ssl: false
+    preview_base_path: https://files.example.com/gowebframe
+
+email:
+  to: ops@example.com
+  from: noreply@example.com
+  host: smtp.example.com
+  secret: CHANGE_ME_EMAIL_SECRET
+  nickname: GoWebFrame
+  port: 465
+  is_ssl: true
+  is_loginauth: false
+
+captcha:
+  key_long: 6
+  img_width: 240
+  img_height: 80
+  open_captcha: 3
+  open_captcha_timeout: 3600
+
+cors:
+  mode: strict-whitelist
+  whitelist:
+    - allow_origin: https://admin.example.com
+      allow_methods: GET,POST,PUT,DELETE,OPTIONS
+      allow_headers: Content-Type,x-token
+      expose_headers: Content-Length
+      allow_credentials: true
+
+observable:
+  service_name: gowebframe
+  service_version: 1.0.0
+  exporter: none
+  environment: production
+  trace_sample_ratio: 0.2
+  otel_exporter:
+    protocol: grpc
+    endpoint: otel-collector:4317
+    authorization: ""
+    organization: ""
+    stream_name: ""
+    insecure: false
+
+rate_limit:
+  enabled: true
+  qps: 100
+  burst: 200

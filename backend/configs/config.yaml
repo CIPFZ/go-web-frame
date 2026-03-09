@@ -1,0 +1,122 @@
+﻿system:
+  name: GoWebFrame
+  environment: dev
+  port: 8080
+  router_prefix: /api/v1
+  iplimit_count: 15000
+  iplimit_time: 3600
+  use_redis: true
+  use_mongo: false
+  use_multipoint: false
+
+logger:
+  level: debug
+  output: file
+  format: json
+  file_path: logs/app.log
+  max_size_mb: 100
+  max_backups: 5
+  max_age_days: 30
+  compress: true
+  enable_caller: true
+  enable_sample: false
+
+i18n:
+  path: locales
+
+jwt:
+  signing_key: GWF
+  expires_time: 7d
+  buffer_time: 1d
+  issuer: GWF
+
+mysql:
+  path: mysql
+  port: "3306"
+  config: charset=utf8mb4&parseTime=True&loc=Local
+  db_name: gva
+  username: gva
+  password: Gva_Pass!2025
+  max_idle_conns: 10
+  max_open_conns: 100
+  log_mode: info
+  log_zap: false
+
+mongo:
+  coll: test
+  options: ""
+  database: test
+  username: admin
+  password: "123456"
+  auth_source: admin
+  min_pool_size: 0
+  max_pool_size: 100
+  socket_timeout_ms: 0
+  connect_timeout_ms: 0
+  is_zap: false
+  hosts:
+    - host: mongo
+      port: "27017"
+
+redis:
+  useCluster: false
+  addr: redis:6379
+  username: ""
+  password: "123456"
+  db: 0
+  clusterAddrs: []
+
+file:
+  driver: minio
+  max_mb: 10
+  allow_ext: [".jpg", ".png", ".jpeg", ".gif"]
+  local:
+    path: uploads/file
+    store_path: /uploads/file
+  minio:
+    endpoint: minio:9000
+    access_key: minioadmin
+    secret_key: minioadmin
+    bucket: gowebframe
+    use_ssl: false
+    preview_base_path: http://localhost:9000/gowebframe
+
+email:
+  to: test@example.com
+  from: test@example.com
+  host: smtp.example.com
+  secret: placeholder
+  nickname: tester
+  port: 465
+  is_ssl: true
+  is_loginauth: false
+
+captcha:
+  key_long: 6
+  img_width: 240
+  img_height: 80
+  open_captcha: 0
+  open_captcha_timeout: 3600
+
+cors:
+  mode: allow-all
+  whitelist: []
+
+observable:
+  service_name: gin-demo
+  service_version: 1.0.0
+  exporter: none
+  environment: dev
+  trace_sample_ratio: 1.0
+  otel_exporter:
+    protocol: grpc
+    endpoint: otel-collector:4317
+    authorization: ""
+    organization: ""
+    stream_name: ""
+    insecure: true
+
+rate_limit:
+  enabled: true
+  qps: 100
+  burst: 200

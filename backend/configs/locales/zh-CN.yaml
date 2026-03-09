@@ -1,0 +1,14 @@
+user.login.success: "登录成功"
+user.login.failed: "登录失败"
+user.register.success: "注册成功"
+
+errors.unauthorized: "未授权"
+errors.internal: "服务器内部错误"
+
+ui.button.submit: "提交"
+ui.button.cancel: "取消"
+ui.label.username: "用户名"
+ui.label.password: "密码"
+
+common.yes: "是"
+common.no: "否"

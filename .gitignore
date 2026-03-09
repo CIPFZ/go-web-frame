@@ -1,23 +1,55 @@
+# OS / Editor
 .DS_Store
-
-# local env files
-.env.local
-.env.*.local
-
-# Log files
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Editor directories and files
-.idea
-.vscode
+Thumbs.db
+.idea/
+.vscode/
+*.iml
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.swp
+*.swo
 
+# Git / temp
+*.tmp
+*.temp
+.tmp_*
+backend/.git_nested_backup/
+front-end/.git_nested_backup/
+
+# Node
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+web/.pnpm-debug.log
+web/pnpm-lock.yaml
+
+# Frontend build outputs
+front-end/dist/
+front-end/.umi/
+front-end/.cache/
+front-end/playwright-report/
+front-end/test-results/
+front-end/coverage/
+
+# Go build outputs
+backend/main
+backend/migrate
+backend/*.exe
+backend/*.test
+backend/bin/
+backend/tmp/
+backend/coverage.out
+
+# Runtime data / logs
+logs/
+build/
+test/
 rm_file/
 /server/log/
 /server/gva
@@ -26,19 +58,21 @@ rm_file/
 /server/__debug_bin*
 server/uploads/
 /server/config.yaml
+backend/logs/
+backend/uploads/
+mysql_data/
+redis_data/
+minio_data/
 
-*.iml
-web/.pnpm-debug.log
-web/pnpm-lock.yaml
+# Env files
+.env
+.env.local
+.env.*.local
+backend/.env
+front-end/.env
 
-# binary files
+# Binary / DB
 *.exe
-
-# SQLite database files
 *.db
 *.sqlite
 *.sqlite3
-
-logs
-build
-test
