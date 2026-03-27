@@ -58,6 +58,8 @@
   'menu.system.api': 'API 管理',
   'menu.system.operation': '操作日志',
   'menu.system.notice': '通知公告',
+  'menu.plugin': '插件发布',
+  'menu.plugin.center': '插件中心',
   'menu.poetry': '诗词管理',
   'menu.poetry.dynasty': '朝代管理',
   'menu.poetry.genre': '体裁管理',

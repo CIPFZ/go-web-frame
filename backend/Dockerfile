@@ -23,7 +23,7 @@ COPY --from=builder /app/migrate .
 COPY --from=builder /app/configs ./configs
 COPY start.sh .
 
-RUN chmod +x start.sh
+RUN sed -i 's/\r$//' start.sh && chmod +x start.sh
 
 EXPOSE 8080
 

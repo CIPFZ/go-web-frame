@@ -2,17 +2,21 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
+	pluginModel "github.com/CIPFZ/gowebframe/internal/modules/plugin/model"
 	poetryModel "github.com/CIPFZ/gowebframe/internal/modules/poetry/model"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/CIPFZ/gowebframe/internal/svc"
 	"github.com/CIPFZ/gowebframe/pkg/utils"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -106,6 +110,9 @@ func seedAdminIfNeeded(ctx context.Context, serviceCtx *svc.ServiceContext) erro
 		if err := ensurePoetryBaseData(tx); err != nil {
 			return err
 		}
+		if err := ensurePluginBaseData(tx); err != nil {
+			return err
+		}
 
 		serviceCtx.Logger.Info("seed base system data finished",
 			zap.String("username", opts.Username),
@@ -155,6 +162,9 @@ func ensureAuthorities(tx *gorm.DB, opts seedAdminOptions) error {
 		{AuthorityId: 888, AuthorityName: "CommonUser", ParentId: 0, DefaultRouter: "dashboard/workplace"},
 		{AuthorityId: 9528, AuthorityName: "TestUser", ParentId: 0, DefaultRouter: "dashboard/workplace"},
 		{AuthorityId: 8881, AuthorityName: "CommonUserChild", ParentId: 888, DefaultRouter: "dashboard/workplace"},
+		{AuthorityId: 10010, AuthorityName: "PluginRequester", ParentId: 0, DefaultRouter: "plugin/center"},
+		{AuthorityId: 10013, AuthorityName: "PluginReviewer", ParentId: 0, DefaultRouter: "plugin/center"},
+		{AuthorityId: 10014, AuthorityName: "PluginPublisher", ParentId: 0, DefaultRouter: "plugin/center"},
 	}
 
 	seen := make(map[uint]struct{}, len(authorities))
@@ -182,6 +192,8 @@ func ensureBaseMenus(tx *gorm.DB) (map[string]uint, error) {
 		{Key: "sys_api", ParentKey: "sys_root", Path: "/sys/api", Name: "menu.system.api", Component: "sys/api", Icon: "ApiOutlined", Sort: 4, Locale: "menu.system.api"},
 		{Key: "sys_operation", ParentKey: "sys_root", Path: "/sys/operation", Name: "menu.system.operation", Component: "sys/operation", Icon: "HistoryOutlined", Sort: 5, Locale: "menu.system.operation"},
 		{Key: "sys_notice", ParentKey: "sys_root", Path: "/sys/notice", Name: "menu.system.notice", Component: "sys/notice", Icon: "NotificationOutlined", Sort: 6, Locale: "menu.system.notice"},
+		{Key: "plugin_root", Path: "/plugin", Name: "menu.plugin", Component: "components/RouterLayout", Icon: "AppstoreOutlined", Sort: 15, Locale: "menu.plugin"},
+		{Key: "plugin_center", ParentKey: "plugin_root", Path: "/plugin/center", Name: "menu.plugin.center", Component: "plugin/center", Icon: "DeploymentUnitOutlined", Sort: 1, Locale: "menu.plugin.center"},
 		{Key: "poetry_root", Path: "/poetry", Name: "menu.poetry", Component: "components/RouterLayout", Icon: "BookOutlined", Sort: 20, Locale: "menu.poetry"},
 		{Key: "poetry_dynasty", ParentKey: "poetry_root", Path: "/poetry/dynasty", Name: "menu.poetry.dynasty", Component: "poetry/dynasty", Icon: "AppstoreOutlined", Sort: 1, Locale: "menu.poetry.dynasty"},
 		{Key: "poetry_genre", ParentKey: "poetry_root", Path: "/poetry/genre", Name: "menu.poetry.genre", Component: "poetry/genre", Icon: "TagsOutlined", Sort: 2, Locale: "menu.poetry.genre"},
@@ -244,10 +256,13 @@ func ensureBaseMenus(tx *gorm.DB) (map[string]uint, error) {
 
 func bindAuthorityMenus(tx *gorm.DB, menuIDs map[string]uint, adminAuthorityID uint) error {
 	roleMenuKeys := map[uint][]string{
-		adminAuthorityID: {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_operation", "sys_notice", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
-		9528:             {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_operation", "sys_notice", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
+		adminAuthorityID: {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_operation", "sys_notice", "plugin_root", "plugin_center", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
+		9528:             {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_operation", "sys_notice", "plugin_root", "plugin_center", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
 		888:              {"dashboard", "state", "about", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
 		8881:             {"dashboard", "about", "account_settings"},
+		10010:            {"dashboard", "state", "about", "plugin_root", "plugin_center", "account_settings"},
+		10013:            {"dashboard", "state", "about", "plugin_root", "plugin_center", "account_settings"},
+		10014:            {"dashboard", "state", "about", "plugin_root", "plugin_center", "account_settings"},
 	}
 
 	relations := make([]model.SysAuthorityMenu, 0)
@@ -309,6 +324,18 @@ func ensureBaseApis(tx *gorm.DB) (map[string]uint, error) {
 		{Path: "/api/v1/sys/notice/getNoticeList", Method: "POST", ApiGroup: "system-notice", Description: "Get notice list"},
 		{Path: "/api/v1/sys/notice/getMyNotices", Method: "GET", ApiGroup: "system-notice", Description: "Get my notices"},
 		{Path: "/api/v1/sys/notice/markRead", Method: "POST", ApiGroup: "system-notice", Description: "Mark notice as read"},
+		{Path: "/api/v1/plugin/plugin/getPluginList", Method: "POST", ApiGroup: "plugin", Description: "Get plugin list"},
+		{Path: "/api/v1/plugin/plugin/getPluginOverview", Method: "GET", ApiGroup: "plugin", Description: "Get plugin overview"},
+		{Path: "/api/v1/plugin/plugin/createPlugin", Method: "POST", ApiGroup: "plugin", Description: "Create plugin"},
+		{Path: "/api/v1/plugin/plugin/updatePlugin", Method: "PUT", ApiGroup: "plugin", Description: "Update plugin"},
+		{Path: "/api/v1/plugin/plugin/getProjectDetail", Method: "POST", ApiGroup: "plugin", Description: "Get project detail"},
+		{Path: "/api/v1/plugin/release/getReleaseList", Method: "POST", ApiGroup: "plugin", Description: "Get release ticket list"},
+		{Path: "/api/v1/plugin/release/getReleaseDetail", Method: "POST", ApiGroup: "plugin", Description: "Get release ticket detail"},
+		{Path: "/api/v1/plugin/release/createRelease", Method: "POST", ApiGroup: "plugin", Description: "Create release ticket"},
+		{Path: "/api/v1/plugin/release/updateRelease", Method: "PUT", ApiGroup: "plugin", Description: "Update release ticket"},
+		{Path: "/api/v1/plugin/release/transition", Method: "POST", ApiGroup: "plugin", Description: "Transit release ticket"},
+		{Path: "/api/v1/plugin/public/getPublishedPluginList", Method: "POST", ApiGroup: "plugin-public", Description: "Get published plugin list"},
+		{Path: "/api/v1/plugin/public/getPublishedPluginDetail", Method: "POST", ApiGroup: "plugin-public", Description: "Get published plugin detail"},
 
 		{Path: "/api/v1/poetry/dynasty", Method: "POST", ApiGroup: "poetry", Description: "Create dynasty"},
 		{Path: "/api/v1/poetry/dynasty/:id", Method: "PUT", ApiGroup: "poetry", Description: "Update dynasty"},
@@ -393,6 +420,14 @@ func bindAuthorityApis(tx *gorm.DB, apiIDs map[string]uint, adminAuthorityID uin
 		apiSign("POST", "/api/v1/sys/notice/getNoticeList"),
 		apiSign("GET", "/api/v1/sys/notice/getMyNotices"),
 		apiSign("POST", "/api/v1/sys/notice/markRead"),
+		apiSign("POST", "/api/v1/plugin/plugin/getPluginList"),
+		apiSign("POST", "/api/v1/plugin/plugin/createPlugin"),
+		apiSign("PUT", "/api/v1/plugin/plugin/updatePlugin"),
+		apiSign("POST", "/api/v1/plugin/release/getReleaseList"),
+		apiSign("POST", "/api/v1/plugin/release/getReleaseDetail"),
+		apiSign("POST", "/api/v1/plugin/release/createRelease"),
+		apiSign("PUT", "/api/v1/plugin/release/updateRelease"),
+		apiSign("POST", "/api/v1/plugin/release/transition"),
 		apiSign("POST", "/api/v1/poetry/dynasty"),
 		apiSign("PUT", "/api/v1/poetry/dynasty/:id"),
 		apiSign("DELETE", "/api/v1/poetry/dynasty/:id"),
@@ -440,6 +475,9 @@ func bindAuthorityApis(tx *gorm.DB, apiIDs map[string]uint, adminAuthorityID uin
 		9528:             fullAccess,
 		888:              basicAccess,
 		8881:             basicAccess,
+		10010:            append(basicAccess, pluginOnlyAccess()...),
+		10013:            append(basicAccess, pluginOnlyAccess()...),
+		10014:            append(basicAccess, pluginOnlyAccess()...),
 	}
 
 	relations := make([]model.SysAuthorityApi, 0)
@@ -497,6 +535,14 @@ func ensureCasbinPolicies(tx *gorm.DB, apiIDs map[string]uint, adminAuthorityID 
 		{"POST", "/api/v1/sys/notice/getNoticeList"},
 		{"GET", "/api/v1/sys/notice/getMyNotices"},
 		{"POST", "/api/v1/sys/notice/markRead"},
+		{"POST", "/api/v1/plugin/plugin/getPluginList"},
+		{"POST", "/api/v1/plugin/plugin/createPlugin"},
+		{"PUT", "/api/v1/plugin/plugin/updatePlugin"},
+		{"POST", "/api/v1/plugin/release/getReleaseList"},
+		{"POST", "/api/v1/plugin/release/getReleaseDetail"},
+		{"POST", "/api/v1/plugin/release/createRelease"},
+		{"PUT", "/api/v1/plugin/release/updateRelease"},
+		{"POST", "/api/v1/plugin/release/transition"},
 		{"POST", "/api/v1/poetry/dynasty"},
 		{"PUT", "/api/v1/poetry/dynasty/:id"},
 		{"DELETE", "/api/v1/poetry/dynasty/:id"},
@@ -544,6 +590,9 @@ func ensureCasbinPolicies(tx *gorm.DB, apiIDs map[string]uint, adminAuthorityID 
 		9528:             fullAccess,
 		888:              basicAccess,
 		8881:             basicAccess,
+		10010:            pluginOnlyPolicyWithBasic(basicAccess),
+		10013:            pluginOnlyPolicyWithBasic(basicAccess),
+		10014:            pluginOnlyPolicyWithBasic(basicAccess),
 	}
 
 	rules := make([]casbinRuleSeed, 0)
@@ -599,6 +648,565 @@ func ensureAdminUser(tx *gorm.DB, opts seedAdminOptions) error {
 
 func apiSign(method, path string) string {
 	return strings.ToUpper(method) + " " + path
+}
+
+func pluginOnlyAccess() []string {
+	return []string{
+		apiSign("POST", "/api/v1/plugin/plugin/getPluginList"),
+		apiSign("POST", "/api/v1/plugin/plugin/createPlugin"),
+		apiSign("PUT", "/api/v1/plugin/plugin/updatePlugin"),
+		apiSign("POST", "/api/v1/plugin/release/getReleaseList"),
+		apiSign("POST", "/api/v1/plugin/release/getReleaseDetail"),
+		apiSign("POST", "/api/v1/plugin/release/createRelease"),
+		apiSign("PUT", "/api/v1/plugin/release/updateRelease"),
+		apiSign("POST", "/api/v1/plugin/release/transition"),
+	}
+}
+
+func pluginOnlyPolicyWithBasic(basic [][]string) [][]string {
+	policies := make([][]string, 0, len(basic)+8)
+	policies = append(policies, basic...)
+	policies = append(policies,
+		[]string{"POST", "/api/v1/plugin/plugin/getPluginList"},
+		[]string{"POST", "/api/v1/plugin/plugin/createPlugin"},
+		[]string{"PUT", "/api/v1/plugin/plugin/updatePlugin"},
+		[]string{"POST", "/api/v1/plugin/release/getReleaseList"},
+		[]string{"POST", "/api/v1/plugin/release/getReleaseDetail"},
+		[]string{"POST", "/api/v1/plugin/release/createRelease"},
+		[]string{"PUT", "/api/v1/plugin/release/updateRelease"},
+		[]string{"POST", "/api/v1/plugin/release/transition"},
+	)
+	return policies
+}
+
+func ensurePluginBaseData(tx *gorm.DB) error {
+	userIDs, err := ensurePluginDemoUsers(tx)
+	if err != nil {
+		return err
+	}
+	pluginIDs, err := ensurePluginCatalog(tx)
+	if err != nil {
+		return err
+	}
+	return ensurePluginReleaseSeeds(tx, pluginIDs, userIDs)
+}
+
+func ensurePluginDemoUsers(tx *gorm.DB) (map[string]uint, error) {
+	seeds := []struct {
+		Key         string
+		Username    string
+		Nickname    string
+		AuthorityID uint
+	}{
+		{Key: "requester", Username: "plugin.requester", Nickname: "插件提单人", AuthorityID: 10010},
+		{Key: "reviewer", Username: "plugin.reviewer", Nickname: "插件审核人", AuthorityID: 10013},
+		{Key: "publisher", Username: "plugin.publisher", Nickname: "插件发布管理员", AuthorityID: 10014},
+	}
+
+	result := make(map[string]uint, len(seeds))
+	for _, seed := range seeds {
+		userID, err := ensureSeedUser(tx, seed.Username, seed.Nickname, seed.AuthorityID, "Plugin@123456")
+		if err != nil {
+			return nil, err
+		}
+		result[seed.Key] = userID
+	}
+	return result, nil
+}
+
+func ensureSeedUser(tx *gorm.DB, username, nickname string, authorityID uint, password string) (uint, error) {
+	var user model.SysUser
+	err := tx.Where("username = ?", username).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		hashedPwd, hashErr := utils.BcryptHash(password)
+		if hashErr != nil {
+			return 0, hashErr
+		}
+		user = model.SysUser{
+			UUID:        uuid.New(),
+			Username:    username,
+			Password:    hashedPwd,
+			NickName:    nickname,
+			Avatar:      model.DefaultUserAvatar,
+			Status:      model.UserActive,
+			AuthorityID: authorityID,
+		}
+		if err := tx.Create(&user).Error; err != nil {
+			return 0, err
+		}
+	} else if err != nil {
+		return 0, err
+	} else {
+		updates := map[string]interface{}{
+			"nick_name":    nickname,
+			"status":       model.UserActive,
+			"authority_id": authorityID,
+		}
+		if err := tx.Model(&user).Updates(updates).Error; err != nil {
+			return 0, err
+		}
+	}
+
+	relation := model.SysUserAuthority{UserId: user.ID, AuthorityId: authorityID}
+	if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&relation).Error; err != nil {
+		return 0, err
+	}
+	return user.ID, nil
+}
+
+func ensurePluginCatalog(tx *gorm.DB) (map[string]uint, error) {
+	seeds := []pluginModel.Plugin{
+		{
+			Code:          "smart-audit",
+			RepositoryURL: "https://git.example.com/plugins/smart-audit.git",
+			NameZh:        "智能审计助手",
+			NameEn:        "Smart Audit Assistant",
+			DescriptionZh: "用于对业务流程和插件行为做规则扫描与审计的插件。",
+			DescriptionEn: "A plugin for rule-based scanning and auditing of business flows and plugin behavior.",
+			CapabilityZh:  "规则扫描、风险识别、审计报告导出",
+			CapabilityEn:  "Rule scanning, risk detection, audit report export",
+			Owner:         "平台治理组",
+			CurrentStatus: pluginModel.PluginStatusActive,
+		},
+		{
+			Code:          "image-optimizer",
+			RepositoryURL: "https://git.example.com/plugins/image-optimizer.git",
+			NameZh:        "图片优化引擎",
+			NameEn:        "Image Optimizer Engine",
+			DescriptionZh: "对上传图片做格式转换、压缩与清晰度增强。",
+			DescriptionEn: "A plugin for image conversion, compression, and clarity enhancement.",
+			CapabilityZh:  "WebP/AVIF 转码、批量压缩、质量分析",
+			CapabilityEn:  "WebP/AVIF transcoding, batch compression, quality analysis",
+			Owner:         "多媒体平台组",
+			CurrentStatus: pluginModel.PluginStatusActive,
+		},
+		{
+			Code:          "device-bridge",
+			RepositoryURL: "https://git.example.com/plugins/device-bridge.git",
+			NameZh:        "设备桥接服务",
+			NameEn:        "Device Bridge Service",
+			DescriptionZh: "为边缘设备接入提供标准连接协议与远程指令能力。",
+			DescriptionEn: "A standard connectivity and remote command plugin for edge device onboarding.",
+			CapabilityZh:  "协议适配、远程指令、设备元数据同步",
+			CapabilityEn:  "Protocol adaptation, remote commands, device metadata sync",
+			Owner:         "IoT 接入组",
+			CurrentStatus: pluginModel.PluginStatusPlanning,
+		},
+		{
+			Code:          "edge-runtime",
+			RepositoryURL: "https://git.example.com/plugins/edge-runtime.git",
+			NameZh:        "边缘运行时",
+			NameEn:        "Edge Runtime",
+			DescriptionZh: "提供多架构插件包的边缘执行环境与基础资源管理。",
+			DescriptionEn: "A multi-architecture edge runtime for plugin execution and resource management.",
+			CapabilityZh:  "x86/ARM 运行时、资源限额、日志采集",
+			CapabilityEn:  "x86/ARM runtime, resource quotas, log collection",
+			Owner:         "边缘计算组",
+			CurrentStatus: pluginModel.PluginStatusPlanning,
+		},
+		{
+			Code:          "legacy-sync",
+			RepositoryURL: "https://git.example.com/plugins/legacy-sync.git",
+			NameZh:        "历史系统同步器",
+			NameEn:        "Legacy Sync Connector",
+			DescriptionZh: "同步历史系统中的订单与客户数据，现已进入淘汰流程。",
+			DescriptionEn: "A connector for syncing orders and customers from a legacy system, now under retirement.",
+			CapabilityZh:  "订单同步、客户同步、补偿任务",
+			CapabilityEn:  "Order sync, customer sync, compensation jobs",
+			Owner:         "集成平台组",
+			CurrentStatus: pluginModel.PluginStatusOfflined,
+		},
+		{
+			Code:          "content-moderation",
+			RepositoryURL: "https://git.example.com/plugins/content-moderation.git",
+			NameZh:        "内容审核网关",
+			NameEn:        "Content Moderation Gateway",
+			DescriptionZh: "对文本与图片内容做统一审核编排，当前处于发布准备阶段。",
+			DescriptionEn: "A unified moderation gateway for text and image review, currently in release preparation.",
+			CapabilityZh:  "文本审核、图片审核、策略路由",
+			CapabilityEn:  "Text moderation, image moderation, policy routing",
+			Owner:         "内容安全组",
+			CurrentStatus: pluginModel.PluginStatusPlanning,
+		},
+	}
+
+	result := make(map[string]uint, len(seeds))
+	for _, seed := range seeds {
+		var item pluginModel.Plugin
+		err := tx.Where("code = ?", seed.Code).First(&item).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			item = seed
+			if err := tx.Create(&item).Error; err != nil {
+				return nil, err
+			}
+		} else if err != nil {
+			return nil, err
+		} else {
+			updates := map[string]interface{}{
+				"repository_url": seed.RepositoryURL,
+				"name_zh":        seed.NameZh,
+				"name_en":        seed.NameEn,
+				"description_zh": seed.DescriptionZh,
+				"description_en": seed.DescriptionEn,
+				"capability_zh":  seed.CapabilityZh,
+				"capability_en":  seed.CapabilityEn,
+				"owner":          seed.Owner,
+			}
+			if err := tx.Model(&item).Updates(updates).Error; err != nil {
+				return nil, err
+			}
+		}
+		result[seed.Code] = item.ID
+	}
+	return result, nil
+}
+
+func ensurePluginReleaseSeeds(tx *gorm.DB, pluginIDs map[string]uint, userIDs map[string]uint) error {
+	releasedChecklist, err := buildSampleChecklistJSON()
+	if err != nil {
+		return err
+	}
+
+	smartAuditRelease, err := ensureSeedRelease(tx, &pluginModel.PluginRelease{
+		PluginID:             pluginIDs["smart-audit"],
+		RequestType:          pluginModel.PluginReleaseTypeInitial,
+		Status:               pluginModel.PluginReleaseStatusReleased,
+		Version:              "1.0.0",
+		VersionConstraint:    ">= web-cms 2.0.0",
+		Publisher:            "plugin.publisher",
+		ReviewerID:           uintPtr(userIDs["reviewer"]),
+		PublisherID:          uintPtr(userIDs["publisher"]),
+		Checklist:            releasedChecklist,
+		PerformanceSummaryZh: "核心规则扫描任务稳定，资源开销符合发布门槛。",
+		PerformanceSummaryEn: "Core scanning tasks are stable and resource consumption meets the release baseline.",
+		TestReportURL:        "https://minio.local/gowebframe/plugin-demo/smart-audit/test-report-1.0.0.pdf",
+		PackageX86URL:        "https://minio.local/gowebframe/plugin-demo/smart-audit/smart-audit-1.0.0-x86.tar.gz",
+		PackageArmURL:        "https://minio.local/gowebframe/plugin-demo/smart-audit/smart-audit-1.0.0-arm.tar.gz",
+		ChangelogZh:          "首发版本，提供规则扫描、风险识别与审计报告导出能力。",
+		ChangelogEn:          "Initial release with rule scanning, risk detection, and audit report export.",
+		CreatedBy:            userIDs["requester"],
+		SubmittedAt:          timePtr(time.Now().Add(-96 * time.Hour)),
+		ApprovedAt:           timePtr(time.Now().Add(-95 * time.Hour)),
+		ReleasedAt:           timePtr(time.Now().Add(-94 * time.Hour)),
+	}, []seedReleaseEvent{
+		{Action: "create", ToStatus: pluginModel.PluginReleaseStatusReleasePreparing, OperatorID: userIDs["requester"], Comment: "首发工单已创建"},
+		{Action: "submit_review", FromStatus: pluginModel.PluginReleaseStatusReleasePreparing, ToStatus: pluginModel.PluginReleaseStatusPendingReview, OperatorID: userIDs["requester"], Comment: "发布资料已齐备，提交审核"},
+		{Action: "approve", FromStatus: pluginModel.PluginReleaseStatusPendingReview, ToStatus: pluginModel.PluginReleaseStatusApproved, OperatorID: userIDs["reviewer"], Comment: "审核通过，可进入发布"},
+		{Action: "release", FromStatus: pluginModel.PluginReleaseStatusApproved, ToStatus: pluginModel.PluginReleaseStatusReleased, OperatorID: userIDs["publisher"], Comment: "已执行正式发布"},
+	})
+	if err != nil {
+		return err
+	}
+
+	if _, err := ensureSeedRelease(tx, &pluginModel.PluginRelease{
+		PluginID:             pluginIDs["smart-audit"],
+		RequestType:          pluginModel.PluginReleaseTypeMaintenance,
+		Status:               pluginModel.PluginReleaseStatusRejected,
+		SourceReleaseID:      uintPtr(smartAuditRelease.ID),
+		Version:              "1.0.1",
+		VersionConstraint:    ">= web-cms 2.0.0",
+		Publisher:            "plugin.publisher",
+		ReviewerID:           uintPtr(userIDs["reviewer"]),
+		PublisherID:          uintPtr(userIDs["publisher"]),
+		Checklist:            releasedChecklist,
+		PerformanceSummaryZh: "修复规则误报问题，但边界案例仍需补充验证。",
+		PerformanceSummaryEn: "Fixes false positives, but edge-case validation still needs more coverage.",
+		TestReportURL:        "https://minio.local/gowebframe/plugin-demo/smart-audit/test-report-1.0.1.pdf",
+		PackageX86URL:        "https://minio.local/gowebframe/plugin-demo/smart-audit/smart-audit-1.0.1-x86.tar.gz",
+		PackageArmURL:        "https://minio.local/gowebframe/plugin-demo/smart-audit/smart-audit-1.0.1-arm.tar.gz",
+		ChangelogZh:          "修复规则误报并补充告警分级能力。",
+		ChangelogEn:          "Fixes false positives and adds alert severity levels.",
+		ReviewComment:        "需要补充中文和英文性能对比说明后再提交。",
+		CreatedBy:            userIDs["requester"],
+		SubmittedAt:          timePtr(time.Now().Add(-48 * time.Hour)),
+	}, []seedReleaseEvent{
+		{Action: "create", ToStatus: pluginModel.PluginReleaseStatusReleasePreparing, OperatorID: userIDs["requester"], Comment: "维护工单已创建"},
+		{Action: "submit_review", FromStatus: pluginModel.PluginReleaseStatusReleasePreparing, ToStatus: pluginModel.PluginReleaseStatusPendingReview, OperatorID: userIDs["requester"], Comment: "提交维护版本审核"},
+		{Action: "reject", FromStatus: pluginModel.PluginReleaseStatusPendingReview, ToStatus: pluginModel.PluginReleaseStatusRejected, OperatorID: userIDs["reviewer"], Comment: "需要补充双语性能说明"},
+	}); err != nil {
+		return err
+	}
+
+	if _, err := ensureSeedRelease(tx, &pluginModel.PluginRelease{
+		PluginID:             pluginIDs["image-optimizer"],
+		RequestType:          pluginModel.PluginReleaseTypeInitial,
+		Status:               pluginModel.PluginReleaseStatusReleased,
+		Version:              "1.4.2",
+		VersionConstraint:    ">= web-cms 1.9.0",
+		Publisher:            "plugin.publisher",
+		ReviewerID:           uintPtr(userIDs["reviewer"]),
+		PublisherID:          uintPtr(userIDs["publisher"]),
+		Checklist:            releasedChecklist,
+		PerformanceSummaryZh: "压缩链路耗时稳定，图像质量评分达到上线要求。",
+		PerformanceSummaryEn: "Compression latency is stable and quality scores meet production requirements.",
+		TestReportURL:        "https://minio.local/gowebframe/plugin-demo/image-optimizer/test-report-1.4.2.pdf",
+		PackageX86URL:        "https://minio.local/gowebframe/plugin-demo/image-optimizer/image-optimizer-1.4.2-x86.tar.gz",
+		PackageArmURL:        "https://minio.local/gowebframe/plugin-demo/image-optimizer/image-optimizer-1.4.2-arm.tar.gz",
+		ChangelogZh:          "增强 WebP/AVIF 转码效果并优化批量压缩吞吐。",
+		ChangelogEn:          "Improves WebP/AVIF transcoding and batch compression throughput.",
+		CreatedBy:            userIDs["requester"],
+		SubmittedAt:          timePtr(time.Now().Add(-168 * time.Hour)),
+		ApprovedAt:           timePtr(time.Now().Add(-167 * time.Hour)),
+		ReleasedAt:           timePtr(time.Now().Add(-166 * time.Hour)),
+	}, []seedReleaseEvent{
+		{Action: "create", ToStatus: pluginModel.PluginReleaseStatusReleasePreparing, OperatorID: userIDs["requester"], Comment: "图片优化插件首发工单"},
+		{Action: "submit_review", FromStatus: pluginModel.PluginReleaseStatusReleasePreparing, ToStatus: pluginModel.PluginReleaseStatusPendingReview, OperatorID: userIDs["requester"], Comment: "已上传多架构包和测试报告"},
+		{Action: "approve", FromStatus: pluginModel.PluginReleaseStatusPendingReview, ToStatus: pluginModel.PluginReleaseStatusApproved, OperatorID: userIDs["reviewer"], Comment: "审核通过"},
+		{Action: "release", FromStatus: pluginModel.PluginReleaseStatusApproved, ToStatus: pluginModel.PluginReleaseStatusReleased, OperatorID: userIDs["publisher"], Comment: "正式发布完成"},
+	}); err != nil {
+		return err
+	}
+
+	if _, err := ensureSeedRelease(tx, &pluginModel.PluginRelease{
+		PluginID:             pluginIDs["device-bridge"],
+		RequestType:          pluginModel.PluginReleaseTypeInitial,
+		Status:               pluginModel.PluginReleaseStatusPendingReview,
+		Version:              "2.3.0",
+		VersionConstraint:    ">= web-cms 2.1.0",
+		Publisher:            "plugin.publisher",
+		ReviewerID:           uintPtr(userIDs["reviewer"]),
+		PublisherID:          uintPtr(userIDs["publisher"]),
+		Checklist:            releasedChecklist,
+		PerformanceSummaryZh: "连接稳定性通过基线，待审核后进入正式发布。",
+		PerformanceSummaryEn: "Connection stability passed the baseline and is awaiting final review.",
+		TestReportURL:        "https://minio.local/gowebframe/plugin-demo/device-bridge/test-report-2.3.0.pdf",
+		PackageX86URL:        "https://minio.local/gowebframe/plugin-demo/device-bridge/device-bridge-2.3.0-x86.tar.gz",
+		PackageArmURL:        "https://minio.local/gowebframe/plugin-demo/device-bridge/device-bridge-2.3.0-arm.tar.gz",
+		ChangelogZh:          "新增标准设备接入协议适配与远程指令能力。",
+		ChangelogEn:          "Adds standard device protocol adaptation and remote command support.",
+		CreatedBy:            userIDs["requester"],
+		SubmittedAt:          timePtr(time.Now().Add(-12 * time.Hour)),
+	}, []seedReleaseEvent{
+		{Action: "create", ToStatus: pluginModel.PluginReleaseStatusReleasePreparing, OperatorID: userIDs["requester"], Comment: "设备桥接插件工单"},
+		{Action: "submit_review", FromStatus: pluginModel.PluginReleaseStatusReleasePreparing, ToStatus: pluginModel.PluginReleaseStatusPendingReview, OperatorID: userIDs["requester"], Comment: "待审核人处理"},
+	}); err != nil {
+		return err
+	}
+
+	if _, err := ensureSeedRelease(tx, &pluginModel.PluginRelease{
+		PluginID:             pluginIDs["edge-runtime"],
+		RequestType:          pluginModel.PluginReleaseTypeInitial,
+		Status:               pluginModel.PluginReleaseStatusApproved,
+		Version:              "0.9.0",
+		VersionConstraint:    ">= web-cms 2.1.0",
+		Publisher:            "plugin.publisher",
+		ReviewerID:           uintPtr(userIDs["reviewer"]),
+		PublisherID:          uintPtr(userIDs["publisher"]),
+		Checklist:            releasedChecklist,
+		PerformanceSummaryZh: "运行时稳定，等待发布管理员执行正式发布。",
+		PerformanceSummaryEn: "Runtime is stable and waiting for the publisher to execute release.",
+		TestReportURL:        "https://minio.local/gowebframe/plugin-demo/edge-runtime/test-report-0.9.0.pdf",
+		PackageX86URL:        "https://minio.local/gowebframe/plugin-demo/edge-runtime/edge-runtime-0.9.0-x86.tar.gz",
+		PackageArmURL:        "https://minio.local/gowebframe/plugin-demo/edge-runtime/edge-runtime-0.9.0-arm.tar.gz",
+		ChangelogZh:          "提供边缘运行时基础能力与资源治理。",
+		ChangelogEn:          "Provides baseline edge runtime capabilities and resource governance.",
+		CreatedBy:            userIDs["requester"],
+		SubmittedAt:          timePtr(time.Now().Add(-10 * time.Hour)),
+		ApprovedAt:           timePtr(time.Now().Add(-9 * time.Hour)),
+	}, []seedReleaseEvent{
+		{Action: "create", ToStatus: pluginModel.PluginReleaseStatusReleasePreparing, OperatorID: userIDs["requester"], Comment: "边缘运行时首发工单"},
+		{Action: "submit_review", FromStatus: pluginModel.PluginReleaseStatusReleasePreparing, ToStatus: pluginModel.PluginReleaseStatusPendingReview, OperatorID: userIDs["requester"], Comment: "已提交审核"},
+		{Action: "approve", FromStatus: pluginModel.PluginReleaseStatusPendingReview, ToStatus: pluginModel.PluginReleaseStatusApproved, OperatorID: userIDs["reviewer"], Comment: "等待发布执行"},
+	}); err != nil {
+		return err
+	}
+
+	legacyRelease, err := ensureSeedRelease(tx, &pluginModel.PluginRelease{
+		PluginID:             pluginIDs["legacy-sync"],
+		RequestType:          pluginModel.PluginReleaseTypeInitial,
+		Status:               pluginModel.PluginReleaseStatusReleased,
+		Version:              "3.2.1",
+		VersionConstraint:    ">= web-cms 1.8.0",
+		Publisher:            "plugin.publisher",
+		ReviewerID:           uintPtr(userIDs["reviewer"]),
+		PublisherID:          uintPtr(userIDs["publisher"]),
+		Checklist:            releasedChecklist,
+		PerformanceSummaryZh: "该版本曾经稳定发布，现因重大风险进入下架流程。",
+		PerformanceSummaryEn: "This version was previously stable, but is now being retired due to critical risks.",
+		TestReportURL:        "https://minio.local/gowebframe/plugin-demo/legacy-sync/test-report-3.2.1.pdf",
+		PackageX86URL:        "https://minio.local/gowebframe/plugin-demo/legacy-sync/legacy-sync-3.2.1-x86.tar.gz",
+		PackageArmURL:        "https://minio.local/gowebframe/plugin-demo/legacy-sync/legacy-sync-3.2.1-arm.tar.gz",
+		ChangelogZh:          "历史版本，用于演示下架流程。",
+		ChangelogEn:          "Legacy version kept for offlining workflow demonstration.",
+		IsOfflined:           true,
+		CreatedBy:            userIDs["requester"],
+		SubmittedAt:          timePtr(time.Now().Add(-240 * time.Hour)),
+		ApprovedAt:           timePtr(time.Now().Add(-239 * time.Hour)),
+		ReleasedAt:           timePtr(time.Now().Add(-238 * time.Hour)),
+		OfflinedAt:           timePtr(time.Now().Add(-24 * time.Hour)),
+	}, []seedReleaseEvent{
+		{Action: "create", ToStatus: pluginModel.PluginReleaseStatusReleasePreparing, OperatorID: userIDs["requester"], Comment: "历史同步器首发工单"},
+		{Action: "submit_review", FromStatus: pluginModel.PluginReleaseStatusReleasePreparing, ToStatus: pluginModel.PluginReleaseStatusPendingReview, OperatorID: userIDs["requester"], Comment: "已提交审核"},
+		{Action: "approve", FromStatus: pluginModel.PluginReleaseStatusPendingReview, ToStatus: pluginModel.PluginReleaseStatusApproved, OperatorID: userIDs["reviewer"], Comment: "审核通过"},
+		{Action: "release", FromStatus: pluginModel.PluginReleaseStatusApproved, ToStatus: pluginModel.PluginReleaseStatusReleased, OperatorID: userIDs["publisher"], Comment: "曾经正式发布"},
+	})
+	if err != nil {
+		return err
+	}
+
+	if _, err := ensureSeedRelease(tx, &pluginModel.PluginRelease{
+		PluginID:        pluginIDs["legacy-sync"],
+		RequestType:     pluginModel.PluginReleaseTypeOffline,
+		Status:          pluginModel.PluginReleaseStatusOfflined,
+		TargetReleaseID: uintPtr(legacyRelease.ID),
+		ReviewerID:      uintPtr(userIDs["reviewer"]),
+		PublisherID:     uintPtr(userIDs["publisher"]),
+		OfflineReasonZh: "发现历史同步任务可能造成脏数据回写，需紧急下架。",
+		OfflineReasonEn: "A critical risk was found where sync jobs may write back dirty data, so the version must be offlined.",
+		ReviewComment:   "风险确认，批准下架",
+		CreatedBy:       userIDs["requester"],
+		SubmittedAt:     timePtr(time.Now().Add(-26 * time.Hour)),
+		ApprovedAt:      timePtr(time.Now().Add(-25 * time.Hour)),
+		OfflinedAt:      timePtr(time.Now().Add(-24 * time.Hour)),
+	}, []seedReleaseEvent{
+		{Action: "create", ToStatus: pluginModel.PluginReleaseStatusDraft, OperatorID: userIDs["requester"], Comment: "发起下架工单"},
+		{Action: "submit_review", FromStatus: pluginModel.PluginReleaseStatusDraft, ToStatus: pluginModel.PluginReleaseStatusPendingReview, OperatorID: userIDs["requester"], Comment: "提交下架审核"},
+		{Action: "approve", FromStatus: pluginModel.PluginReleaseStatusPendingReview, ToStatus: pluginModel.PluginReleaseStatusApproved, OperatorID: userIDs["reviewer"], Comment: "审核通过"},
+		{Action: "release", FromStatus: pluginModel.PluginReleaseStatusApproved, ToStatus: pluginModel.PluginReleaseStatusOfflined, OperatorID: userIDs["publisher"], Comment: "已执行下架"},
+	}); err != nil {
+		return err
+	}
+
+	if _, err := ensureSeedRelease(tx, &pluginModel.PluginRelease{
+		PluginID:             pluginIDs["content-moderation"],
+		RequestType:          pluginModel.PluginReleaseTypeInitial,
+		Status:               pluginModel.PluginReleaseStatusReleasePreparing,
+		Version:              "0.5.0",
+		VersionConstraint:    ">= web-cms 2.1.0",
+		Publisher:            "plugin.publisher",
+		ReviewerID:           uintPtr(userIDs["reviewer"]),
+		PublisherID:          uintPtr(userIDs["publisher"]),
+		Checklist:            releasedChecklist,
+		PerformanceSummaryZh: "资料准备中，等待提单人补齐变更说明后提交审核。",
+		PerformanceSummaryEn: "Release materials are being prepared and waiting for the requester to complete changelog details.",
+		TestReportURL:        "https://minio.local/gowebframe/plugin-demo/content-moderation/test-report-0.5.0.pdf",
+		PackageX86URL:        "https://minio.local/gowebframe/plugin-demo/content-moderation/content-moderation-0.5.0-x86.tar.gz",
+		PackageArmURL:        "https://minio.local/gowebframe/plugin-demo/content-moderation/content-moderation-0.5.0-arm.tar.gz",
+		CreatedBy:            userIDs["requester"],
+	}, []seedReleaseEvent{
+		{Action: "create", ToStatus: pluginModel.PluginReleaseStatusReleasePreparing, OperatorID: userIDs["requester"], Comment: "首发版本资料准备中"},
+	}); err != nil {
+		return err
+	}
+
+	if err := tx.Model(&pluginModel.Plugin{}).Where("id = ?", pluginIDs["smart-audit"]).Updates(map[string]interface{}{
+		"current_status":   pluginModel.PluginStatusActive,
+		"latest_version":   "1.0.0",
+		"last_released_at": time.Now().Add(-94 * time.Hour),
+	}).Error; err != nil {
+		return err
+	}
+	if err := tx.Model(&pluginModel.Plugin{}).Where("id = ?", pluginIDs["image-optimizer"]).Updates(map[string]interface{}{
+		"current_status":   pluginModel.PluginStatusActive,
+		"latest_version":   "1.4.2",
+		"last_released_at": time.Now().Add(-166 * time.Hour),
+	}).Error; err != nil {
+		return err
+	}
+	if err := tx.Model(&pluginModel.Plugin{}).Where("id = ?", pluginIDs["device-bridge"]).Updates(map[string]interface{}{
+		"current_status": pluginModel.PluginStatusPlanning,
+	}).Error; err != nil {
+		return err
+	}
+	if err := tx.Model(&pluginModel.Plugin{}).Where("id = ?", pluginIDs["edge-runtime"]).Updates(map[string]interface{}{
+		"current_status": pluginModel.PluginStatusPlanning,
+	}).Error; err != nil {
+		return err
+	}
+	if err := tx.Model(&pluginModel.Plugin{}).Where("id = ?", pluginIDs["legacy-sync"]).Updates(map[string]interface{}{
+		"current_status":   pluginModel.PluginStatusOfflined,
+		"latest_version":   "3.2.1",
+		"last_released_at": time.Now().Add(-238 * time.Hour),
+	}).Error; err != nil {
+		return err
+	}
+	if err := tx.Model(&pluginModel.Plugin{}).Where("id = ?", pluginIDs["content-moderation"]).Updates(map[string]interface{}{
+		"current_status": pluginModel.PluginStatusPlanning,
+	}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type seedReleaseEvent struct {
+	Action     string
+	FromStatus pluginModel.PluginReleaseStatus
+	ToStatus   pluginModel.PluginReleaseStatus
+	OperatorID uint
+	Comment    string
+}
+
+func ensureSeedRelease(tx *gorm.DB, seed *pluginModel.PluginRelease, events []seedReleaseEvent) (*pluginModel.PluginRelease, error) {
+	var item pluginModel.PluginRelease
+	query := tx.Where("plugin_id = ? AND request_type = ?", seed.PluginID, seed.RequestType)
+	if seed.RequestType == pluginModel.PluginReleaseTypeOffline && seed.TargetReleaseID != nil {
+		query = query.Where("target_release_id = ?", *seed.TargetReleaseID)
+	} else {
+		query = query.Where("version = ?", seed.Version)
+	}
+
+	err := query.First(&item).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		item = *seed
+		if err := tx.Create(&item).Error; err != nil {
+			return nil, err
+		}
+		for _, event := range events {
+			if err := appendSeedReleaseEvent(tx, item.ID, event); err != nil {
+				return nil, err
+			}
+		}
+		return &item, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+func appendSeedReleaseEvent(tx *gorm.DB, releaseID uint, event seedReleaseEvent) error {
+	record := pluginModel.PluginReleaseEvent{
+		ReleaseID:    releaseID,
+		FromStatus:   event.FromStatus,
+		ToStatus:     event.ToStatus,
+		Action:       event.Action,
+		OperatorID:   event.OperatorID,
+		Comment:      event.Comment,
+		SnapshotJSON: datatypes.JSON([]byte("{}")),
+	}
+	return tx.Create(&record).Error
+}
+
+func buildSampleChecklistJSON() (datatypes.JSON, error) {
+	raw, err := json.Marshal([]pluginModel.PluginChecklistItem{
+		{
+			TitleZh: "双语发布资料齐全",
+			TitleEn: "Bilingual release materials completed",
+			Passed:  true,
+			NoteZh:  "名称、描述、能力、变更说明均已补齐",
+			NoteEn:  "Name, description, capabilities, and changelog are complete",
+		},
+		{
+			TitleZh: "多架构安装包验证",
+			TitleEn: "Multi-architecture package validation",
+			Passed:  true,
+			NoteZh:  "x86 和 ARM 包均可正常安装",
+			NoteEn:  "Both x86 and ARM packages can be installed successfully",
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return datatypes.JSON(raw), nil
+}
+
+func uintPtr(v uint) *uint {
+	return &v
+}
+
+func timePtr(v time.Time) *time.Time {
+	return &v
 }
 
 func ensurePoetryBaseData(tx *gorm.DB) error {

@@ -21,6 +21,7 @@ import { updateUiConfig } from '@/services/api/user';
 
 const isDev = process.env.NODE_ENV === 'development' || process.env.CI;
 const loginPath = '/user/login';
+const publicPaths = ['/plugins'];
 
 // ✨ 定义关键业务状态码 (与后端 pkg/errcode 保持一致)
 const Code = {
@@ -76,7 +77,10 @@ export async function getInitialState(): Promise<{
   const token = localStorage.getItem('token');
 
   // 只有 (非登录页) 且 (有Token) 时才请求
-  if (![loginPath, '/user/register', '/user/register-result'].includes(location.pathname) && token) {
+  if (
+    ![loginPath, '/user/register', '/user/register-result', ...publicPaths].includes(location.pathname) &&
+    token
+  ) {
     try {
       // 并行请求
       const [currentUser, rawMenuData] = await Promise.all([
@@ -149,7 +153,7 @@ export const layout: RunTimeLayoutConfig = ({
       // 1. 未登录检查：
       // 如果没有 currentUser，且连 token 都没有，那必须去登录
       // (注意：如果 token 存在但 currentUser 为空，可能是接口 500 了，此时不跳登录，而是停留在当前页显示错误)
-      if (!initialState?.currentUser && !token && location.pathname !== loginPath) {
+      if (!initialState?.currentUser && !token && location.pathname !== loginPath && !publicPaths.includes(location.pathname)) {
         history.push(loginPath);
         return;
       }

@@ -21,6 +21,7 @@ export const componentMap: Record<string, React.LazyExoticComponent<any>> = {
   'sys/api': React.lazy(() => import('@/pages/sys/api')),
   'sys/operation': React.lazy(() => import('@/pages/sys/operation')),
   'sys/notice': React.lazy(() => import('@/pages/sys/notice')),
+  'plugin/center': React.lazy(() => import('@/pages/plugin/center')),
   // 个人信息
   'user/info': React.lazy(() => import('@/pages/account/settings')),
 

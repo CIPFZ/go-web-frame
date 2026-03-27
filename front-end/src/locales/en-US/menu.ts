@@ -58,6 +58,8 @@
   'menu.system.api': 'APIs',
   'menu.system.operation': 'Operation Logs',
   'menu.system.notice': 'Notices',
+  'menu.plugin': 'Plugins',
+  'menu.plugin.center': 'Plugin Center',
   'menu.poetry': 'Poetry',
   'menu.poetry.dynasty': 'Dynasties',
   'menu.poetry.genre': 'Genres',

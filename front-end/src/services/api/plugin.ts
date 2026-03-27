@@ -1,0 +1,118 @@
+import { request } from '@umijs/max';
+
+export async function getPluginList(body: any, options?: { [key: string]: any }) {
+  return request<API.CommonResponse>('/api/v1/plugin/plugin/getPluginList', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: body,
+    ...(options || {}),
+  });
+}
+
+export async function getProjectDetail(body: { id: number }, options?: { [key: string]: any }) {
+  return request<API.CommonResponse>('/api/v1/plugin/plugin/getProjectDetail', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: body,
+    ...(options || {}),
+  });
+}
+
+export async function getPluginOverview(options?: { [key: string]: any }) {
+  return request<API.CommonResponse>('/api/v1/plugin/plugin/getPluginOverview', {
+    method: 'GET',
+    ...(options || {}),
+  });
+}
+
+export async function createPlugin(body: any, options?: { [key: string]: any }) {
+  return request<API.CommonResponse>('/api/v1/plugin/plugin/createPlugin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: body,
+    ...(options || {}),
+  });
+}
+
+export async function updatePlugin(body: any, options?: { [key: string]: any }) {
+  return request<API.CommonResponse>('/api/v1/plugin/plugin/updatePlugin', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    data: body,
+    ...(options || {}),
+  });
+}
+
+export async function getReleaseList(body: any, options?: { [key: string]: any }) {
+  return request<API.CommonResponse>('/api/v1/plugin/release/getReleaseList', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: body,
+    ...(options || {}),
+  });
+}
+
+export async function getReleaseDetail(body: { id: number }, options?: { [key: string]: any }) {
+  return request<API.CommonResponse>('/api/v1/plugin/release/getReleaseDetail', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: body,
+    ...(options || {}),
+  });
+}
+
+export async function createRelease(body: any, options?: { [key: string]: any }) {
+  return request<API.CommonResponse>('/api/v1/plugin/release/createRelease', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: body,
+    ...(options || {}),
+  });
+}
+
+export async function updateRelease(body: any, options?: { [key: string]: any }) {
+  return request<API.CommonResponse>('/api/v1/plugin/release/updateRelease', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    data: body,
+    ...(options || {}),
+  });
+}
+
+export async function transitRelease(body: any, options?: { [key: string]: any }) {
+  return request<API.CommonResponse>('/api/v1/plugin/release/transition', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: body,
+    ...(options || {}),
+  });
+}
+
+export async function getPublishedPluginList(body: any, options?: { [key: string]: any }) {
+  return request<API.CommonResponse>('/api/v1/plugin/public/getPublishedPluginList', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: body,
+    ...(options || {}),
+  });
+}
+
+export async function getPublishedPluginDetail(body: { pluginId: number }, options?: { [key: string]: any }) {
+  return request<API.CommonResponse>('/api/v1/plugin/public/getPublishedPluginDetail', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: body,
+    ...(options || {}),
+  });
+}
+
+export async function uploadPluginAsset(file: File, options?: { [key: string]: any }) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return request<API.CommonResponse>('/api/v1/sys/file/upload', {
+    method: 'POST',
+    data: formData,
+    requestType: 'form',
+    ...(options || {}),
+  });
+}

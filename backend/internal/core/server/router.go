@@ -8,6 +8,10 @@ import (
 
 	"github.com/CIPFZ/gowebframe/internal/docs"
 	"github.com/CIPFZ/gowebframe/internal/middleware"
+	pluginApi "github.com/CIPFZ/gowebframe/internal/modules/plugin/api"
+	pluginRepo "github.com/CIPFZ/gowebframe/internal/modules/plugin/repository"
+	pluginRouter "github.com/CIPFZ/gowebframe/internal/modules/plugin/router"
+	pluginService "github.com/CIPFZ/gowebframe/internal/modules/plugin/service"
 	poetryApi "github.com/CIPFZ/gowebframe/internal/modules/poetry/api"
 	poetryRepo "github.com/CIPFZ/gowebframe/internal/modules/poetry/repository"
 	poetryRouter "github.com/CIPFZ/gowebframe/internal/modules/poetry/router"
@@ -37,6 +41,7 @@ func InitRouters(svcCtx *svc.ServiceContext) *gin.Engine {
 
 	sysRouter := wireSystemModule(svcCtx)
 	sysRouter.InitSystemRoutes(privateGroup, publicGroup)
+	wirePluginModule(svcCtx).InitPluginRoutes(privateGroup, publicGroup)
 	wirePoetryModule(svcCtx).InitPoetryRoutes(privateGroup, publicGroup)
 
 	svcCtx.Routers = r.Routes()
@@ -146,4 +151,12 @@ func wirePoetryModule(svcCtx *svc.ServiceContext) *poetryRouter.PoetryRouter {
 	service := poetryService.NewPoetryService(svcCtx, repo)
 	apis := poetryApi.NewPoetryApi(svcCtx, service)
 	return poetryRouter.NewPoetryRouter(svcCtx, apis)
+}
+
+func wirePluginModule(svcCtx *svc.ServiceContext) *pluginRouter.PluginRouter {
+	repo := pluginRepo.NewPluginRepository(svcCtx.DB)
+	userRepo := systemRepo.NewUserRepository(svcCtx.DB)
+	service := pluginService.NewPluginService(svcCtx, repo, userRepo)
+	api := pluginApi.NewPluginApi(svcCtx, service)
+	return pluginRouter.NewPluginRouter(svcCtx, api)
 }
