@@ -10,7 +10,6 @@ type ProjectSummaryCardProps = {
   workflowSummary: string;
   statusLabel: string;
   statusColor: string;
-  actions?: React.ReactNode;
   onClick?: () => void;
 };
 
@@ -29,7 +28,6 @@ const ProjectSummaryCard: React.FC<ProjectSummaryCardProps> = ({
   workflowSummary,
   statusLabel,
   statusColor,
-  actions,
   onClick,
 }) => {
   const isList = layout === 'list';
@@ -100,7 +98,6 @@ const ProjectSummaryCard: React.FC<ProjectSummaryCardProps> = ({
             </div>
           </Space>
 
-          {actions ? <div style={{ marginTop: 12 }}>{actions}</div> : null}
         </div>
       </Space>
     </Card>

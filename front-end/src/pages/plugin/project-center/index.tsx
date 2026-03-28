@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-layout';
 import { ModalForm, ProFormText, ProFormTextArea } from '@ant-design/pro-components';
 import { history } from '@umijs/max';
-import { App, Button, Card, Col, Empty, Pagination, Row, Space, Typography } from 'antd';
-import { EditOutlined, EyeOutlined } from '@ant-design/icons';
+import { App, Card, Col, Empty, Pagination, Row, Space, Typography } from 'antd';
 import { createPlugin, getPluginList, getReleaseList, updatePlugin } from '@/services/api/plugin';
 import { getCurrentUserInfo } from '@/services/api/user';
 import ProjectFilterBar from '../components/ProjectFilterBar';
@@ -209,11 +208,6 @@ const PluginProjectCenterPage: React.FC = () => {
     setProjectModalOpen(true);
   };
 
-  const handleOpenEdit = (record: PluginItem) => {
-    setEditingProject(record);
-    setProjectModalOpen(true);
-  };
-
   return (
     <PageContainer
       loading={loading}
@@ -260,32 +254,6 @@ const PluginProjectCenterPage: React.FC = () => {
                     statusLabel={projectStatusMeta[record.currentStatus].label}
                     statusColor={projectStatusMeta[record.currentStatus].color}
                     onClick={() => history.push(`/plugin/project/${record.ID}`)}
-                    actions={
-                      <Space size={8} wrap>
-                        <Button
-                          type="link"
-                          icon={<EyeOutlined />}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            history.push(`/plugin/project/${record.ID}`);
-                          }}
-                        >
-                          查看
-                        </Button>
-                        {canManageProject ? (
-                          <Button
-                            type="link"
-                            icon={<EditOutlined />}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleOpenEdit(record);
-                            }}
-                          >
-                            编辑
-                          </Button>
-                        ) : null}
-                      </Space>
-                    }
                   />
                 </Col>
               ))}
@@ -319,32 +287,6 @@ const PluginProjectCenterPage: React.FC = () => {
                   statusLabel={projectStatusMeta[record.currentStatus].label}
                   statusColor={projectStatusMeta[record.currentStatus].color}
                   onClick={() => history.push(`/plugin/project/${record.ID}`)}
-                  actions={
-                    <Space size={8} wrap>
-                      <Button
-                        type="link"
-                        icon={<EyeOutlined />}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          history.push(`/plugin/project/${record.ID}`);
-                        }}
-                      >
-                        查看
-                      </Button>
-                      {canManageProject ? (
-                        <Button
-                          type="link"
-                          icon={<EditOutlined />}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleOpenEdit(record);
-                          }}
-                        >
-                          编辑
-                        </Button>
-                      ) : null}
-                    </Space>
-                  }
                 />
               ))}
             </Space>
