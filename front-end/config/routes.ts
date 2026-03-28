@@ -56,13 +56,21 @@ export default [
         component: './plugin/project-center',
       },
       {
+        path: '/plugin/project-management',
+        component: './plugin/project-center',
+      },
+      {
+        path: '/plugin/review-workbench',
+        component: './plugin/review-workbench',
+      },
+      {
+        path: '/plugin/publish-workbench',
+        component: './plugin/publish-workbench',
+      },
+      {
         path: '/plugin/project/:id',
         component: './plugin/project',
         hideInMenu: true,
-      },
-      {
-        path: '/plugin/market',
-        component: './plugin/market',
       },
     ],
   },
