@@ -56,6 +56,10 @@ export default [
         component: './plugin/project-center',
       },
       {
+        path: '/plugin/market',
+        component: './plugin/market',
+      },
+      {
         path: '/plugin/project-management',
         component: './plugin/project-center',
       },
