@@ -58,7 +58,7 @@
   'menu.system.api': 'APIs',
   'menu.system.operation': 'Operation Logs',
   'menu.system.notice': 'Notices',
-  'menu.plugin': 'Plugins',
+  'menu.plugin': 'Plugin Release',
   'menu.plugin.center': 'Plugin Center',
   'menu.plugin.project-management': 'Project Management',
   'menu.plugin.review-workbench': 'Review Workbench',
