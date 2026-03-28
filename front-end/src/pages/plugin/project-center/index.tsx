@@ -3,6 +3,7 @@ import { PageContainer } from '@ant-design/pro-layout';
 import { ModalForm, ProFormText, ProFormTextArea } from '@ant-design/pro-components';
 import { history } from '@umijs/max';
 import { App, Button, Card, Col, Empty, Pagination, Row, Space, Typography } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
 import { createPlugin, getPluginList, getReleaseList, updatePlugin } from '@/services/api/plugin';
 import { getCurrentUserInfo } from '@/services/api/user';
 import ProjectFilterBar from '../components/ProjectFilterBar';
@@ -249,17 +250,44 @@ const PluginProjectCenterPage: React.FC = () => {
             <Row gutter={[12, 12]}>
               {pagedProjects.map((record) => (
                 <Col xs={24} sm={12} md={8} lg={6} xl={6} xxl={6} key={record.ID}>
-                  <ProjectSummaryCard
-                    layout="card"
-                    code={record.code}
-                    nameZh={record.nameZh}
-                    nameEn={record.nameEn}
-                    latestVersion={record.latestVersion || record.activeRelease?.version || record.latestReleased?.version || '-'}
-                    workflowSummary={record.workflowSummary}
-                    statusLabel={projectStatusMeta[record.currentStatus].label}
-                    statusColor={projectStatusMeta[record.currentStatus].color}
-                    onClick={() => history.push(`/plugin/project/${record.ID}`)}
-                  />
+                  <div style={{ position: 'relative' }}>
+                    {canManageProject ? (
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<EditOutlined />}
+                        aria-label="编辑项目"
+                        style={{
+                          position: 'absolute',
+                          top: 8,
+                          right: 8,
+                          zIndex: 1,
+                          height: 28,
+                          width: 28,
+                          padding: 0,
+                          background: 'rgba(255, 255, 255, 0.92)',
+                          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)',
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleOpenEdit(record);
+                        }}
+                      />
+                    ) : null}
+                    <ProjectSummaryCard
+                      layout="card"
+                      code={record.code}
+                      nameZh={record.nameZh}
+                      nameEn={record.nameEn}
+                      latestVersion={
+                        record.latestVersion || record.activeRelease?.version || record.latestReleased?.version || '-'
+                      }
+                      workflowSummary={record.workflowSummary}
+                      statusLabel={projectStatusMeta[record.currentStatus].label}
+                      statusColor={projectStatusMeta[record.currentStatus].color}
+                      onClick={() => history.push(`/plugin/project/${record.ID}`)}
+                    />
+                  </div>
                 </Col>
               ))}
             </Row>
