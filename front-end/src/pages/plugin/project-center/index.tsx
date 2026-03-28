@@ -41,6 +41,12 @@ type ReleaseItem = {
   status: ReleaseStatus;
   version?: string;
   createdAt?: string;
+  updatedAt?: string;
+  releasedAt?: string;
+  offlinedAt?: string;
+  createdBy?: number;
+  reviewerId?: number;
+  publisherId?: number;
   isOfflined?: boolean;
 };
 
@@ -77,6 +83,12 @@ const releaseStatusLabel = (status?: ReleaseStatus) => {
 };
 
 const getTime = (value?: string) => (value ? new Date(value).getTime() : 0);
+
+const getWorkflowTime = (item: ReleaseItem) => {
+  // Prefer the newest workflow timestamp we have, falling back to status-specific
+  // timestamps and finally createdAt so a later transition is not hidden by an older draft.
+  return getTime(item.updatedAt || item.releasedAt || item.offlinedAt || item.createdAt);
+};
 
 const buildWorkflowSummary = (
   record: Pick<ProjectRecord, 'latestWorkflow' | 'activeRelease' | 'latestReleased' | 'latestVersion'>,
@@ -162,12 +174,17 @@ const PluginProjectCenterPage: React.FC = () => {
     () => Array.from(authorityIds).some((id) => requesterRoleIds.has(id)),
     [authorityIds],
   );
+  const canReview = useMemo(() => Array.from(authorityIds).some((id) => reviewerRoleIds.has(id)), [authorityIds]);
+  const canPublish = useMemo(() => Array.from(authorityIds).some((id) => publisherRoleIds.has(id)), [authorityIds]);
+
+  const isMyProject = (record: ProjectRecord) =>
+    record.owner === currentUser?.username || record.releases.some((item) => item.createdBy === currentUser?.ID);
 
   const projectRecords = useMemo<ProjectRecord[]>(() => {
     return projects.map((project) => {
       const projectReleases = releases
         .filter((item) => item.pluginId === project.ID)
-        .sort((left, right) => getTime(right.createdAt) - getTime(left.createdAt));
+        .sort((left, right) => getWorkflowTime(right) - getWorkflowTime(left));
       const latestWorkflow = projectReleases[0];
       const activeRelease = projectReleases.find((item) =>
         ['draft', 'release_preparing', 'pending_review', 'approved', 'rejected'].includes(item.status),
@@ -210,9 +227,17 @@ const PluginProjectCenterPage: React.FC = () => {
           .includes(normalizedKeyword);
       const statusHit = statusFilter === 'all' || item.currentStatus === statusFilter;
       const ownerHit = ownerFilter === 'all' || item.owner === ownerFilter;
-      return keywordHit && statusHit && ownerHit;
+      if (!keywordHit || !statusHit || !ownerHit) {
+        return false;
+      }
+
+      if (canManageProject && !canReview && !canPublish && !isMyProject(item)) {
+        return false;
+      }
+
+      return true;
     });
-  }, [keyword, ownerFilter, projectRecords, statusFilter]);
+  }, [canManageProject, canPublish, canReview, currentUser?.ID, currentUser?.username, keyword, ownerFilter, projectRecords, statusFilter]);
 
   const pagedProjects = useMemo(
     () => filteredProjects.slice((page - 1) * pageSize, page * pageSize),
