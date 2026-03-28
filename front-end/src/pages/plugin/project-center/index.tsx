@@ -46,6 +46,7 @@ type ReleaseItem = {
 
 type ProjectRecord = PluginItem & {
   releases: ReleaseItem[];
+  latestWorkflow?: ReleaseItem;
   activeRelease?: ReleaseItem;
   latestReleased?: ReleaseItem;
   workflowSummary: string;
@@ -77,9 +78,16 @@ const releaseStatusLabel = (status?: ReleaseStatus) => {
 
 const getTime = (value?: string) => (value ? new Date(value).getTime() : 0);
 
-const buildWorkflowSummary = (record: Pick<ProjectRecord, 'activeRelease' | 'latestReleased' | 'latestVersion'>) => {
-  const version = record.activeRelease?.version || record.latestReleased?.version || record.latestVersion || '-';
-  const status = releaseStatusLabel(record.activeRelease?.status || record.latestReleased?.status);
+const buildWorkflowSummary = (
+  record: Pick<ProjectRecord, 'latestWorkflow' | 'activeRelease' | 'latestReleased' | 'latestVersion'>,
+) => {
+  const version =
+    record.latestWorkflow?.version ||
+    record.activeRelease?.version ||
+    record.latestReleased?.version ||
+    record.latestVersion ||
+    '-';
+  const status = releaseStatusLabel(record.latestWorkflow?.status || record.activeRelease?.status || record.latestReleased?.status);
   return `${version} ${status}`;
 };
 
@@ -142,7 +150,11 @@ const PluginProjectCenterPage: React.FC = () => {
   const authorityIds = useMemo(() => {
     const ids = new Set<number>();
     if (currentUser?.authorityId) ids.add(currentUser.authorityId);
-    (currentUser?.authorities || []).forEach((item) => item?.authorityId && ids.add(item.authorityId));
+    (currentUser?.authorities || []).forEach((item) => {
+      if (item?.authorityId) {
+        ids.add(item.authorityId);
+      }
+    });
     return ids;
   }, [currentUser]);
 
@@ -156,6 +168,7 @@ const PluginProjectCenterPage: React.FC = () => {
       const projectReleases = releases
         .filter((item) => item.pluginId === project.ID)
         .sort((left, right) => getTime(right.createdAt) - getTime(left.createdAt));
+      const latestWorkflow = projectReleases[0];
       const activeRelease = projectReleases.find((item) =>
         ['draft', 'release_preparing', 'pending_review', 'approved', 'rejected'].includes(item.status),
       );
@@ -164,9 +177,11 @@ const PluginProjectCenterPage: React.FC = () => {
       return {
         ...project,
         releases: projectReleases,
+        latestWorkflow,
         activeRelease,
         latestReleased,
         workflowSummary: buildWorkflowSummary({
+          latestWorkflow,
           activeRelease,
           latestReleased,
           latestVersion: project.latestVersion,
@@ -372,7 +387,10 @@ const PluginProjectCenterPage: React.FC = () => {
           const api = editingProject ? updatePlugin : createPlugin;
           const payload = editingProject ? { ...values, id: editingProject.ID } : values;
           const res: any = await api(payload).catch((error) => error);
-          if (!res || res.code !== 0) return message.error(res?.msg || '保存项目失败'), false;
+          if (!res || res.code !== 0) {
+            message.error(res?.msg || '保存项目失败');
+            return false;
+          }
           message.success(editingProject ? '项目已更新' : '项目已创建');
           setEditingProject(undefined);
           setProjectModalOpen(false);
