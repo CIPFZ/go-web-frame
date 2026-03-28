@@ -92,6 +92,35 @@ const getWorkflowTime = (item: ReleaseItem) => {
   return getTime(item.updatedAt || item.releasedAt || item.offlinedAt || item.createdAt);
 };
 
+const normalizeOwnerValue = (value?: string) => value?.trim().toLowerCase() || '';
+
+const getCurrentUserOwnerAliases = (user?: API.UserInfo) =>
+  Array.from(
+    new Set(
+      [
+        user?.username,
+        (user as any)?.nickName,
+        (user as any)?.nickname,
+        (user as any)?.realName,
+        (user as any)?.name,
+        (user as any)?.displayName,
+      ]
+        .map(normalizeOwnerValue)
+        .filter(Boolean),
+    ),
+  );
+
+const isProjectOwnedByCurrentUser = (record: ProjectRecord, user?: API.UserInfo) => {
+  const ownerValue = normalizeOwnerValue(record.owner);
+  if (!ownerValue || !user) return false;
+
+  if (record.releases.some((item) => item.createdBy === user.ID)) {
+    return true;
+  }
+
+  return getCurrentUserOwnerAliases(user).some((alias) => alias === ownerValue);
+};
+
 const buildWorkflowSummary = (
   record: Pick<ProjectRecord, 'latestWorkflow' | 'activeRelease' | 'latestReleased' | 'latestVersion'>,
 ) => {
@@ -189,8 +218,7 @@ const PluginProjectCenterPage: React.FC = () => {
   const canReview = useMemo(() => Array.from(authorityIds).some((id) => reviewerRoleIds.has(id)), [authorityIds]);
   const canPublish = useMemo(() => Array.from(authorityIds).some((id) => publisherRoleIds.has(id)), [authorityIds]);
 
-  const isMyProject = (record: ProjectRecord) =>
-    record.owner === currentUser?.username || record.releases.some((item) => item.createdBy === currentUser?.ID);
+  const isMyProject = (record: ProjectRecord) => isProjectOwnedByCurrentUser(record, currentUser);
   const canEditProject = (record: ProjectRecord) => canManageProject && isMyProject(record);
 
   const projectRecords = useMemo<ProjectRecord[]>(() => {
