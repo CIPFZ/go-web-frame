@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-layout';
 import { ModalForm, ProFormText, ProFormTextArea } from '@ant-design/pro-components';
 import { history } from '@umijs/max';
-import { App, Card, Col, Empty, Pagination, Row, Space, Typography } from 'antd';
+import { App, Button, Card, Col, Empty, Pagination, Row, Space, Typography } from 'antd';
 import { createPlugin, getPluginList, getReleaseList, updatePlugin } from '@/services/api/plugin';
 import { getCurrentUserInfo } from '@/services/api/user';
 import ProjectFilterBar from '../components/ProjectFilterBar';
@@ -208,6 +208,11 @@ const PluginProjectCenterPage: React.FC = () => {
     setProjectModalOpen(true);
   };
 
+  const handleOpenEdit = (record: PluginItem) => {
+    setEditingProject(record);
+    setProjectModalOpen(true);
+  };
+
   return (
     <PageContainer
       loading={loading}
@@ -276,18 +281,33 @@ const PluginProjectCenterPage: React.FC = () => {
           <>
             <Space direction="vertical" size={12} style={{ width: '100%' }}>
               {pagedProjects.map((record) => (
-                <ProjectSummaryCard
-                  key={record.ID}
-                  layout="list"
-                  code={record.code}
-                  nameZh={record.nameZh}
-                  nameEn={record.nameEn}
-                  latestVersion={record.latestVersion || record.activeRelease?.version || record.latestReleased?.version || '-'}
-                  workflowSummary={record.workflowSummary}
-                  statusLabel={projectStatusMeta[record.currentStatus].label}
-                  statusColor={projectStatusMeta[record.currentStatus].color}
-                  onClick={() => history.push(`/plugin/project/${record.ID}`)}
-                />
+                <Space key={record.ID} align="start" size={12} style={{ width: '100%' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <ProjectSummaryCard
+                      layout="list"
+                      code={record.code}
+                      nameZh={record.nameZh}
+                      nameEn={record.nameEn}
+                      latestVersion={
+                        record.latestVersion || record.activeRelease?.version || record.latestReleased?.version || '-'
+                      }
+                      workflowSummary={record.workflowSummary}
+                      statusLabel={projectStatusMeta[record.currentStatus].label}
+                      statusColor={projectStatusMeta[record.currentStatus].color}
+                      onClick={() => history.push(`/plugin/project/${record.ID}`)}
+                    />
+                  </div>
+                  {canManageProject ? (
+                    <Button
+                      type="link"
+                      size="small"
+                      style={{ paddingInline: 0, height: 'auto', flex: 'none', marginTop: 6 }}
+                      onClick={() => handleOpenEdit(record)}
+                    >
+                      编辑
+                    </Button>
+                  ) : null}
+                </Space>
               ))}
             </Space>
 
