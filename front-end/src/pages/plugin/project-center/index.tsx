@@ -59,6 +59,8 @@ type ProjectRecord = PluginItem & {
 };
 
 const requesterRoleIds = new Set([1, 9528, 10010]);
+const reviewerRoleIds = new Set([1, 9528, 10013]);
+const publisherRoleIds = new Set([1, 9528, 10014]);
 
 const cardStyle: React.CSSProperties = {
   borderRadius: 8,
@@ -127,12 +129,22 @@ const PluginProjectCenterPage: React.FC = () => {
   }, [keyword, statusFilter, ownerFilter, viewMode]);
 
   const bootstrap = async () => {
-    await Promise.all([loadCurrentUser(), loadData()]);
+    const userLoaded = await loadCurrentUser();
+    if (!userLoaded) {
+      setProjects([]);
+      setReleases([]);
+      return;
+    }
+    await loadData();
   };
 
   const loadCurrentUser = async () => {
     const res: any = await getCurrentUserInfo({ skipErrorHandler: true }).catch((error) => error);
-    if (res?.code === 0) setCurrentUser(res.data);
+    if (res?.code === 0) {
+      setCurrentUser(res.data);
+      return true;
+    }
+    return false;
   };
 
   const loadData = async () => {
@@ -179,6 +191,7 @@ const PluginProjectCenterPage: React.FC = () => {
 
   const isMyProject = (record: ProjectRecord) =>
     record.owner === currentUser?.username || record.releases.some((item) => item.createdBy === currentUser?.ID);
+  const canEditProject = (record: ProjectRecord) => canManageProject && isMyProject(record);
 
   const projectRecords = useMemo<ProjectRecord[]>(() => {
     return projects.map((project) => {
@@ -291,7 +304,7 @@ const PluginProjectCenterPage: React.FC = () => {
               {pagedProjects.map((record) => (
                 <Col xs={24} sm={12} md={8} lg={6} xl={6} xxl={6} key={record.ID}>
                   <div style={{ position: 'relative' }}>
-                    {canManageProject ? (
+                    {canEditProject(record) ? (
                       <Button
                         type="text"
                         size="small"
@@ -365,7 +378,7 @@ const PluginProjectCenterPage: React.FC = () => {
                       onClick={() => history.push(`/plugin/project/${record.ID}`)}
                     />
                   </div>
-                  {canManageProject ? (
+                  {canEditProject(record) ? (
                     <Button
                       type="link"
                       size="small"
