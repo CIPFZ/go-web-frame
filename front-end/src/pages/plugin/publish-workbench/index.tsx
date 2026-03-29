@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-layout';
 import { history } from '@umijs/max';
-import { App, Card, Col, Empty, Row, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { App, Card, Col, Empty, Row, Segmented, Space, Statistic, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import dayjs from 'dayjs';
 import WorkbenchFilterBar from '../components/WorkbenchFilterBar';
 import {
   getReleaseList,
@@ -11,15 +12,17 @@ import {
   ReleaseStatus,
 } from '@/services/api/plugin';
 import { getCurrentUserInfo } from '@/services/api/user';
+import { buildPublishWorkbenchQuery } from '../utils/pluginWorkbench';
 
 type QueryRequestType = ReleaseRequestType | 'all';
 type QueryStatus = ReleaseStatus | 'all';
+type PublishScope = 'assigned' | 'all';
 
 type PublishSummary = {
-  approved: number;
-  released: number;
-  offlined: number;
-  mineQueue: number;
+  pendingPublish: number;
+  pendingOffline: number;
+  releasedToday: number;
+  offlinedToday: number;
 };
 
 const cardStyle: React.CSSProperties = {
@@ -37,7 +40,7 @@ const requestTypeOptions = [
 
 const statusOptions = [
   { label: '全部状态', value: 'all' },
-  { label: '待发布', value: 'approved' },
+  { label: '待执行', value: 'approved' },
   { label: '已发布', value: 'released' },
   { label: '已下架', value: 'offlined' },
 ];
@@ -50,9 +53,9 @@ const requestTypeLabel: Record<ReleaseRequestType, string> = {
 
 const statusMeta: Record<ReleaseStatus, { label: string; color: string }> = {
   draft: { label: '草稿', color: 'default' },
-  release_preparing: { label: '资料准备中', color: 'gold' },
+  release_preparing: { label: '提交资料', color: 'gold' },
   pending_review: { label: '待审核', color: 'processing' },
-  approved: { label: '待发布', color: 'cyan' },
+  approved: { label: '待执行', color: 'cyan' },
   rejected: { label: '已打回', color: 'red' },
   released: { label: '已发布', color: 'green' },
   offlined: { label: '已下架', color: 'volcano' },
@@ -66,33 +69,34 @@ const normalizeReleaseList = (res: any) => {
   };
 };
 
-const participantLabel = (userId: number | null | undefined, currentUserId?: number) => {
+const isToday = (value?: string | null) => {
+  if (!value) return false;
+  return dayjs(value).isSame(dayjs(), 'day');
+};
+
+const pickCompletedAt = (record: ReleaseListItem) =>
+  record.offlinedAt || record.releasedAt || record.approvedAt || record.createdAt || '-';
+
+const assigneeLabel = (userId: number | null | undefined, currentUserId?: number) => {
   if (!userId) return '-';
   if (currentUserId && userId === currentUserId) return '我';
   return `#${userId}`;
 };
 
-const pickCompletedAt = (record: ReleaseListItem) => {
-  if (record.releasedAt) return record.releasedAt;
-  if (record.approvedAt) return record.approvedAt;
-  if (record.offlinedAt) return record.offlinedAt;
-  return record.createdAt || '-';
-};
-
 const PublishWorkbenchPage: React.FC = () => {
   const { message } = App.useApp();
-  const [initialized, setInitialized] = useState(false);
   const [currentUser, setCurrentUser] = useState<API.UserInfo>();
   const [loading, setLoading] = useState(false);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [records, setRecords] = useState<ReleaseListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState<PublishSummary>({
-    approved: 0,
-    released: 0,
-    offlined: 0,
-    mineQueue: 0,
+    pendingPublish: 0,
+    pendingOffline: 0,
+    releasedToday: 0,
+    offlinedToday: 0,
   });
+  const [scope, setScope] = useState<PublishScope>('assigned');
   const [keyword, setKeyword] = useState('');
   const [requestType, setRequestType] = useState<QueryRequestType>('all');
   const [status, setStatus] = useState<QueryStatus>('approved');
@@ -104,94 +108,114 @@ const PublishWorkbenchPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (initialized) {
-      setPage(1);
-    }
-  }, [keyword, requestType, status, initialized]);
+    setPage(1);
+  }, [scope, keyword, requestType, status]);
 
   useEffect(() => {
-    if (!initialized) return;
+    if (!currentUser?.ID) return;
     void loadList();
-  }, [initialized, currentUser, keyword, requestType, status, page, pageSize]);
+  }, [currentUser?.ID, scope, keyword, requestType, status, page, pageSize]);
 
   useEffect(() => {
-    if (!initialized) return;
+    if (!currentUser?.ID) return;
     void loadSummary();
-  }, [initialized, currentUser]);
+  }, [currentUser?.ID, scope]);
 
   const bootstrap = async () => {
-    setLoading(true);
     const userRes: any = await getCurrentUserInfo({ skipErrorHandler: true }).catch((error) => error);
     if (userRes?.code === 0) {
       setCurrentUser(userRes.data);
     }
-    setInitialized(true);
-    setLoading(false);
   };
 
-  const buildQuery = () => {
-    const trimmedKeyword = keyword.trim();
-    return {
-      page,
-      pageSize,
-      keyword: trimmedKeyword || undefined,
-      requestType: requestType === 'all' ? undefined : requestType,
-      status: status === 'all' ? undefined : status,
-      publisherId: currentUser?.ID || undefined,
-    };
-  };
+  const query = useMemo(
+    () =>
+      buildPublishWorkbenchQuery({
+        page,
+        pageSize,
+        keyword,
+        requestType,
+        status,
+        scope,
+        currentUserId: currentUser?.ID,
+      }),
+    [currentUser?.ID, keyword, page, pageSize, requestType, scope, status],
+  );
 
   const loadList = async () => {
     setLoading(true);
     try {
-      const res: any = await getReleaseList(buildQuery(), { skipErrorHandler: true }).catch((error) => error);
+      const res: any = await getReleaseList(query, { skipErrorHandler: true }).catch((error) => error);
       if (!res || res.code !== 0) {
         setRecords([]);
         setTotal(0);
-        message.error(res?.msg || 'Failed to load publish workbench');
+        message.error(res?.msg || '加载发布工作台失败');
         return;
       }
+
       const normalized = normalizeReleaseList(res);
       setRecords(normalized.list);
       setTotal(normalized.total);
     } catch (error) {
       setRecords([]);
       setTotal(0);
-      message.error('Failed to load publish workbench');
+      message.error('加载发布工作台失败');
     } finally {
       setLoading(false);
     }
   };
 
   const countReleases = async (params: Partial<Parameters<typeof getReleaseList>[0]>) => {
-    if (!currentUser?.ID) return 0;
     const res: any = await getReleaseList(
       {
         page: 1,
         pageSize: 1,
-        publisherId: currentUser.ID,
         ...params,
       },
       { skipErrorHandler: true },
     ).catch((error) => error);
+
     if (!res || res.code !== 0) return 0;
     return normalizeReleaseList(res).total;
+  };
+
+  const getRecentReleases = async (itemStatus: ReleaseStatus) => {
+    const res: any = await getReleaseList(
+      {
+        page: 1,
+        pageSize: 200,
+        status: itemStatus,
+        publisherId: scope === 'assigned' ? currentUser?.ID : undefined,
+      },
+      { skipErrorHandler: true },
+    ).catch((error) => error);
+
+    if (!res || res.code !== 0) return [] as ReleaseListItem[];
+    return normalizeReleaseList(res).list;
   };
 
   const loadSummary = async () => {
     setSummaryLoading(true);
     try {
-      if (!currentUser?.ID) {
-        setSummary({ approved: 0, released: 0, offlined: 0, mineQueue: 0 });
-        return;
-      }
-      const [approved, released, offlined, mineQueue] = await Promise.all([
-        countReleases({ status: 'approved' }),
-        countReleases({ status: 'released' }),
-        countReleases({ status: 'offlined' }),
-        countReleases({}),
+      const publisherId = scope === 'assigned' ? currentUser?.ID : undefined;
+      const [initialPending, maintenancePending, pendingOffline, releasedList, offlinedList] = await Promise.all([
+        countReleases({ status: 'approved', requestType: 'initial', publisherId }),
+        countReleases({ status: 'approved', requestType: 'maintenance', publisherId }),
+        countReleases({ status: 'approved', requestType: 'offline', publisherId }),
+        getRecentReleases('released'),
+        getRecentReleases('offlined'),
       ]);
-      setSummary({ approved, released, offlined, mineQueue });
+
+      setSummary({
+        pendingPublish: initialPending + maintenancePending,
+        pendingOffline,
+        releasedToday: releasedList.filter(
+          (item) => item.requestType !== 'offline' && isToday(item.releasedAt),
+        ).length,
+        offlinedToday: offlinedList.filter(
+          (item) => item.requestType === 'offline' && isToday(item.offlinedAt),
+        ).length,
+      });
     } finally {
       setSummaryLoading(false);
     }
@@ -232,25 +256,33 @@ const PublishWorkbenchPage: React.FC = () => {
       {
         title: '状态',
         dataIndex: 'status',
-        width: 160,
-        render: (value: ReleaseStatus) => <Tag color={statusMeta[value]?.color}>{statusMeta[value]?.label || value}</Tag>,
+        width: 140,
+        render: (value: ReleaseStatus) => (
+          <Tag color={statusMeta[value]?.color}>{statusMeta[value]?.label || value}</Tag>
+        ),
       },
       {
-        title: '发布人',
+        title: '当前发布人',
         dataIndex: 'publisherId',
         width: 140,
-        render: (_, record) => record.publisher || participantLabel(record.publisherId, currentUser?.ID),
+        render: (value: number | null | undefined) => assigneeLabel(value, currentUser?.ID),
       },
       {
-        title: '版本限制',
-        dataIndex: 'versionConstraint',
-        width: 200,
+        title: '发布人署名',
+        dataIndex: 'publisher',
+        width: 140,
         render: (value: string) => value || '-',
       },
       {
-        title: '完成时间',
+        title: '兼容信息',
+        dataIndex: 'versionConstraint',
+        width: 220,
+        render: (value: string) => value || '-',
+      },
+      {
+        title: '最近处理时间',
         dataIndex: 'completedAt',
-        width: 180,
+        width: 200,
         render: (_, record) => pickCompletedAt(record),
       },
     ],
@@ -271,16 +303,34 @@ const PublishWorkbenchPage: React.FC = () => {
   return (
     <PageContainer
       title="发布工作台"
-      content="这里集中处理待发布和待下架执行的版本。点击一行会进入统一项目详情页，并自动定位到对应版本。"
+      content="这里集中处理审核通过后的发布和下架任务。默认优先展示分配给我的待执行版本，也可以切换查看全队列。"
     >
       <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Segmented
+          value={scope}
+          onChange={(value) => setScope(value as PublishScope)}
+          options={[
+            { label: '分配给我', value: 'assigned' },
+            { label: '全部待处理', value: 'all' },
+          ]}
+        />
+
         <WorkbenchFilterBar
           keyword={keyword}
-          onKeywordChange={setKeyword}
+          onKeywordChange={(value) => {
+            setKeyword(value);
+            setPage(1);
+          }}
           requestType={requestType}
-          onRequestTypeChange={(value) => setRequestType(value as QueryRequestType)}
+          onRequestTypeChange={(value) => {
+            setRequestType(value as QueryRequestType);
+            setPage(1);
+          }}
           status={status}
-          onStatusChange={(value) => setStatus(value as QueryStatus)}
+          onStatusChange={(value) => {
+            setStatus(value as QueryStatus);
+            setPage(1);
+          }}
           requestTypeOptions={requestTypeOptions}
           statusOptions={statusOptions}
         />
@@ -288,22 +338,22 @@ const PublishWorkbenchPage: React.FC = () => {
         <Row gutter={12}>
           <Col xs={24} sm={12} lg={6}>
             <Card bordered={false} loading={summaryLoading} style={cardStyle}>
-              <Statistic title="待发布" value={summary.approved} />
+              <Statistic title="待发布版本" value={summary.pendingPublish} />
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
             <Card bordered={false} loading={summaryLoading} style={cardStyle}>
-              <Statistic title="我已发布" value={summary.released} />
+              <Statistic title="待执行下架" value={summary.pendingOffline} />
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
             <Card bordered={false} loading={summaryLoading} style={cardStyle}>
-              <Statistic title="我已下架" value={summary.offlined} />
+              <Statistic title="今日已发布" value={summary.releasedToday} />
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
             <Card bordered={false} loading={summaryLoading} style={cardStyle}>
-              <Statistic title="我的队列" value={summary.mineQueue} />
+              <Statistic title="今日已下架" value={summary.offlinedToday} />
             </Card>
           </Col>
         </Row>
@@ -328,7 +378,7 @@ const PublishWorkbenchPage: React.FC = () => {
             locale={{
               emptyText: <Empty description="暂无发布数据" />,
             }}
-            scroll={{ x: 1040 }}
+            scroll={{ x: 1220 }}
             onRow={(record) => ({
               onClick: () => handleRowClick(record),
               style: { cursor: 'pointer' },

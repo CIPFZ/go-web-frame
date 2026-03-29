@@ -6,7 +6,7 @@ import { ModalForm, ProFormText, ProFormDigit } from '@ant-design/pro-components
 import { getGenreList, createGenre, updateGenre, deleteGenre, Genre } from '@/services/api/poetry';
 
 const GenreList: React.FC = () => {
-  const actionRef = useRef<ActionType>();
+  const actionRef = useRef<ActionType | null>(null);
 
   // ✨ 修改参数为 ID
   const handleDelete = async (ID: number) => {

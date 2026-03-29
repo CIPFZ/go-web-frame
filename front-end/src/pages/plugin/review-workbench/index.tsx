@@ -11,16 +11,17 @@ import {
   ReleaseStatus,
 } from '@/services/api/plugin';
 import { getCurrentUserInfo } from '@/services/api/user';
+import { buildReviewWorkbenchBaseQuery } from '../utils/pluginWorkbench';
 
 type QueryRequestType = ReleaseRequestType | 'all';
 type QueryStatus = ReleaseStatus | 'all';
-type ReviewScope = 'pending' | 'reviewed';
+type ReviewScope = 'assigned' | 'all' | 'reviewed';
 
 type ReviewSummary = {
-  pending: number;
+  assignedPending: number;
+  allPending: number;
   approved: number;
   rejected: number;
-  mineQueue: number;
 };
 
 const cardStyle: React.CSSProperties = {
@@ -55,7 +56,7 @@ const requestTypeLabel: Record<ReleaseRequestType, string> = {
 
 const statusMeta: Record<ReleaseStatus, { label: string; color: string }> = {
   draft: { label: '草稿', color: 'default' },
-  release_preparing: { label: '资料准备中', color: 'gold' },
+  release_preparing: { label: '提交资料', color: 'gold' },
   pending_review: { label: '待审核', color: 'processing' },
   approved: { label: '待发布', color: 'cyan' },
   rejected: { label: '已打回', color: 'red' },
@@ -86,12 +87,12 @@ const ReviewWorkbenchPage: React.FC = () => {
   const [scopeRecords, setScopeRecords] = useState<ReleaseListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState<ReviewSummary>({
-    pending: 0,
+    assignedPending: 0,
+    allPending: 0,
     approved: 0,
     rejected: 0,
-    mineQueue: 0,
   });
-  const [reviewScope, setReviewScope] = useState<ReviewScope>('pending');
+  const [reviewScope, setReviewScope] = useState<ReviewScope>('assigned');
   const [keyword, setKeyword] = useState('');
   const [requestType, setRequestType] = useState<QueryRequestType>('all');
   const [status, setStatus] = useState<QueryStatus>('all');
@@ -136,7 +137,7 @@ const ReviewWorkbenchPage: React.FC = () => {
     statuses: ReleaseStatus[],
     baseQuery: Omit<Parameters<typeof getReleaseList>[0], 'page' | 'pageSize' | 'status'>,
   ) => {
-    const querySize = Math.max(page*pageSize, pageSize);
+    const querySize = Math.max(page * pageSize, pageSize);
     const responses = await Promise.all(
       statuses.map((itemStatus) =>
         getReleaseList(
@@ -153,7 +154,7 @@ const ReviewWorkbenchPage: React.FC = () => {
 
     const normalized = responses.map((response) => {
       if (!response || response.code !== 0) {
-        throw new Error(response?.msg || 'Failed to load review workbench');
+        throw new Error(response?.msg || '加载审核工作台失败');
       }
       return normalizeReleaseList(response);
     });
@@ -182,27 +183,28 @@ const ReviewWorkbenchPage: React.FC = () => {
     try {
       if (!currentUser?.ID) {
         setScopeRecords([]);
+        setTotal(0);
         return;
       }
 
-      const reviewerId = currentUser.ID;
-      const baseQuery = {
-        reviewerId,
-        keyword: keyword.trim() || undefined,
-        requestType: requestType === 'all' ? undefined : requestType,
-      };
+      const baseQuery = buildReviewWorkbenchBaseQuery({
+        keyword,
+        requestType,
+        scope: reviewScope === 'all' ? 'all' : 'assigned',
+        currentUserId: currentUser.ID,
+      });
       const scopedStatuses =
-        reviewScope === 'pending'
-          ? [status === 'all' ? 'pending_review' : status]
-          : status === 'all'
+        reviewScope === 'reviewed'
+          ? status === 'all'
             ? (['approved', 'rejected'] as ReleaseStatus[])
-            : [status];
+            : [status]
+          : [status === 'all' ? 'pending_review' : status];
 
       const result = await fetchReleaseSlice(scopedStatuses, baseQuery);
       setScopeRecords(result.list);
       setTotal(result.total);
     } catch (error: any) {
-      message.error(error?.message || 'Failed to load review workbench');
+      message.error(error?.message || '加载审核工作台失败');
       setScopeRecords([]);
       setTotal(0);
     } finally {
@@ -210,13 +212,12 @@ const ReviewWorkbenchPage: React.FC = () => {
     }
   };
 
-  const countByStatus = async (itemStatus: ReleaseStatus) => {
-    if (!currentUser?.ID) return 0;
+  const countByStatus = async (itemStatus: ReleaseStatus, reviewerId?: number) => {
     const res: any = await getReleaseList(
       {
         page: 1,
         pageSize: 1,
-        reviewerId: currentUser.ID,
+        reviewerId,
         status: itemStatus,
       },
       { skipErrorHandler: true },
@@ -229,19 +230,20 @@ const ReviewWorkbenchPage: React.FC = () => {
     setSummaryLoading(true);
     try {
       if (!currentUser?.ID) {
-        setSummary({ pending: 0, approved: 0, rejected: 0, mineQueue: 0 });
+        setSummary({ assignedPending: 0, allPending: 0, approved: 0, rejected: 0 });
         return;
       }
-      const [pending, approved, rejected] = await Promise.all([
+      const [assignedPending, allPending, approved, rejected] = await Promise.all([
+        countByStatus('pending_review', currentUser.ID),
         countByStatus('pending_review'),
-        countByStatus('approved'),
-        countByStatus('rejected'),
+        countByStatus('approved', currentUser.ID),
+        countByStatus('rejected', currentUser.ID),
       ]);
       setSummary({
-        pending,
+        assignedPending,
+        allPending,
         approved,
         rejected,
-        mineQueue: reviewScope === 'pending' ? pending : approved + rejected,
       });
     } finally {
       setSummaryLoading(false);
@@ -251,7 +253,6 @@ const ReviewWorkbenchPage: React.FC = () => {
   const columns = useMemo<ColumnsType<ReleaseListItem>>(
     () => [
       {
-        title: 'Plugin',
         title: '项目',
         dataIndex: 'pluginNameZh',
         key: 'plugin',
@@ -288,9 +289,9 @@ const ReviewWorkbenchPage: React.FC = () => {
         render: (value: ReleaseStatus) => <Tag color={statusMeta[value]?.color}>{statusMeta[value]?.label || value}</Tag>,
       },
       {
-        title: '审核人',
+        title: '当前审核人',
         dataIndex: 'reviewerId',
-        width: 110,
+        width: 140,
         render: (value: number | null | undefined) => participantLabel(value, currentUser?.ID),
       },
       {
@@ -303,7 +304,7 @@ const ReviewWorkbenchPage: React.FC = () => {
     [currentUser?.ID],
   );
 
-  const statusOptions = reviewScope === 'pending' ? pendingStatusOptions : reviewedStatusOptions;
+  const statusOptions = reviewScope === 'reviewed' ? reviewedStatusOptions : pendingStatusOptions;
 
   const handleRowClick = (record: ReleaseListItem) => {
     history.push({
@@ -319,14 +320,15 @@ const ReviewWorkbenchPage: React.FC = () => {
   return (
     <PageContainer
       title="审核工作台"
-      content="这里集中处理待审核版本。点击一行会进入统一项目详情页，并自动定位到对应版本。"
+      content="这里集中处理插件版本审核。默认优先展示分配给我的待审核任务，也可以切换查看全队列或我已处理的记录。"
     >
       <Space direction="vertical" size={16} style={{ width: '100%' }}>
         <Segmented
           value={reviewScope}
           onChange={(value) => setReviewScope(value as ReviewScope)}
           options={[
-            { label: '待审核', value: 'pending' },
+            { label: '分配给我', value: 'assigned' },
+            { label: '全部待审核', value: 'all' },
             { label: '我已处理', value: 'reviewed' },
           ]}
         />
@@ -345,7 +347,12 @@ const ReviewWorkbenchPage: React.FC = () => {
         <Row gutter={12}>
           <Col xs={24} sm={12} lg={6}>
             <Card bordered={false} loading={summaryLoading} style={cardStyle}>
-              <Statistic title="待审核" value={summary.pending} />
+              <Statistic title="分配给我的待审核" value={summary.assignedPending} />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card bordered={false} loading={summaryLoading} style={cardStyle}>
+              <Statistic title="全队列待审核" value={summary.allPending} />
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
@@ -356,11 +363,6 @@ const ReviewWorkbenchPage: React.FC = () => {
           <Col xs={24} sm={12} lg={6}>
             <Card bordered={false} loading={summaryLoading} style={cardStyle}>
               <Statistic title="我已打回" value={summary.rejected} />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} lg={6}>
-            <Card bordered={false} loading={summaryLoading} style={cardStyle}>
-              <Statistic title="我的队列" value={summary.mineQueue} />
             </Card>
           </Col>
         </Row>

@@ -5,8 +5,9 @@ import { history, useLocation, useParams } from '@umijs/max';
 import { App, Avatar, Button, Card, Col, Descriptions, Empty, Form, Input, Modal, Row, Select, Space, Steps, Tabs, Tag, Timeline, Tooltip, Typography, Upload } from 'antd';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { ArrowLeftOutlined, CheckCircleOutlined, CopyOutlined, FileTextOutlined, InboxOutlined, PlusOutlined, RocketOutlined, StopOutlined } from '@ant-design/icons';
-import { createRelease, getProjectDetail, getReleaseDetail, transitRelease, updatePlugin, uploadPluginAsset } from '@/services/api/plugin';
+import { assignRelease, createRelease, getProjectDetail, getReleaseDetail, transitRelease, updatePlugin, uploadPluginAsset } from '@/services/api/plugin';
 import { getCurrentUserInfo, getUserList } from '@/services/api/user';
+import { buildReleaseAssignmentPayload, buildReleaseTransitionPayload, resolveDetailEntryMeta, resolveInitialTab } from '../utils/pluginWorkbench';
 
 type ProjectStatus = 'planning' | 'active' | 'offlined';
 type RequestType = 'initial' | 'maintenance' | 'offline';
@@ -46,9 +47,9 @@ const AssetUploadField: React.FC<{ value?: string; onChange?: (value?: string) =
   return (
     <Upload.Dragger accept={accept} maxCount={1} fileList={fileList} customRequest={async (options) => {
       const res: any = await uploadPluginAsset(options.file as File).catch((e) => e);
-      if (!res || res.code !== 0) return message.error(res?.msg || '鏂囦欢涓婁紶澶辫触'), options.onError?.(new Error('upload failed'));
+      if (!res || res.code !== 0) return message.error(res?.msg || '文件上传失败'), options.onError?.(new Error('upload failed'));
       const url = res?.data?.url || res?.data?.fileUrl || res?.data;
-      if (!url) return message.error('涓婁紶鎴愬姛浣嗘湭杩斿洖鏂囦欢鍦板潃'), options.onError?.(new Error('missing file url'));
+      if (!url) return message.error('上传成功但未返回文件地址'), options.onError?.(new Error('missing file url'));
       setFileList([{ uid: url, name: (options.file as File).name, status: 'done', url }]);
       onChange?.(url); options.onSuccess?.(res);
     }} onRemove={() => { setFileList([]); onChange?.(undefined); return true; }}>
@@ -67,7 +68,6 @@ const PluginProjectPage: React.FC = () => {
   const projectId = Number(params.id);
   const source = query.get('from') || 'project';
   const preferredReleaseId = Number(query.get('releaseId') || 0);
-  const initialTab = query.get('tab') || (source === 'review' || source === 'publish' ? 'review' : 'overview');
   const [projectForm] = Form.useForm();
   const [versionForm] = Form.useForm();
   const [offlineForm] = Form.useForm();
@@ -79,14 +79,16 @@ const PluginProjectPage: React.FC = () => {
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [versionModalOpen, setVersionModalOpen] = useState(false);
   const [offlineModalOpen, setOfflineModalOpen] = useState(false);
+  const [submitModalOpen, setSubmitModalOpen] = useState(false);
   const [reviewModal, setReviewModal] = useState<{ action: 'approve' | 'reject' }>();
+  const [assignModal, setAssignModal] = useState<{ target: 'reviewer' | 'publisher' }>();
+  const [submitReviewerId, setSubmitReviewerId] = useState<number>();
   const [reviewComment, setReviewComment] = useState('');
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [approvePublisherId, setApprovePublisherId] = useState<number>();
+  const [assignUserId, setAssignUserId] = useState<number>();
+  const [assignComment, setAssignComment] = useState('');
+  const [activeTab, setActiveTab] = useState('overview');
   const [actionLoading, setActionLoading] = useState(false);
-
-  useEffect(() => { if (projectId) void bootstrap(); }, [projectId]);
-  useEffect(() => { if (location.search.includes('action=new-version')) setVersionModalOpen(true); }, [location.search]);
-  useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
 
   const bootstrap = async () => { await Promise.all([loadCurrentUser(), loadUsers(), loadProject()]); };
   const loadCurrentUser = async () => { const res: any = await getCurrentUserInfo({ skipErrorHandler: true }); if (res?.code === 0) setCurrentUser(res.data); };
@@ -95,7 +97,10 @@ const PluginProjectPage: React.FC = () => {
     setLoading(true);
     const res: any = await getProjectDetail({ id: projectId }, { skipErrorHandler: true }).catch((e) => e);
     setLoading(false);
-    if (!res || res.code !== 0) return message.error(res?.msg || '鍔犺浇椤圭洰璇︽儏澶辫触');
+    if (!res || res.code !== 0) {
+      message.error(res?.msg || '加载项目详情失败');
+      return;
+    }
     const versions = [...(res.data?.versions || [])].sort((a, b) => getTime(b.createdAt) - getTime(a.createdAt));
     const detail = { ...res.data, versions };
     setProject(detail);
@@ -112,31 +117,72 @@ const PluginProjectPage: React.FC = () => {
   const canManageProject = useMemo(() => Array.from(authorityIds).some((id) => requesterRoleIds.has(id)), [authorityIds]);
   const canReview = useMemo(() => Array.from(authorityIds).some((id) => reviewerRoleIds.has(id)), [authorityIds]);
   const canPublish = useMemo(() => Array.from(authorityIds).some((id) => publisherRoleIds.has(id)), [authorityIds]);
+  const effectiveSource = useMemo(() => {
+    if (source === 'review' || source === 'publish') return source;
+    if (canManageProject) return 'project';
+    if (canReview) return 'review';
+    if (canPublish) return 'publish';
+    return 'project';
+  }, [canManageProject, canPublish, canReview, source]);
+  const initialTab = resolveInitialTab(effectiveSource, query.get('tab'));
+  const entryMeta = useMemo(() => resolveDetailEntryMeta(effectiveSource), [effectiveSource]);
   const selectedVersion = useMemo(() => (project?.versions || []).find((item: any) => item.ID === selectedVersionId) || project?.versions?.[0], [project, selectedVersionId]);
   const userMap = useMemo(() => Object.fromEntries(userOptions.map((item) => [item.value, item.label])), [userOptions]);
+  const currentProjectStatus = (project?.currentStatus as ProjectStatus | undefined) || 'planning';
+  const selectedRequestType = selectedVersion?.requestType as RequestType | undefined;
+  const selectedReleaseStatus = selectedVersion?.status as ReleaseStatus | undefined;
   const currentStep = selectedVersion ? (['draft', 'release_preparing'].includes(selectedVersion.status) ? 0 : ['pending_review', 'rejected'].includes(selectedVersion.status) ? 1 : 2) : 0;
-  const stepItems = selectedVersion?.requestType === 'offline' ? [{ title: '涓嬫灦鐢宠' }, { title: '涓嬫灦瀹℃牳' }, { title: '鎵ц涓嬫灦' }] : [{ title: '鎻愪氦璧勬枡' }, { title: '瀹℃牳' }, { title: '鍙戝竷' }];
+  const stepItems = selectedRequestType === 'offline'
+    ? [{ title: '下架申请' }, { title: '下架审核' }, { title: '执行下架' }]
+    : [{ title: '提交资料' }, { title: '审核' }, { title: '发布' }];
   const canSubmitRelease = !!(selectedVersion && canManageProject && currentUser?.ID === selectedVersion.createdBy && ['draft', 'release_preparing'].includes(selectedVersion.status));
   const canReviseRelease = !!(selectedVersion && canManageProject && currentUser?.ID === selectedVersion.createdBy && selectedVersion.status === 'rejected');
   const canApproveRelease = !!(selectedVersion && canReview && currentUser?.ID === selectedVersion.reviewerId && selectedVersion.status === 'pending_review');
   const canPublishRelease = !!(selectedVersion && canPublish && currentUser?.ID === selectedVersion.publisherId && selectedVersion.status === 'approved');
+  const canAssignReviewer = !!(selectedVersion && canManageProject && currentUser?.ID === selectedVersion.createdBy && !['released', 'offlined'].includes(selectedVersion.status));
+  const canAssignPublisher = !!(selectedVersion && ['pending_review', 'approved'].includes(selectedVersion.status) && (currentUser?.ID === selectedVersion.reviewerId || currentUser?.ID === selectedVersion.publisherId || canManageProject));
   const releasedVersionOptions = useMemo(() => (project?.versions || []).filter((item: any) => item.status === 'released' && !item.isOfflined).map((item: any) => ({ label: `v${item.version}`, value: item.ID })), [project]);
-  const backTarget = source === 'review' ? '/plugin/review-workbench' : source === 'publish' ? '/plugin/publish-workbench' : '/plugin/center';
-  const backLabel = source === 'review' ? '返回审核工作台' : source === 'publish' ? '返回发布工作台' : '返回项目管理';
-  const sectionLabel = source === 'review' ? '审核工作台' : source === 'publish' ? '发布工作台' : '项目管理';
-  const pageContent = source === 'review'
-    ? '当前从审核工作台进入，页面已自动定位到待审核版本。你可以在项目上下文中查看资料、时间轴并完成审核。'
-    : source === 'publish'
-      ? '当前从发布工作台进入，页面已自动定位到待发布版本。你可以在项目上下文中查看资料、时间轴并执行发布。'
-      : '项目详情页承载项目基础信息、版本管理和版本流程。先选版本，再查看对应资料、审核与发布时间轴。';
-
-  const handleReleaseAction = async (action: string, comment?: string) => {
+  useEffect(() => { if (projectId) void bootstrap(); }, [projectId]);
+  useEffect(() => { if (location.search.includes('action=new-version')) setVersionModalOpen(true); }, [location.search]);
+  useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
+  const handleReleaseAction = async (
+    action: 'submit_review' | 'approve' | 'reject' | 'release' | 'revise',
+    comment?: string,
+    options?: { reviewerId?: number; publisherId?: number },
+  ) => {
     if (!selectedVersion) return false;
     setActionLoading(true);
-    const res: any = await transitRelease({ id: selectedVersion.ID, action, reviewComment: comment }, { skipErrorHandler: true }).catch((e) => e);
+    const res: any = await transitRelease(
+      buildReleaseTransitionPayload({
+        id: selectedVersion.ID,
+        action,
+        reviewComment: comment,
+        reviewerId: options?.reviewerId,
+        publisherId: options?.publisherId,
+      }),
+      { skipErrorHandler: true },
+    ).catch((e) => e);
     setActionLoading(false);
     if (!res || res.code !== 0) return message.error(res?.msg || '流程操作失败'), false;
     message.success('版本流程已更新');
+    await loadProject();
+    return true;
+  };
+  const handleAssignAction = async (target: 'reviewer' | 'publisher', userId: number, comment?: string) => {
+    if (!selectedVersion) return false;
+    setActionLoading(true);
+    const res: any = await assignRelease(
+      buildReleaseAssignmentPayload({
+        id: selectedVersion.ID,
+        reviewerId: target === 'reviewer' ? userId : undefined,
+        publisherId: target === 'publisher' ? userId : undefined,
+        comment,
+      }),
+      { skipErrorHandler: true },
+    ).catch((e) => e);
+    setActionLoading(false);
+    if (!res || res.code !== 0) return message.error(res?.msg || '改派失败'), false;
+    message.success(target === 'reviewer' ? '审核人已更新' : '发布人已更新');
     await loadProject();
     return true;
   };
@@ -147,9 +193,9 @@ const PluginProjectPage: React.FC = () => {
       {selectedVersion?.status === 'released' && !selectedVersion?.isOfflined && canManageProject ? <Button danger icon={<StopOutlined />} onClick={() => setOfflineModalOpen(true)}>下架申请</Button> : null}
       {selectedVersion?.status === 'released' && !selectedVersion?.isOfflined && canManageProject ? <Button onClick={() => modal.info({ title: '归档功能待后端支持', content: '当前后端还没有独立的归档接口，这里先保留操作入口和交互位置。' })}>归档</Button> : null}
       {canReviseRelease ? <Button onClick={() => void handleReleaseAction('revise')}>返回筹备</Button> : null}
-      {canSubmitRelease ? <Button type="primary" onClick={() => void handleReleaseAction('submit_review')}>提交资料</Button> : null}
-      {canApproveRelease ? <Button danger onClick={() => { setReviewModal({ action: 'reject' }); setReviewComment(''); }}>打回</Button> : null}
-      {canApproveRelease ? <Button type="primary" icon={<CheckCircleOutlined />} onClick={() => { setReviewModal({ action: 'approve' }); setReviewComment(''); }}>审核通过</Button> : null}
+      {canSubmitRelease ? <Button type="primary" onClick={() => { setSubmitReviewerId(selectedVersion?.reviewerId || undefined); setSubmitModalOpen(true); }}>提交资料</Button> : null}
+      {canApproveRelease ? <Button danger onClick={() => { setReviewModal({ action: 'reject' }); setReviewComment(''); setApprovePublisherId(undefined); }}>打回</Button> : null}
+      {canApproveRelease ? <Button type="primary" icon={<CheckCircleOutlined />} onClick={() => { setReviewModal({ action: 'approve' }); setReviewComment(''); setApprovePublisherId(selectedVersion?.publisherId || undefined); }}>审核通过</Button> : null}
       {canPublishRelease ? <Button type="primary" icon={<RocketOutlined />} onClick={() => modal.confirm({ title: selectedVersion?.requestType === 'offline' ? '执行下架' : '执行发布', content: '将先视为已完成全面扫描，再执行最终动作。', onOk: () => handleReleaseAction('release') })}>{selectedVersion?.requestType === 'offline' ? '执行下架' : '执行发布'}</Button> : null}
     </Space>
   );
@@ -160,24 +206,24 @@ const PluginProjectPage: React.FC = () => {
       title={false}
       breadcrumb={{
         routes: [
-          { path: '/plugin', breadcrumbName: '插件发布' },
-          { path: backTarget, breadcrumbName: sectionLabel },
-          { path: location.pathname, breadcrumbName: project?.nameZh || '项目详情' },
+          { breadcrumbName: '插件发布' },
+          { breadcrumbName: entryMeta.sectionLabel },
+          { breadcrumbName: project?.nameZh || '项目详情' },
         ],
       }}
-      content={pageContent}
+      content={entryMeta.pageContent}
     >
       {project ? (
         <Row gutter={[16, 16]}>
           <Col xs={24} lg={8} xl={6}>
             <Space direction="vertical" size={16} style={{ width: '100%', position: 'sticky', top: 24 }}>
               <Card bordered={false} style={cardStyle} bodyStyle={{ padding: 24, textAlign: 'center' }}>
-                <Button type="link" icon={<ArrowLeftOutlined />} style={{ paddingInline: 0, marginBottom: 16, float: 'left' }} onClick={() => history.push(backTarget)}>{backLabel}</Button>
+                <Button type="link" icon={<ArrowLeftOutlined />} style={{ paddingInline: 0, marginBottom: 16, float: 'left' }} onClick={() => history.push(entryMeta.backTarget)}>{entryMeta.backLabel}</Button>
                 <div style={{ clear: 'both' }} />
                 <Avatar shape="square" size={100} style={{ background: '#e8f3ff', color: '#1677ff', borderRadius: 24, fontSize: 36, fontWeight: 700, marginBottom: 16 }}>{(project.code || 'P').slice(0, 1).toUpperCase()}</Avatar>
                 <Typography.Title level={4} style={{ margin: 0, marginBottom: 4 }}>{project.nameZh || '-'}</Typography.Title>
                 <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>{project.nameEn || '-'}</Typography.Paragraph>
-                <Tag color={projectStatusMap[project.currentStatus || 'planning']?.color}>{projectStatusMap[project.currentStatus || 'planning']?.label}</Tag>
+                <Tag color={projectStatusMap[currentProjectStatus].color}>{projectStatusMap[currentProjectStatus].label}</Tag>
                 <Descriptions column={1} size="small" style={{ marginTop: 24, textAlign: 'left' }} labelStyle={{ width: 88 }}>
                   <Descriptions.Item label="项目编码">{project.code || '-'}</Descriptions.Item>
                   <Descriptions.Item label="负责人">{project.owner || '-'}</Descriptions.Item>
@@ -216,7 +262,7 @@ const PluginProjectPage: React.FC = () => {
                       value={selectedVersion?.ID}
                       style={{ width: 320 }}
                       options={(project.versions || []).map((item: any) => ({
-                        label: `${item.version ? `v${item.version}` : requestTypeMap[item.requestType]} / ${releaseStatusMap[item.status]?.label || item.status}`,
+                        label: `${item.version ? `v${item.version}` : requestTypeMap[item.requestType as RequestType]} / ${releaseStatusMap[item.status as ReleaseStatus]?.label || item.status}`,
                         value: item.ID,
                       }))}
                       onChange={(value) => {
@@ -226,8 +272,10 @@ const PluginProjectPage: React.FC = () => {
                     />
                     {selectedVersion ? (
                       <Space wrap size={8}>
-                        <Tag color="blue">{requestTypeMap[selectedVersion.requestType]}</Tag>
-                        <Tag color={releaseStatusMap[selectedVersion.status]?.color}>{releaseStatusMap[selectedVersion.status]?.label}</Tag>
+                        <Tag color="blue">{selectedRequestType ? requestTypeMap[selectedRequestType] : '-'}</Tag>
+                        <Tag color={selectedReleaseStatus ? releaseStatusMap[selectedReleaseStatus].color : 'default'}>
+                          {selectedReleaseStatus ? releaseStatusMap[selectedReleaseStatus].label : '-'}
+                        </Tag>
                       </Space>
                     ) : (
                       <Tag>暂无版本</Tag>
@@ -293,13 +341,49 @@ const PluginProjectPage: React.FC = () => {
                             <Descriptions column={2} size="small" labelStyle={{ width: 120 }}>
                               <Descriptions.Item label="提交人">{userMap[selectedVersion.createdBy] || `#${selectedVersion.createdBy}`}</Descriptions.Item>
                               <Descriptions.Item label="提交时间">{selectedVersion.createdAt || '-'}</Descriptions.Item>
-                              <Descriptions.Item label="审核人">{selectedVersion.reviewerId ? userMap[selectedVersion.reviewerId] || `#${selectedVersion.reviewerId}` : '-'}</Descriptions.Item>
-                              <Descriptions.Item label="审核状态">{releaseStatusMap[selectedVersion.status]?.label || '-'}</Descriptions.Item>
+                              <Descriptions.Item label="当前审核人">
+                                <Space wrap size={8}>
+                                  <span>{selectedVersion.reviewerId ? userMap[selectedVersion.reviewerId] || `#${selectedVersion.reviewerId}` : '-'}</span>
+                                  {canAssignReviewer ? (
+                                    <Button
+                                      type="link"
+                                      size="small"
+                                      style={{ paddingInline: 0 }}
+                                      onClick={() => {
+                                        setAssignModal({ target: 'reviewer' });
+                                        setAssignUserId(selectedVersion?.reviewerId || undefined);
+                                        setAssignComment('');
+                                      }}
+                                    >
+                                      改派
+                                    </Button>
+                                  ) : null}
+                                </Space>
+                              </Descriptions.Item>
+                              <Descriptions.Item label="审核状态">{selectedReleaseStatus ? releaseStatusMap[selectedReleaseStatus].label : '-'}</Descriptions.Item>
                               <Descriptions.Item label="审核意见" span={2}>{selectedVersion.reviewComment || '-'}</Descriptions.Item>
-                              <Descriptions.Item label="AI 扫描结果摘要" span={2}>待后端补充 AI 扫描字段，当前先保留展示区域。</Descriptions.Item>
-                              <Descriptions.Item label="发布管理员">{selectedVersion.publisherId ? userMap[selectedVersion.publisherId] || `#${selectedVersion.publisherId}` : '-'}</Descriptions.Item>
+                              <Descriptions.Item label="AI 扫描结果摘要" span={2}>后端暂未返回 AI 扫描摘要，当前先保留该展示位，便于后续直接接入。</Descriptions.Item>
+                              <Descriptions.Item label="当前发布人">
+                                <Space wrap size={8}>
+                                  <span>{selectedVersion.publisherId ? userMap[selectedVersion.publisherId] || `#${selectedVersion.publisherId}` : '审核通过时指定'}</span>
+                                  {canAssignPublisher ? (
+                                    <Button
+                                      type="link"
+                                      size="small"
+                                      style={{ paddingInline: 0 }}
+                                      onClick={() => {
+                                        setAssignModal({ target: 'publisher' });
+                                        setAssignUserId(selectedVersion?.publisherId || undefined);
+                                        setAssignComment('');
+                                      }}
+                                    >
+                                      改派
+                                    </Button>
+                                  ) : null}
+                                </Space>
+                              </Descriptions.Item>
                               <Descriptions.Item label="发布时间">{selectedVersion.releasedAt || selectedVersion.offlinedAt || '-'}</Descriptions.Item>
-                              <Descriptions.Item label="全面扫描结果" span={2}>当前发布动作前提供确认步骤，全面扫描结果摘要待后端字段补充。</Descriptions.Item>
+                              <Descriptions.Item label="全面扫描结果" span={2}>当前先以发布确认动作承载该步骤；后端补齐结果字段后，这里会展示完整扫描结论。</Descriptions.Item>
                             </Descriptions>
                           ),
                         },
@@ -353,10 +437,8 @@ const PluginProjectPage: React.FC = () => {
       <ModalForm form={versionForm} title="创建新版本" width={840} open={versionModalOpen} modalProps={{ destroyOnClose: true, onCancel: () => setVersionModalOpen(false) }} onFinish={async (values) => { const res: any = await createRelease({ ...values, pluginId: projectId }, { skipErrorHandler: true }).catch((e) => e); if (!res || res.code !== 0) return message.error(res?.msg || '保存版本失败'), false; message.success('版本已创建'); setVersionModalOpen(false); await loadProject(); return true; }}>
         <ProFormSelect name="requestType" label="版本类型" initialValue="maintenance" valueEnum={{ initial: '首发', maintenance: '版本更新' }} rules={[{ required: true }]} />
         <ProFormText name="version" label="版本号" rules={[{ required: true }]} />
-        <ProFormText name="versionConstraint" label="版本限制 / 兼容信息" extra="当前后端还没有独立的 HCI / ACLI 字段，可先按 “HCI 3.1 / ACLI 1.2” 方式填写。" />
+        <ProFormText name="versionConstraint" label="兼容信息" extra="当前后端还没有独立的 HCI / ACLI 字段，可先按 “HCI 3.1 / ACLI 1.2” 的格式填写。" />
         <ProFormText name="publisher" label="发布人" rules={[{ required: true }]} />
-        <ProFormSelect name="reviewerId" label="审核人" options={userOptions} rules={[{ required: true }]} />
-        <ProFormSelect name="publisherId" label="发布管理员" options={userOptions} rules={[{ required: true }]} />
         <ProFormTextArea name="performanceSummaryZh" label="性能结论（中文）" fieldProps={{ rows: 3 }} />
         <ProFormTextArea name="performanceSummaryEn" label="Performance Summary (English)" fieldProps={{ rows: 3 }} />
         <Form.Item name="testReportUrl" label="测试报告" rules={[{ required: true }]}><AssetUploadField hint="上传测试报告文件" accept=".pdf,.doc,.docx,.xls,.xlsx" /></Form.Item>
@@ -368,11 +450,48 @@ const PluginProjectPage: React.FC = () => {
 
       <ModalForm form={offlineForm} title="发起下架申请" width={760} open={offlineModalOpen} modalProps={{ destroyOnClose: true, onCancel: () => setOfflineModalOpen(false) }} onFinish={async (values) => { const res: any = await createRelease({ ...values, pluginId: projectId, requestType: 'offline' }, { skipErrorHandler: true }).catch((e) => e); if (!res || res.code !== 0) return message.error(res?.msg || '保存下架申请失败'), false; message.success('下架申请已创建'); setOfflineModalOpen(false); await loadProject(); return true; }}>
         <ProFormSelect name="targetReleaseId" label="目标版本" options={releasedVersionOptions} rules={[{ required: true }]} />
-        <ProFormSelect name="reviewerId" label="审核人" options={userOptions} rules={[{ required: true }]} />
-        <ProFormSelect name="publisherId" label="执行发布管理员" options={userOptions} rules={[{ required: true }]} />
         <ProFormTextArea name="offlineReasonZh" label="下架原因（中文）" fieldProps={{ rows: 4 }} rules={[{ required: true }]} />
         <ProFormTextArea name="offlineReasonEn" label="Offline Reason (English)" fieldProps={{ rows: 4 }} rules={[{ required: true }]} />
       </ModalForm>
+
+      <Modal
+        open={submitModalOpen}
+        title="提交审核"
+        confirmLoading={actionLoading}
+        onCancel={() => {
+          setSubmitModalOpen(false);
+          setSubmitReviewerId(undefined);
+        }}
+        onOk={async () => {
+          if (!submitReviewerId) {
+            message.warning('提交审核前需要指定审核人');
+            return;
+          }
+          const ok = await handleReleaseAction('submit_review', undefined, { reviewerId: submitReviewerId });
+          if (ok) {
+            setSubmitModalOpen(false);
+            setSubmitReviewerId(undefined);
+          }
+        }}
+      >
+        <Typography.Paragraph>
+          版本资料填写完成后，再在这里指定审核人并发起审核流程。
+        </Typography.Paragraph>
+        <div>
+          <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+            指派审核人
+          </Typography.Text>
+          <Select
+            showSearch
+            style={{ width: '100%' }}
+            placeholder="请选择负责审核当前版本的处理人"
+            optionFilterProp="label"
+            value={submitReviewerId}
+            options={userOptions}
+            onChange={setSubmitReviewerId}
+          />
+        </div>
+      </Modal>
 
       <Modal
         open={!!reviewModal}
@@ -381,28 +500,104 @@ const PluginProjectPage: React.FC = () => {
         onCancel={() => {
           setReviewModal(undefined);
           setReviewComment('');
+          setApprovePublisherId(undefined);
         }}
         onOk={async () => {
           if (reviewModal?.action === 'reject' && !reviewComment.trim()) {
-            return message.warning('打回时必须填写意见');
+            message.warning('打回时必须填写意见');
+            return;
           }
-          const ok = await handleReleaseAction(reviewModal?.action || 'approve', reviewComment.trim());
+          if (reviewModal?.action === 'approve' && !approvePublisherId) {
+            message.warning('审核通过前需要指定发布人');
+            return;
+          }
+          const ok = await handleReleaseAction(
+            reviewModal?.action || 'approve',
+            reviewComment.trim(),
+            { publisherId: reviewModal?.action === 'approve' ? approvePublisherId : undefined },
+          );
           if (ok) {
             setReviewModal(undefined);
             setReviewComment('');
+            setApprovePublisherId(undefined);
           }
         }}
       >
         <Typography.Paragraph>
           {reviewModal?.action === 'approve'
-            ? '可填写审核备注，便于提交人和发布管理员了解审核结论。'
+            ? '审核通过时需要指定下一阶段的发布人，也可以补充审核备注。'
             : '请填写打回意见，提交人会根据这里的意见补充资料。'}
         </Typography.Paragraph>
+        {reviewModal?.action === 'approve' ? (
+          <div style={{ marginBottom: 16 }}>
+            <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+              指派发布人
+            </Typography.Text>
+            <Select
+              showSearch
+              style={{ width: '100%' }}
+              placeholder="请选择负责执行发布或下架的处理人"
+              optionFilterProp="label"
+              value={approvePublisherId}
+              options={userOptions}
+              onChange={setApprovePublisherId}
+            />
+          </div>
+        ) : null}
         <Input.TextArea
           rows={4}
           value={reviewComment}
           onChange={(e) => setReviewComment(e.target.value)}
           placeholder={reviewModal?.action === 'approve' ? '请输入审核备注（可选）' : '请输入打回意见（必填）'}
+        />
+      </Modal>
+
+      <Modal
+        open={!!assignModal}
+        title={assignModal?.target === 'reviewer' ? '改派审核人' : '改派发布人'}
+        confirmLoading={actionLoading}
+        onCancel={() => {
+          setAssignModal(undefined);
+          setAssignUserId(undefined);
+          setAssignComment('');
+        }}
+        onOk={async () => {
+          if (!assignModal?.target || !assignUserId) {
+            message.warning('请先选择处理人');
+            return;
+          }
+          const ok = await handleAssignAction(assignModal.target, assignUserId, assignComment.trim());
+          if (ok) {
+            setAssignModal(undefined);
+            setAssignUserId(undefined);
+            setAssignComment('');
+          }
+        }}
+      >
+        <Typography.Paragraph>
+          {assignModal?.target === 'reviewer'
+            ? '改派后，新的审核人会在工作台里看到这条任务。'
+            : '改派后，新的发布人会接手后续发布或下架动作。'}
+        </Typography.Paragraph>
+        <div style={{ marginBottom: 16 }}>
+          <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+            {assignModal?.target === 'reviewer' ? '选择审核人' : '选择发布人'}
+          </Typography.Text>
+          <Select
+            showSearch
+            style={{ width: '100%' }}
+            placeholder={assignModal?.target === 'reviewer' ? '请选择新的审核人' : '请选择新的发布人'}
+            optionFilterProp="label"
+            value={assignUserId}
+            options={userOptions}
+            onChange={setAssignUserId}
+          />
+        </div>
+        <Input.TextArea
+          rows={4}
+          value={assignComment}
+          onChange={(e) => setAssignComment(e.target.value)}
+          placeholder="可填写改派说明（选填）"
         />
       </Modal>
     </PageContainer>

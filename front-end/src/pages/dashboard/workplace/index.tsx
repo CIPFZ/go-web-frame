@@ -35,6 +35,9 @@ const workplaceModules = [
 ];
 
 const defaultVisibleModules = workplaceModules.map((item) => item.value);
+const requesterRoleIds = new Set([10010]);
+const reviewerRoleIds = new Set([10013]);
+const publisherRoleIds = new Set([10014]);
 
 const toPercent = (used = 0, total = 0) => {
   if (!total) return 0;
@@ -101,6 +104,21 @@ const Workplace: React.FC = () => {
   const ramPercent = toPercent(server?.ram?.used || 0, server?.ram?.total || 0);
   const pluginOverview = pluginOverviewQuery.data?.data;
   const showModule = (moduleName: string) => visibleModules.includes(moduleName);
+  const authorityIds = useMemo(() => {
+    const ids = new Set<number>();
+    if (initialState?.currentUser?.authorityId) ids.add(initialState.currentUser.authorityId);
+    (initialState?.currentUser?.authorities || []).forEach((item: any) => {
+      if (item?.authorityId) ids.add(item.authorityId);
+    });
+    return ids;
+  }, [initialState?.currentUser]);
+  const pluginEntryPath = useMemo(() => {
+    const ids = Array.from(authorityIds);
+    if (ids.some((id) => requesterRoleIds.has(id) || id === 1 || id === 9528)) return '/plugin/center';
+    if (ids.some((id) => reviewerRoleIds.has(id))) return '/plugin/review-workbench';
+    if (ids.some((id) => publisherRoleIds.has(id))) return '/plugin/publish-workbench';
+    return '/plugin/center';
+  }, [authorityIds]);
 
   const saveWorkplaceConfig = async () => {
     if (!visibleModules.length) {
@@ -191,7 +209,7 @@ const Workplace: React.FC = () => {
             title="插件模块"
             colSpan={{ xs: 24, lg: 12 }}
             loading={pluginOverviewQuery.loading}
-            extra={<Link to="/plugin/center">进入插件中心</Link>}
+            extra={<Link to={pluginEntryPath}>进入插件中心</Link>}
           >
             <Space wrap size={[12, 12]}>
               <Tag color="blue">项目 {pluginOverview?.projectCount || 0}</Tag>

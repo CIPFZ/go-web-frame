@@ -54,6 +54,7 @@ export default [
       {
         path: '/plugin/center',
         component: './plugin/project-center',
+        access: 'canManagePluginProjects',
       },
       {
         path: '/plugin/market',
@@ -62,19 +63,23 @@ export default [
       {
         path: '/plugin/project-management',
         component: './plugin/project-center',
+        access: 'canManagePluginProjects',
       },
       {
         path: '/plugin/review-workbench',
         component: './plugin/review-workbench',
+        access: 'canReviewPlugins',
       },
       {
         path: '/plugin/publish-workbench',
         component: './plugin/publish-workbench',
+        access: 'canPublishPlugins',
       },
       {
         path: '/plugin/project/:id',
         component: './plugin/project',
         hideInMenu: true,
+        access: 'canAccessPluginProjectDetail',
       },
     ],
   },

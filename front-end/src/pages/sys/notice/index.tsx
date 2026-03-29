@@ -31,6 +31,8 @@ type NoticeItem = {
   createdAt: string;
 };
 
+type NoticeTargetType = NoticeItem['targetType'];
+
 const levelColor: Record<string, string> = {
   info: 'blue',
   warning: 'orange',
@@ -62,7 +64,7 @@ const flattenAuthorities = (nodes: any[] = []): { label: string; value: number }
 
 const NoticeAdminPage: React.FC = () => {
   const [createVisible, setCreateVisible] = useState(false);
-  const [targetType, setTargetType] = useState<'all' | 'roles' | 'users'>('all');
+  const [targetType, setTargetType] = useState<NoticeTargetType>('all');
   const [roleOptions, setRoleOptions] = useState<{ label: string; value: number }[]>([]);
   const [userOptions, setUserOptions] = useState<{ label: string; value: number }[]>([]);
 
@@ -186,11 +188,12 @@ const NoticeAdminPage: React.FC = () => {
           valueEnum={{ all: '全体用户', roles: '按角色', users: '指定用户' }}
           fieldProps={{
             onChange: async (v) => {
-              setTargetType(v);
-              if (v === 'roles' && roleOptions.length === 0) {
+              const nextType = v as NoticeTargetType;
+              setTargetType(nextType);
+              if (nextType === 'roles' && roleOptions.length === 0) {
                 await loadRoles();
               }
-              if (v === 'users' && userOptions.length === 0) {
+              if (nextType === 'users' && userOptions.length === 0) {
                 await loadUsers();
               }
             },

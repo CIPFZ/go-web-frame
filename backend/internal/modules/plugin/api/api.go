@@ -175,3 +175,16 @@ func (a *PluginApi) TransitRelease(c *gin.Context) {
 	}
 	response.OkWithMessage("ok", c)
 }
+
+func (a *PluginApi) AssignRelease(c *gin.Context) {
+	var req dto.AssignReleaseReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailWithMessage("invalid request: "+err.Error(), c)
+		return
+	}
+	if err := a.pluginService.AssignRelease(c.Request.Context(), req, utils.GetUserID(c)); err != nil {
+		response.FailWithMessage("assign release failed: "+err.Error(), c)
+		return
+	}
+	response.OkWithMessage("ok", c)
+}

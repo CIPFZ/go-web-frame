@@ -45,6 +45,21 @@ export interface ReleaseListQuery {
   publisherId?: number;
 }
 
+export interface ReleaseTransitionPayload {
+  id: number;
+  action: 'submit_review' | 'approve' | 'reject' | 'release' | 'revise';
+  reviewComment?: string;
+  reviewerId?: number;
+  publisherId?: number;
+}
+
+export interface ReleaseAssignPayload {
+  id: number;
+  reviewerId?: number;
+  publisherId?: number;
+  comment?: string;
+}
+
 export async function getPluginList(body: any, options?: { [key: string]: any }) {
   return request<API.CommonResponse>('/api/v1/plugin/plugin/getPluginList', {
     method: 'POST',
@@ -124,8 +139,17 @@ export async function updateRelease(body: any, options?: { [key: string]: any })
   });
 }
 
-export async function transitRelease(body: any, options?: { [key: string]: any }) {
+export async function transitRelease(body: ReleaseTransitionPayload, options?: { [key: string]: any }) {
   return request<API.CommonResponse>('/api/v1/plugin/release/transition', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: body,
+    ...(options || {}),
+  });
+}
+
+export async function assignRelease(body: ReleaseAssignPayload, options?: { [key: string]: any }) {
+  return request<API.CommonResponse>('/api/v1/plugin/release/assign', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     data: body,

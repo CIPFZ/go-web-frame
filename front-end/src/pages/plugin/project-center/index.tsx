@@ -41,6 +41,8 @@ type PluginItem = {
 };
 
 const requesterRoleIds = new Set([10010]);
+const reviewerRoleIds = new Set([10013]);
+const publisherRoleIds = new Set([10014]);
 
 const cardStyle: React.CSSProperties = {
   borderRadius: 8,
@@ -92,9 +94,12 @@ const PluginProjectCenterPage: React.FC = () => {
   }, [keyword, statusFilter, ownerFilter, viewMode]);
 
   const bootstrap = async () => {
-    const userLoaded = await loadCurrentUser();
-    if (!userLoaded) {
+    const user = await loadCurrentUser();
+    if (!user) {
       setProjects([]);
+      return;
+    }
+    if (shouldRedirectToWorkbench(user)) {
       return;
     }
     await loadData();
@@ -104,9 +109,9 @@ const PluginProjectCenterPage: React.FC = () => {
     const res: any = await getCurrentUserInfo({ skipErrorHandler: true }).catch((error) => error);
     if (res?.code === 0) {
       setCurrentUser(res.data);
-      return true;
+      return res.data as API.UserInfo;
     }
-    return false;
+    return undefined;
   };
 
   const loadData = async () => {
@@ -138,6 +143,40 @@ const PluginProjectCenterPage: React.FC = () => {
     () => Array.from(authorityIds).some((id) => requesterRoleIds.has(id)),
     [authorityIds],
   );
+  const canReview = useMemo(
+    () => Array.from(authorityIds).some((id) => reviewerRoleIds.has(id)),
+    [authorityIds],
+  );
+  const canPublish = useMemo(
+    () => Array.from(authorityIds).some((id) => publisherRoleIds.has(id)),
+    [authorityIds],
+  );
+
+  const shouldRedirectToWorkbench = (user?: API.UserInfo) => {
+    const ids = user
+      ? [
+          ...(user.authorityId ? [user.authorityId] : []),
+          ...((user.authorities || []).map((item: any) => item?.authorityId).filter(Boolean) as number[]),
+        ]
+      : Array.from(authorityIds);
+    if (ids.some((id) => requesterRoleIds.has(id) || id === 1 || id === 9528)) {
+      return false;
+    }
+    if (ids.some((id) => reviewerRoleIds.has(id))) {
+      history.replace('/plugin/review-workbench');
+      return true;
+    }
+    if (ids.some((id) => publisherRoleIds.has(id))) {
+      history.replace('/plugin/publish-workbench');
+      return true;
+    }
+    return false;
+  };
+
+  useEffect(() => {
+    if (!currentUser) return;
+    shouldRedirectToWorkbench();
+  }, [currentUser]);
 
   const projectRecords = useMemo(
     () =>
@@ -188,6 +227,14 @@ const PluginProjectCenterPage: React.FC = () => {
   };
 
   const canEditProject = (record: PluginItem) => canManageProject && !!currentUser?.ID && record.createdBy === currentUser.ID;
+
+  if (!canManageProject && canReview) {
+    return null;
+  }
+
+  if (!canManageProject && canPublish) {
+    return null;
+  }
 
   return (
     <PageContainer

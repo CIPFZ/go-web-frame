@@ -90,6 +90,15 @@ type ReleaseActionReq struct {
 	ID            uint          `json:"id" binding:"required"`
 	Action        ReleaseAction `json:"action" binding:"required"`
 	ReviewComment string        `json:"reviewComment"`
+	ReviewerID    *uint         `json:"reviewerId"`
+	PublisherID   *uint         `json:"publisherId"`
+}
+
+type AssignReleaseReq struct {
+	ID          uint   `json:"id" binding:"required"`
+	ReviewerID  *uint  `json:"reviewerId"`
+	PublisherID *uint  `json:"publisherId"`
+	Comment     string `json:"comment"`
 }
 
 type GetReleaseDetailReq struct {

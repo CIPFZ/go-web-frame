@@ -37,6 +37,7 @@ type IPluginService interface {
 	CreateRelease(ctx context.Context, req dto.CreateReleaseReq, creatorID uint) error
 	UpdateRelease(ctx context.Context, req dto.UpdateReleaseReq) error
 	TransitRelease(ctx context.Context, req dto.ReleaseActionReq, reviewerID uint) error
+	AssignRelease(ctx context.Context, req dto.AssignReleaseReq, actorID uint) error
 }
 
 type PluginService struct {
@@ -54,6 +55,9 @@ func (s *PluginService) GetPluginList(ctx context.Context, req dto.SearchPluginR
 		user, err := s.users.FindById(ctx, userID)
 		if err != nil {
 			return common.PageResult{}, errors.New("current user not found")
+		}
+		if !s.canAccessProjectCenter(user) {
+			return common.PageResult{}, errors.New("you are not allowed to view the project center")
 		}
 		if s.shouldScopePluginListToRequester(user) {
 			req.CreatedBy = userID
@@ -239,6 +243,7 @@ func (s *PluginService) TransitRelease(ctx context.Context, req dto.ReleaseActio
 	}
 	now := time.Now()
 	reviewComment := strings.TrimSpace(req.ReviewComment)
+	eventComment := reviewComment
 
 	return s.repo.Transaction(ctx, func(tx *gorm.DB) error {
 		fromStatus := release.Status
@@ -250,11 +255,23 @@ func (s *PluginService) TransitRelease(ctx context.Context, req dto.ReleaseActio
 			if release.Status != pluginModel.PluginReleaseStatusReleasePreparing && !(release.RequestType == pluginModel.PluginReleaseTypeOffline && release.Status == pluginModel.PluginReleaseStatusDraft) {
 				return errors.New("current status cannot submit review")
 			}
+			if req.ReviewerID != nil {
+				if *req.ReviewerID == 0 {
+					return errors.New("reviewer is required when submitting review")
+				}
+				if err := s.ensureReviewerCandidate(release, *req.ReviewerID); err != nil {
+					return err
+				}
+				release.ReviewerID = req.ReviewerID
+			}
 			if err := s.validateReviewSubmission(release); err != nil {
 				return err
 			}
 			release.Status = pluginModel.PluginReleaseStatusPendingReview
 			release.SubmittedAt = &now
+			if release.ReviewerID != nil {
+				eventComment = mergeWorkflowComment(reviewComment, "assigned reviewer #"+strconv.FormatUint(uint64(*release.ReviewerID), 10))
+			}
 		case dto.ReleaseActionApprove:
 			if err := s.ensureReviewer(ctx, reviewerID, release); err != nil {
 				return err
@@ -262,10 +279,23 @@ func (s *PluginService) TransitRelease(ctx context.Context, req dto.ReleaseActio
 			if release.Status != pluginModel.PluginReleaseStatusPendingReview {
 				return errors.New("current status cannot approve")
 			}
+			if req.PublisherID != nil {
+				if *req.PublisherID == 0 {
+					return errors.New("publisher is required when approving")
+				}
+				if *req.PublisherID == reviewerID {
+					return errors.New("reviewer and publisher must be different")
+				}
+				release.PublisherID = req.PublisherID
+			}
+			if release.PublisherID == nil || *release.PublisherID == 0 {
+				return errors.New("publisher must be assigned before approval")
+			}
 			release.Status = pluginModel.PluginReleaseStatusApproved
 			release.ApprovedAt = &now
 			release.ReviewedBy = &reviewerID
 			release.ReviewComment = reviewComment
+			eventComment = mergeWorkflowComment(reviewComment, "assigned publisher #"+strconv.FormatUint(uint64(*release.PublisherID), 10))
 		case dto.ReleaseActionReject:
 			if err := s.ensureReviewer(ctx, reviewerID, release); err != nil {
 				return err
@@ -308,10 +338,70 @@ func (s *PluginService) TransitRelease(ctx context.Context, req dto.ReleaseActio
 		if err := tx.Save(release).Error; err != nil {
 			return err
 		}
-		if err := s.appendReleaseEvent(tx, release, fromStatus, release.Status, string(req.Action), reviewerID, reviewComment); err != nil {
+		if err := s.appendReleaseEvent(tx, release, fromStatus, release.Status, string(req.Action), reviewerID, eventComment); err != nil {
 			return err
 		}
-		return s.createSystemNoticeForTransition(tx, release, fromStatus, release.Status, reviewComment)
+		return s.createSystemNoticeForTransition(tx, release, fromStatus, release.Status, eventComment)
+	})
+}
+
+func (s *PluginService) AssignRelease(ctx context.Context, req dto.AssignReleaseReq, actorID uint) error {
+	release, err := s.repo.FindReleaseByID(ctx, req.ID)
+	if err != nil {
+		return errors.New("release ticket not found")
+	}
+	comment := strings.TrimSpace(req.Comment)
+	assignReviewer := req.ReviewerID != nil
+	assignPublisher := req.PublisherID != nil
+	if !assignReviewer && !assignPublisher {
+		return errors.New("at least one assignee is required")
+	}
+	if assignReviewer && (*req.ReviewerID == 0) {
+		return errors.New("invalid reviewer")
+	}
+	if assignPublisher && (*req.PublisherID == 0) {
+		return errors.New("invalid publisher")
+	}
+
+	return s.repo.Transaction(ctx, func(tx *gorm.DB) error {
+		if assignReviewer {
+			if err := s.ensureReviewerAssignmentActor(ctx, actorID, release); err != nil {
+				return err
+			}
+			if err := s.ensureReviewerCandidate(release, *req.ReviewerID); err != nil {
+				return err
+			}
+			release.ReviewerID = req.ReviewerID
+		}
+		if assignPublisher {
+			if err := s.ensurePublisherAssignmentActor(ctx, actorID, release); err != nil {
+				return err
+			}
+			if err := s.ensurePublisherCandidate(release, *req.PublisherID); err != nil {
+				return err
+			}
+			release.PublisherID = req.PublisherID
+		}
+		if err := tx.Save(release).Error; err != nil {
+			return err
+		}
+
+		action := "assign_release"
+		eventComment := comment
+		if assignReviewer && !assignPublisher {
+			action = "assign_reviewer"
+			eventComment = mergeWorkflowComment(comment, "assigned reviewer #"+strconv.FormatUint(uint64(*req.ReviewerID), 10))
+		} else if assignPublisher && !assignReviewer {
+			action = "assign_publisher"
+			eventComment = mergeWorkflowComment(comment, "assigned publisher #"+strconv.FormatUint(uint64(*req.PublisherID), 10))
+		} else {
+			eventComment = mergeWorkflowComment(comment, "updated workflow assignees")
+		}
+
+		if err := s.appendReleaseEvent(tx, release, release.Status, release.Status, action, actorID, eventComment); err != nil {
+			return err
+		}
+		return s.createSystemNoticeForAssignment(tx, release, assignReviewer, assignPublisher, eventComment)
 	})
 }
 
@@ -388,18 +478,25 @@ func (s *PluginService) appendReleaseEvent(tx *gorm.DB, release *pluginModel.Plu
 }
 
 func (s *PluginService) createSystemNoticeForTransition(tx *gorm.DB, release *pluginModel.PluginRelease, fromStatus, toStatus pluginModel.PluginReleaseStatus, comment string) error {
-	if release.CreatedBy == 0 || fromStatus == toStatus && comment == "" {
+	if release.CreatedBy == 0 || (fromStatus == toStatus && comment == "") {
 		return nil
 	}
 	title := "Plugin workflow updated"
 	content := "Plugin ticket #" + strconv.FormatUint(uint64(release.ID), 10) + " status changed to " + string(toStatus) + "."
+	receivers := []uint{release.CreatedBy}
 	switch toStatus {
 	case pluginModel.PluginReleaseStatusPendingReview:
 		title = "Plugin ticket submitted for review"
 		content = "Ticket #" + strconv.FormatUint(uint64(release.ID), 10) + " has entered review."
+		if release.ReviewerID != nil {
+			receivers = append(receivers, *release.ReviewerID)
+		}
 	case pluginModel.PluginReleaseStatusApproved:
 		title = "Plugin ticket approved"
 		content = "Ticket #" + strconv.FormatUint(uint64(release.ID), 10) + " was approved."
+		if release.PublisherID != nil {
+			receivers = append(receivers, *release.PublisherID)
+		}
 	case pluginModel.PluginReleaseStatusRejected:
 		title = "Plugin ticket rejected"
 		content = "Ticket #" + strconv.FormatUint(uint64(release.ID), 10) + " was rejected."
@@ -413,6 +510,41 @@ func (s *PluginService) createSystemNoticeForTransition(tx *gorm.DB, release *pl
 	if comment != "" {
 		content += " Comment: " + comment
 	}
+	return s.createSystemNotice(tx, title, content, release.CreatedBy, uniqueUserIDs(receivers))
+}
+
+func (s *PluginService) createSystemNoticeForAssignment(tx *gorm.DB, release *pluginModel.PluginRelease, reviewerChanged bool, publisherChanged bool, comment string) error {
+	if release.CreatedBy == 0 {
+		return nil
+	}
+	title := "Plugin assignee updated"
+	content := "Ticket #" + strconv.FormatUint(uint64(release.ID), 10) + " assignee was updated."
+	receivers := []uint{release.CreatedBy}
+	if reviewerChanged && release.ReviewerID != nil {
+		receivers = append(receivers, *release.ReviewerID)
+		title = "Reviewer assignment updated"
+		content = "Ticket #" + strconv.FormatUint(uint64(release.ID), 10) + " has a new reviewer."
+	}
+	if publisherChanged && release.PublisherID != nil {
+		receivers = append(receivers, *release.PublisherID)
+		if reviewerChanged {
+			title = "Workflow assignees updated"
+			content = "Ticket #" + strconv.FormatUint(uint64(release.ID), 10) + " has updated workflow assignees."
+		} else {
+			title = "Publisher assignment updated"
+			content = "Ticket #" + strconv.FormatUint(uint64(release.ID), 10) + " has a new publisher."
+		}
+	}
+	if comment != "" {
+		content += " Comment: " + comment
+	}
+	return s.createSystemNotice(tx, title, content, release.CreatedBy, uniqueUserIDs(receivers))
+}
+
+func (s *PluginService) createSystemNotice(tx *gorm.DB, title string, content string, createdBy uint, receiverIDs []uint) error {
+	if len(receiverIDs) == 0 {
+		return nil
+	}
 	notice := systemModel.SysNotice{
 		Title:       title,
 		Content:     content,
@@ -420,16 +552,25 @@ func (s *PluginService) createSystemNoticeForTransition(tx *gorm.DB, release *pl
 		TargetType:  systemModel.NoticeTargetUsers,
 		NeedConfirm: false,
 		IsPopup:     false,
-		CreatedBy:   release.CreatedBy,
+		CreatedBy:   createdBy,
 	}
 	if err := tx.Create(&notice).Error; err != nil {
 		return err
 	}
-	receiver := systemModel.SysNoticeReceiver{
-		NoticeID: notice.ID,
-		UserID:   release.CreatedBy,
+	receivers := make([]systemModel.SysNoticeReceiver, 0, len(receiverIDs))
+	for _, userID := range receiverIDs {
+		if userID == 0 {
+			continue
+		}
+		receivers = append(receivers, systemModel.SysNoticeReceiver{
+			NoticeID: notice.ID,
+			UserID:   userID,
+		})
 	}
-	return tx.Create(&receiver).Error
+	if len(receivers) == 0 {
+		return nil
+	}
+	return tx.Create(&receivers).Error
 }
 
 func (s *PluginService) validatePluginReq(ctx context.Context, req dto.CreatePluginReq, excludeID uint) error {
@@ -509,16 +650,16 @@ func initialReleaseStatus(requestType pluginModel.PluginReleaseType) pluginModel
 
 func (s *PluginService) validateReviewSubmission(release *pluginModel.PluginRelease) error {
 	if release.RequestType == pluginModel.PluginReleaseTypeOffline {
-		if release.ReviewerID == nil || release.PublisherID == nil {
-			return errors.New("offline request must assign reviewer and publisher")
+		if release.ReviewerID == nil {
+			return errors.New("offline request must assign reviewer")
 		}
 		if strings.TrimSpace(release.OfflineReasonZh) == "" || strings.TrimSpace(release.OfflineReasonEn) == "" {
 			return errors.New("offline reason must be bilingual")
 		}
 		return nil
 	}
-	if release.ReviewerID == nil || release.PublisherID == nil {
-		return errors.New("reviewer and publisher are required before review")
+	if release.ReviewerID == nil {
+		return errors.New("reviewer is required before review")
 	}
 	if strings.TrimSpace(release.Version) == "" ||
 		strings.TrimSpace(release.Publisher) == "" ||
@@ -555,22 +696,12 @@ func (s *PluginService) ensureReleaseActor(ctx context.Context, userID uint, pri
 	return errors.New("you are not allowed to operate this step")
 }
 
-func (s *PluginService) ensureReviewer(ctx context.Context, userID uint, release *pluginModel.PluginRelease) error {
-	if release.ReviewerID != nil && *release.ReviewerID == userID {
-		if userID == release.CreatedBy {
-			return errors.New("creator cannot self-review")
-		}
-		if release.PublisherID != nil && *release.PublisherID == userID {
-			return errors.New("reviewer and publisher must be different")
-		}
-		return nil
+func (s *PluginService) ensureReviewer(_ context.Context, userID uint, release *pluginModel.PluginRelease) error {
+	if release.ReviewerID == nil || *release.ReviewerID == 0 {
+		return errors.New("reviewer is not assigned for this ticket")
 	}
-	user, err := s.users.FindById(ctx, userID)
-	if err != nil {
-		return errors.New("current user not found")
-	}
-	if !hasAuthority(user, pluginAuthorityReviewer) {
-		return errors.New("only reviewer can approve or reject")
+	if *release.ReviewerID != userID {
+		return errors.New("only the assigned reviewer can approve or reject")
 	}
 	if userID == release.CreatedBy {
 		return errors.New("creator cannot self-review")
@@ -581,21 +712,58 @@ func (s *PluginService) ensureReviewer(ctx context.Context, userID uint, release
 	return nil
 }
 
-func (s *PluginService) ensurePublisher(ctx context.Context, userID uint, release *pluginModel.PluginRelease) error {
+func (s *PluginService) ensurePublisher(_ context.Context, userID uint, release *pluginModel.PluginRelease) error {
+	if release.PublisherID == nil || *release.PublisherID == 0 {
+		return errors.New("publisher is not assigned for this ticket")
+	}
+	if *release.PublisherID != userID {
+		return errors.New("only the assigned publisher can execute release or offline")
+	}
+	if release.ReviewerID != nil && *release.ReviewerID == userID {
+		return errors.New("reviewer and publisher must be different")
+	}
+	return nil
+}
+
+func (s *PluginService) ensureReviewerAssignmentActor(ctx context.Context, userID uint, release *pluginModel.PluginRelease) error {
+	if release.Status == pluginModel.PluginReleaseStatusReleased || release.Status == pluginModel.PluginReleaseStatusOfflined {
+		return errors.New("released ticket cannot reassign reviewer")
+	}
+	return s.ensureReleaseActor(ctx, userID, &release.CreatedBy, pluginAuthorityRequester, nil, 0, release.ReviewerID, release.PublisherID)
+}
+
+func (s *PluginService) ensurePublisherAssignmentActor(ctx context.Context, userID uint, release *pluginModel.PluginRelease) error {
+	if release.Status != pluginModel.PluginReleaseStatusPendingReview && release.Status != pluginModel.PluginReleaseStatusApproved {
+		return errors.New("publisher can only be assigned during review or before release")
+	}
+	if release.ReviewerID != nil && *release.ReviewerID == userID {
+		return nil
+	}
 	if release.PublisherID != nil && *release.PublisherID == userID {
-		if release.ReviewerID != nil && *release.ReviewerID == userID {
-			return errors.New("reviewer and publisher must be different")
-		}
 		return nil
 	}
 	user, err := s.users.FindById(ctx, userID)
 	if err != nil {
 		return errors.New("current user not found")
 	}
-	if !hasAuthority(user, pluginAuthorityPublisher) {
-		return errors.New("only publisher can execute release or offline")
+	if hasAuthority(user, pluginAuthorityRequester) || hasAuthority(user, pluginAuthorityReviewer) || hasAuthority(user, pluginAuthorityPublisher) {
+		return nil
 	}
-	if release.ReviewerID != nil && *release.ReviewerID == userID {
+	return errors.New("you are not allowed to assign publisher")
+}
+
+func (s *PluginService) ensureReviewerCandidate(release *pluginModel.PluginRelease, reviewerID uint) error {
+	if reviewerID == release.CreatedBy {
+		return errors.New("creator cannot self-review")
+	}
+	if release.PublisherID != nil && *release.PublisherID == reviewerID {
+		return errors.New("reviewer and publisher must be different")
+	}
+	return nil
+}
+
+func (s *PluginService) ensurePublisherCandidate(release *pluginModel.PluginRelease, publisherID uint) error {
+	if release.ReviewerID != nil && *release.ReviewerID == publisherID {
 		return errors.New("reviewer and publisher must be different")
 	}
 	return nil
@@ -637,4 +805,37 @@ func (s *PluginService) shouldScopePluginListToRequester(user *systemModel.SysUs
 	}
 	_, ok := authorityIDs[pluginAuthorityRequester]
 	return ok
+}
+
+func (s *PluginService) canAccessProjectCenter(user *systemModel.SysUser) bool {
+	if user == nil {
+		return false
+	}
+	return hasAuthority(user, 1) || hasAuthority(user, 9528) || hasAuthority(user, pluginAuthorityRequester)
+}
+
+func mergeWorkflowComment(base string, suffix string) string {
+	if suffix == "" {
+		return base
+	}
+	if base == "" {
+		return suffix
+	}
+	return base + "; " + suffix
+}
+
+func uniqueUserIDs(ids []uint) []uint {
+	result := make([]uint, 0, len(ids))
+	seen := map[uint]struct{}{}
+	for _, id := range ids {
+		if id == 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		result = append(result, id)
+	}
+	return result
 }

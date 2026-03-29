@@ -41,6 +41,7 @@ func (r *PluginRouter) InitPluginRoutes(privateGroup *gin.RouterGroup, publicGro
 			releaseWriteGroup.POST("createRelease", r.api.CreateRelease)
 			releaseWriteGroup.PUT("updateRelease", r.api.UpdateRelease)
 			releaseWriteGroup.POST("transition", r.api.TransitRelease)
+			releaseWriteGroup.POST("assign", r.api.AssignRelease)
 		}
 	}
 
