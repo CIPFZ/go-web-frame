@@ -65,6 +65,9 @@ func (r *PluginRepository) ListPlugins(ctx context.Context, req dto.SearchPlugin
 	if req.CurrentStatus != "" {
 		base = base.Where("current_status = ?", req.CurrentStatus)
 	}
+	if req.CreatedBy > 0 {
+		base = base.Where("plugins.created_by = ?", req.CreatedBy)
+	}
 
 	var total int64
 	if err := base.Count(&total).Error; err != nil {
@@ -100,6 +103,7 @@ func (r *PluginRepository) ListPlugins(ctx context.Context, req dto.SearchPlugin
 			CapabilityZh:   item.CapabilityZh,
 			CapabilityEn:   item.CapabilityEn,
 			Owner:          item.Owner,
+			CreatedBy:      item.CreatedBy,
 			CurrentStatus:  item.CurrentStatus,
 			LatestVersion:  item.LatestVersion,
 			LastReleasedAt: formatTime(item.LastReleasedAt),
@@ -131,6 +135,7 @@ func (r *PluginRepository) attachPluginSummaries(ctx context.Context, list []dto
 	}
 
 	summaryMap := make(map[uint]*dto.PluginListItem, len(list))
+	currentWorkflowTime := make(map[uint]time.Time, len(list))
 	for index := range list {
 		summaryMap[list[index].ID] = &list[index]
 	}
@@ -156,23 +161,44 @@ func (r *PluginRepository) attachPluginSummaries(ctx context.Context, list []dto
 			target.OfflinedCount++
 		}
 
-		if target.CurrentWorkflowID == nil {
-			switch item.Status {
-			case pluginModel.PluginReleaseStatusPendingReview,
-				pluginModel.PluginReleaseStatusApproved,
-				pluginModel.PluginReleaseStatusRejected,
-				pluginModel.PluginReleaseStatusReleasePreparing,
-				pluginModel.PluginReleaseStatusDraft:
+		switch item.Status {
+		case pluginModel.PluginReleaseStatusPendingReview,
+			pluginModel.PluginReleaseStatusApproved,
+			pluginModel.PluginReleaseStatusRejected,
+			pluginModel.PluginReleaseStatusReleasePreparing,
+			pluginModel.PluginReleaseStatusDraft:
+			workflowAt := releaseWorkflowTime(item)
+			if target.CurrentWorkflowID == nil || workflowAt.After(currentWorkflowTime[item.PluginID]) {
 				releaseID := item.ID
 				target.CurrentWorkflowID = &releaseID
 				target.CurrentWorkflowType = item.RequestType
 				target.CurrentWorkflowStatus = item.Status
 				target.CurrentWorkflowVersion = item.Version
+				currentWorkflowTime[item.PluginID] = workflowAt
 			}
 		}
 	}
 
 	return nil
+}
+
+func releaseWorkflowTime(item pluginModel.PluginRelease) time.Time {
+	if !item.UpdatedAt.IsZero() {
+		return item.UpdatedAt
+	}
+	if item.OfflinedAt != nil {
+		return *item.OfflinedAt
+	}
+	if item.ReleasedAt != nil {
+		return *item.ReleasedAt
+	}
+	if item.ApprovedAt != nil {
+		return *item.ApprovedAt
+	}
+	if item.SubmittedAt != nil {
+		return *item.SubmittedAt
+	}
+	return item.CreatedAt
 }
 
 func (r *PluginRepository) GetPluginOverview(ctx context.Context) (*dto.PluginOverview, error) {
@@ -367,11 +393,11 @@ func (r *PluginRepository) GetPublishedPluginDetail(ctx context.Context, pluginI
 		NameZh:        plugin.NameZh,
 		NameEn:        plugin.NameEn,
 		DescriptionZh: plugin.DescriptionZh,
-		DescriptionEn: plugin.DescriptionEn,
-		CapabilityZh:  plugin.CapabilityZh,
-		CapabilityEn:  plugin.CapabilityEn,
-		Owner:         plugin.Owner,
-		Versions:      make([]dto.PublishedPluginVersionItem, 0, len(releases)),
+			DescriptionEn: plugin.DescriptionEn,
+			CapabilityZh:  plugin.CapabilityZh,
+			CapabilityEn:  plugin.CapabilityEn,
+			Owner:         plugin.Owner,
+			Versions:      make([]dto.PublishedPluginVersionItem, 0, len(releases)),
 	}
 
 	for _, item := range releases {

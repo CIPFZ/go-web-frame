@@ -194,6 +194,9 @@ func ensureBaseMenus(tx *gorm.DB) (map[string]uint, error) {
 		{Key: "sys_notice", ParentKey: "sys_root", Path: "/sys/notice", Name: "menu.system.notice", Component: "sys/notice", Icon: "NotificationOutlined", Sort: 6, Locale: "menu.system.notice"},
 		{Key: "plugin_root", Path: "/plugin", Name: "menu.plugin", Component: "components/RouterLayout", Icon: "AppstoreOutlined", Sort: 15, Locale: "menu.plugin"},
 		{Key: "plugin_center", ParentKey: "plugin_root", Path: "/plugin/center", Name: "menu.plugin.center", Component: "plugin/center", Icon: "DeploymentUnitOutlined", Sort: 1, Locale: "menu.plugin.center"},
+		{Key: "plugin_review_workbench", ParentKey: "plugin_root", Path: "/plugin/review-workbench", Name: "menu.plugin.review-workbench", Component: "plugin/review-workbench", Icon: "AuditOutlined", Sort: 2, Locale: "menu.plugin.review-workbench"},
+		{Key: "plugin_publish_workbench", ParentKey: "plugin_root", Path: "/plugin/publish-workbench", Name: "menu.plugin.publish-workbench", Component: "plugin/publish-workbench", Icon: "RocketOutlined", Sort: 3, Locale: "menu.plugin.publish-workbench"},
+		{Key: "plugin_project_detail", ParentKey: "plugin_root", Path: "/plugin/project/:id", Name: "menu.plugin.center", Component: "plugin/project", Icon: "DeploymentUnitOutlined", Sort: 99, Locale: "menu.plugin.center", HideInMenu: true},
 		{Key: "poetry_root", Path: "/poetry", Name: "menu.poetry", Component: "components/RouterLayout", Icon: "BookOutlined", Sort: 20, Locale: "menu.poetry"},
 		{Key: "poetry_dynasty", ParentKey: "poetry_root", Path: "/poetry/dynasty", Name: "menu.poetry.dynasty", Component: "poetry/dynasty", Icon: "AppstoreOutlined", Sort: 1, Locale: "menu.poetry.dynasty"},
 		{Key: "poetry_genre", ParentKey: "poetry_root", Path: "/poetry/genre", Name: "menu.poetry.genre", Component: "poetry/genre", Icon: "TagsOutlined", Sort: 2, Locale: "menu.poetry.genre"},
@@ -256,13 +259,27 @@ func ensureBaseMenus(tx *gorm.DB) (map[string]uint, error) {
 
 func bindAuthorityMenus(tx *gorm.DB, menuIDs map[string]uint, adminAuthorityID uint) error {
 	roleMenuKeys := map[uint][]string{
-		adminAuthorityID: {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_operation", "sys_notice", "plugin_root", "plugin_center", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
-		9528:             {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_operation", "sys_notice", "plugin_root", "plugin_center", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
+		adminAuthorityID: {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_operation", "sys_notice", "plugin_root", "plugin_center", "plugin_review_workbench", "plugin_publish_workbench", "plugin_project_detail", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
+		9528:             {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_operation", "sys_notice", "plugin_root", "plugin_center", "plugin_review_workbench", "plugin_publish_workbench", "plugin_project_detail", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
 		888:              {"dashboard", "state", "about", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
 		8881:             {"dashboard", "about", "account_settings"},
-		10010:            {"dashboard", "state", "about", "plugin_root", "plugin_center", "account_settings"},
-		10013:            {"dashboard", "state", "about", "plugin_root", "plugin_center", "account_settings"},
-		10014:            {"dashboard", "state", "about", "plugin_root", "plugin_center", "account_settings"},
+		10010:            {"dashboard", "state", "about", "plugin_root", "plugin_center", "plugin_project_detail", "account_settings"},
+		10013:            {"dashboard", "state", "about", "plugin_root", "plugin_review_workbench", "plugin_project_detail", "account_settings"},
+		10014:            {"dashboard", "state", "about", "plugin_root", "plugin_publish_workbench", "plugin_project_detail", "account_settings"},
+	}
+
+	pluginMenuKeys := []string{"plugin_root", "plugin_center", "plugin_review_workbench", "plugin_publish_workbench", "plugin_project_detail"}
+	pluginMenuIDs := make([]uint, 0, len(pluginMenuKeys))
+	for _, key := range pluginMenuKeys {
+		if menuID, ok := menuIDs[key]; ok {
+			pluginMenuIDs = append(pluginMenuIDs, menuID)
+		}
+	}
+	if len(pluginMenuIDs) > 0 {
+		targetAuthorities := []uint{adminAuthorityID, 9528, 10010, 10013, 10014}
+		if err := tx.Where("authority_id IN ? AND menu_id IN ?", targetAuthorities, pluginMenuIDs).Delete(&model.SysAuthorityMenu{}).Error; err != nil {
+			return err
+		}
 	}
 
 	relations := make([]model.SysAuthorityMenu, 0)
@@ -421,6 +438,7 @@ func bindAuthorityApis(tx *gorm.DB, apiIDs map[string]uint, adminAuthorityID uin
 		apiSign("GET", "/api/v1/sys/notice/getMyNotices"),
 		apiSign("POST", "/api/v1/sys/notice/markRead"),
 		apiSign("POST", "/api/v1/plugin/plugin/getPluginList"),
+		apiSign("POST", "/api/v1/plugin/plugin/getProjectDetail"),
 		apiSign("POST", "/api/v1/plugin/plugin/createPlugin"),
 		apiSign("PUT", "/api/v1/plugin/plugin/updatePlugin"),
 		apiSign("POST", "/api/v1/plugin/release/getReleaseList"),
@@ -653,6 +671,7 @@ func apiSign(method, path string) string {
 func pluginOnlyAccess() []string {
 	return []string{
 		apiSign("POST", "/api/v1/plugin/plugin/getPluginList"),
+		apiSign("POST", "/api/v1/plugin/plugin/getProjectDetail"),
 		apiSign("POST", "/api/v1/plugin/plugin/createPlugin"),
 		apiSign("PUT", "/api/v1/plugin/plugin/updatePlugin"),
 		apiSign("POST", "/api/v1/plugin/release/getReleaseList"),
@@ -668,6 +687,7 @@ func pluginOnlyPolicyWithBasic(basic [][]string) [][]string {
 	policies = append(policies, basic...)
 	policies = append(policies,
 		[]string{"POST", "/api/v1/plugin/plugin/getPluginList"},
+		[]string{"POST", "/api/v1/plugin/plugin/getProjectDetail"},
 		[]string{"POST", "/api/v1/plugin/plugin/createPlugin"},
 		[]string{"PUT", "/api/v1/plugin/plugin/updatePlugin"},
 		[]string{"POST", "/api/v1/plugin/release/getReleaseList"},
@@ -684,7 +704,7 @@ func ensurePluginBaseData(tx *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-	pluginIDs, err := ensurePluginCatalog(tx)
+	pluginIDs, err := ensurePluginCatalog(tx, userIDs["requester"])
 	if err != nil {
 		return err
 	}
@@ -754,7 +774,7 @@ func ensureSeedUser(tx *gorm.DB, username, nickname string, authorityID uint, pa
 	return user.ID, nil
 }
 
-func ensurePluginCatalog(tx *gorm.DB) (map[string]uint, error) {
+func ensurePluginCatalog(tx *gorm.DB, creatorID uint) (map[string]uint, error) {
 	seeds := []pluginModel.Plugin{
 		{
 			Code:          "smart-audit",
@@ -766,6 +786,7 @@ func ensurePluginCatalog(tx *gorm.DB) (map[string]uint, error) {
 			CapabilityZh:  "规则扫描、风险识别、审计报告导出",
 			CapabilityEn:  "Rule scanning, risk detection, audit report export",
 			Owner:         "平台治理组",
+			CreatedBy:     creatorID,
 			CurrentStatus: pluginModel.PluginStatusActive,
 		},
 		{
@@ -778,6 +799,7 @@ func ensurePluginCatalog(tx *gorm.DB) (map[string]uint, error) {
 			CapabilityZh:  "WebP/AVIF 转码、批量压缩、质量分析",
 			CapabilityEn:  "WebP/AVIF transcoding, batch compression, quality analysis",
 			Owner:         "多媒体平台组",
+			CreatedBy:     creatorID,
 			CurrentStatus: pluginModel.PluginStatusActive,
 		},
 		{
@@ -790,6 +812,7 @@ func ensurePluginCatalog(tx *gorm.DB) (map[string]uint, error) {
 			CapabilityZh:  "协议适配、远程指令、设备元数据同步",
 			CapabilityEn:  "Protocol adaptation, remote commands, device metadata sync",
 			Owner:         "IoT 接入组",
+			CreatedBy:     creatorID,
 			CurrentStatus: pluginModel.PluginStatusPlanning,
 		},
 		{
@@ -802,6 +825,7 @@ func ensurePluginCatalog(tx *gorm.DB) (map[string]uint, error) {
 			CapabilityZh:  "x86/ARM 运行时、资源限额、日志采集",
 			CapabilityEn:  "x86/ARM runtime, resource quotas, log collection",
 			Owner:         "边缘计算组",
+			CreatedBy:     creatorID,
 			CurrentStatus: pluginModel.PluginStatusPlanning,
 		},
 		{
@@ -814,6 +838,7 @@ func ensurePluginCatalog(tx *gorm.DB) (map[string]uint, error) {
 			CapabilityZh:  "订单同步、客户同步、补偿任务",
 			CapabilityEn:  "Order sync, customer sync, compensation jobs",
 			Owner:         "集成平台组",
+			CreatedBy:     creatorID,
 			CurrentStatus: pluginModel.PluginStatusOfflined,
 		},
 		{
@@ -826,6 +851,7 @@ func ensurePluginCatalog(tx *gorm.DB) (map[string]uint, error) {
 			CapabilityZh:  "文本审核、图片审核、策略路由",
 			CapabilityEn:  "Text moderation, image moderation, policy routing",
 			Owner:         "内容安全组",
+			CreatedBy:     creatorID,
 			CurrentStatus: pluginModel.PluginStatusPlanning,
 		},
 	}
@@ -851,6 +877,7 @@ func ensurePluginCatalog(tx *gorm.DB) (map[string]uint, error) {
 				"capability_zh":  seed.CapabilityZh,
 				"capability_en":  seed.CapabilityEn,
 				"owner":          seed.Owner,
+				"created_by":     creatorID,
 			}
 			if err := tx.Model(&item).Updates(updates).Error; err != nil {
 				return nil, err

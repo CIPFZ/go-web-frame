@@ -24,7 +24,7 @@ func (a *PluginApi) GetPluginList(c *gin.Context) {
 		response.FailWithMessage("invalid request: "+err.Error(), c)
 		return
 	}
-	result, err := a.pluginService.GetPluginList(c.Request.Context(), req)
+	result, err := a.pluginService.GetPluginList(c.Request.Context(), req, utils.GetUserID(c))
 	if err != nil {
 		response.FailWithMessage("get plugin list failed: "+err.Error(), c)
 		return
@@ -89,7 +89,7 @@ func (a *PluginApi) CreatePlugin(c *gin.Context) {
 		response.FailWithMessage("invalid request: "+err.Error(), c)
 		return
 	}
-	if err := a.pluginService.CreatePlugin(c.Request.Context(), req); err != nil {
+	if err := a.pluginService.CreatePlugin(c.Request.Context(), req, utils.GetUserID(c)); err != nil {
 		response.FailWithMessage("create plugin failed: "+err.Error(), c)
 		return
 	}
@@ -102,7 +102,7 @@ func (a *PluginApi) UpdatePlugin(c *gin.Context) {
 		response.FailWithMessage("invalid request: "+err.Error(), c)
 		return
 	}
-	if err := a.pluginService.UpdatePlugin(c.Request.Context(), req); err != nil {
+	if err := a.pluginService.UpdatePlugin(c.Request.Context(), req, utils.GetUserID(c)); err != nil {
 		response.FailWithMessage("update plugin failed: "+err.Error(), c)
 		return
 	}

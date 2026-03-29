@@ -4,7 +4,7 @@ import { ModalForm, ProFormText, ProFormTextArea } from '@ant-design/pro-compone
 import { history } from '@umijs/max';
 import { App, Button, Card, Col, Empty, Pagination, Row, Space, Typography } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
-import { createPlugin, getPluginList, getReleaseList, updatePlugin } from '@/services/api/plugin';
+import { createPlugin, getPluginList, updatePlugin } from '@/services/api/plugin';
 import { getCurrentUserInfo } from '@/services/api/user';
 import ProjectFilterBar from '../components/ProjectFilterBar';
 import ProjectSummaryCard from '../components/ProjectSummaryCard';
@@ -31,36 +31,16 @@ type PluginItem = {
   capabilityZh: string;
   capabilityEn: string;
   owner: string;
+  createdBy: number;
   currentStatus: ProjectStatus;
   latestVersion?: string;
+  currentWorkflowId?: number;
+  currentWorkflowType?: string;
+  currentWorkflowStatus?: ReleaseStatus;
+  currentWorkflowVersion?: string;
 };
 
-type ReleaseItem = {
-  ID: number;
-  pluginId: number;
-  status: ReleaseStatus;
-  version?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  releasedAt?: string;
-  offlinedAt?: string;
-  createdBy?: number;
-  reviewerId?: number;
-  publisherId?: number;
-  isOfflined?: boolean;
-};
-
-type ProjectRecord = PluginItem & {
-  releases: ReleaseItem[];
-  latestWorkflow?: ReleaseItem;
-  activeRelease?: ReleaseItem;
-  latestReleased?: ReleaseItem;
-  workflowSummary: string;
-};
-
-const requesterRoleIds = new Set([1, 9528, 10010]);
-const reviewerRoleIds = new Set([1, 9528, 10013]);
-const publisherRoleIds = new Set([1, 9528, 10014]);
+const requesterRoleIds = new Set([10010]);
 
 const cardStyle: React.CSSProperties = {
   borderRadius: 8,
@@ -69,76 +49,30 @@ const cardStyle: React.CSSProperties = {
 };
 
 const projectStatusMeta: Record<ProjectStatus, { label: string; color: string }> = {
-  planning: { label: '筹备中', color: 'gold' },
-  active: { label: '已发布', color: 'success' },
-  offlined: { label: '已归档', color: 'default' },
+  planning: { label: 'Planning', color: 'gold' },
+  active: { label: 'Active', color: 'success' },
+  offlined: { label: 'Offlined', color: 'default' },
 };
 
 const releaseStatusLabel = (status?: ReleaseStatus) => {
-  if (!status) return '无进行中流程';
-  if (status === 'pending_review') return '审核中';
-  if (status === 'approved') return '待发布';
-  if (status === 'released') return '已发布';
-  if (status === 'offlined') return '已下架';
-  if (status === 'rejected') return '已打回';
-  return '资料提交中';
+  if (!status) return 'No workflow';
+  if (status === 'pending_review') return 'Pending review';
+  if (status === 'approved') return 'Approved';
+  if (status === 'released') return 'Released';
+  if (status === 'offlined') return 'Offlined';
+  if (status === 'rejected') return 'Rejected';
+  return 'Draft';
 };
 
-const getTime = (value?: string) => (value ? new Date(value).getTime() : 0);
-
-const getWorkflowTime = (item: ReleaseItem) => {
-  // Prefer the newest workflow timestamp we have, falling back to status-specific
-  // timestamps and finally createdAt so a later transition is not hidden by an older draft.
-  return getTime(item.updatedAt || item.releasedAt || item.offlinedAt || item.createdAt);
-};
-
-const normalizeOwnerValue = (value?: string) => value?.trim().toLowerCase() || '';
-
-const getCurrentUserOwnerAliases = (user?: API.UserInfo) =>
-  Array.from(
-    new Set(
-      [
-        user?.username,
-        (user as any)?.nickName,
-        (user as any)?.nickname,
-        (user as any)?.realName,
-        (user as any)?.name,
-        (user as any)?.displayName,
-      ]
-        .map(normalizeOwnerValue)
-        .filter(Boolean),
-    ),
-  );
-
-const isProjectOwnedByCurrentUser = (record: ProjectRecord, user?: API.UserInfo) => {
-  const ownerValue = normalizeOwnerValue(record.owner);
-  if (!ownerValue || !user) return false;
-
-  if (record.releases.some((item) => item.createdBy === user.ID)) {
-    return true;
-  }
-
-  return getCurrentUserOwnerAliases(user).some((alias) => alias === ownerValue);
-};
-
-const buildWorkflowSummary = (
-  record: Pick<ProjectRecord, 'latestWorkflow' | 'activeRelease' | 'latestReleased' | 'latestVersion'>,
-) => {
-  const version =
-    record.latestWorkflow?.version ||
-    record.activeRelease?.version ||
-    record.latestReleased?.version ||
-    record.latestVersion ||
-    '-';
-  const status = releaseStatusLabel(record.latestWorkflow?.status || record.activeRelease?.status || record.latestReleased?.status);
-  return `${version} ${status}`;
+const buildWorkflowSummary = (record: Pick<PluginItem, 'currentWorkflowVersion' | 'currentWorkflowStatus' | 'latestVersion'>) => {
+  const version = record.currentWorkflowVersion || record.latestVersion || '-';
+  return record.currentWorkflowStatus ? `${version} ${releaseStatusLabel(record.currentWorkflowStatus)}` : 'No active workflow';
 };
 
 const PluginProjectCenterPage: React.FC = () => {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<PluginItem[]>([]);
-  const [releases, setReleases] = useState<ReleaseItem[]>([]);
   const [currentUser, setCurrentUser] = useState<API.UserInfo>();
   const [viewMode, setViewMode] = useState<ViewMode>('card');
   const [keyword, setKeyword] = useState('');
@@ -161,7 +95,6 @@ const PluginProjectCenterPage: React.FC = () => {
     const userLoaded = await loadCurrentUser();
     if (!userLoaded) {
       setProjects([]);
-      setReleases([]);
       return;
     }
     await loadData();
@@ -179,22 +112,12 @@ const PluginProjectCenterPage: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [projectRes, releaseRes]: any = await Promise.all([
-        getPluginList({ page: 1, pageSize: 200 }, { skipErrorHandler: true }).catch((error) => error),
-        getReleaseList({ page: 1, pageSize: 500 }, { skipErrorHandler: true }).catch((error) => error),
-      ]);
-
+      const projectRes: any = await getPluginList({ page: 1, pageSize: 200 }, { skipErrorHandler: true }).catch((error) => error);
       if (!projectRes || projectRes.code !== 0) {
-        message.error(projectRes?.msg || '加载项目列表失败');
+        message.error(projectRes?.msg || 'Failed to load project list');
         return;
       }
-      if (!releaseRes || releaseRes.code !== 0) {
-        message.error(releaseRes?.msg || '加载版本流程失败');
-        return;
-      }
-
       setProjects(projectRes.data?.list || []);
-      setReleases(releaseRes.data?.list || []);
     } finally {
       setLoading(false);
     }
@@ -203,7 +126,7 @@ const PluginProjectCenterPage: React.FC = () => {
   const authorityIds = useMemo(() => {
     const ids = new Set<number>();
     if (currentUser?.authorityId) ids.add(currentUser.authorityId);
-    (currentUser?.authorities || []).forEach((item) => {
+    (currentUser?.authorities || []).forEach((item: any) => {
       if (item?.authorityId) {
         ids.add(item.authorityId);
       }
@@ -215,38 +138,15 @@ const PluginProjectCenterPage: React.FC = () => {
     () => Array.from(authorityIds).some((id) => requesterRoleIds.has(id)),
     [authorityIds],
   );
-  const canReview = useMemo(() => Array.from(authorityIds).some((id) => reviewerRoleIds.has(id)), [authorityIds]);
-  const canPublish = useMemo(() => Array.from(authorityIds).some((id) => publisherRoleIds.has(id)), [authorityIds]);
 
-  const isMyProject = (record: ProjectRecord) => isProjectOwnedByCurrentUser(record, currentUser);
-  const canEditProject = (record: ProjectRecord) => canManageProject && isMyProject(record);
-
-  const projectRecords = useMemo<ProjectRecord[]>(() => {
-    return projects.map((project) => {
-      const projectReleases = releases
-        .filter((item) => item.pluginId === project.ID)
-        .sort((left, right) => getWorkflowTime(right) - getWorkflowTime(left));
-      const latestWorkflow = projectReleases[0];
-      const activeRelease = projectReleases.find((item) =>
-        ['draft', 'release_preparing', 'pending_review', 'approved', 'rejected'].includes(item.status),
-      );
-      const latestReleased = projectReleases.find((item) => item.status === 'released' && !item.isOfflined);
-
-      return {
+  const projectRecords = useMemo(
+    () =>
+      projects.map((project) => ({
         ...project,
-        releases: projectReleases,
-        latestWorkflow,
-        activeRelease,
-        latestReleased,
-        workflowSummary: buildWorkflowSummary({
-          latestWorkflow,
-          activeRelease,
-          latestReleased,
-          latestVersion: project.latestVersion,
-        }),
-      };
-    });
-  }, [projects, releases]);
+        workflowSummary: buildWorkflowSummary(project),
+      })),
+    [projects],
+  );
 
   const ownerOptions = useMemo(
     () =>
@@ -268,17 +168,9 @@ const PluginProjectCenterPage: React.FC = () => {
           .includes(normalizedKeyword);
       const statusHit = statusFilter === 'all' || item.currentStatus === statusFilter;
       const ownerHit = ownerFilter === 'all' || item.owner === ownerFilter;
-      if (!keywordHit || !statusHit || !ownerHit) {
-        return false;
-      }
-
-      if (canManageProject && !canReview && !canPublish && !isMyProject(item)) {
-        return false;
-      }
-
-      return true;
+      return keywordHit && statusHit && ownerHit;
     });
-  }, [canManageProject, canPublish, canReview, currentUser?.ID, currentUser?.username, keyword, ownerFilter, projectRecords, statusFilter]);
+  }, [keyword, ownerFilter, projectRecords, statusFilter]);
 
   const pagedProjects = useMemo(
     () => filteredProjects.slice((page - 1) * pageSize, page * pageSize),
@@ -295,11 +187,13 @@ const PluginProjectCenterPage: React.FC = () => {
     setProjectModalOpen(true);
   };
 
+  const canEditProject = (record: PluginItem) => canManageProject && !!currentUser?.ID && record.createdBy === currentUser.ID;
+
   return (
     <PageContainer
       loading={loading}
       title={false}
-      content="项目管理首页只展示项目入口和最近流程摘要，完整版本与流程上下文请进入项目详情页。"
+      content="Project center shows plugin cards and a lightweight workflow summary. Open the project detail page for release-level information."
     >
       <Space direction="vertical" size={16} style={{ width: '100%' }}>
         <ProjectFilterBar
@@ -314,17 +208,17 @@ const PluginProjectCenterPage: React.FC = () => {
           canCreateProject={canManageProject}
           onCreateProject={handleOpenCreate}
           statusOptions={[
-            { label: '全部状态', value: 'all' },
-            { label: '筹备中', value: 'planning' },
-            { label: '已发布', value: 'active' },
-            { label: '已归档', value: 'offlined' },
+            { label: 'All', value: 'all' },
+            { label: 'Planning', value: 'planning' },
+            { label: 'Active', value: 'active' },
+            { label: 'Offlined', value: 'offlined' },
           ]}
-          ownerOptions={[{ label: '全部负责人', value: 'all' }, ...ownerOptions]}
+          ownerOptions={[{ label: 'All owners', value: 'all' }, ...ownerOptions]}
         />
 
         {!filteredProjects.length && !loading ? (
           <Card bordered={false} style={cardStyle}>
-            <Empty description="暂无符合条件的项目" />
+            <Empty description="No matching projects" />
           </Card>
         ) : viewMode === 'card' ? (
           <>
@@ -337,7 +231,7 @@ const PluginProjectCenterPage: React.FC = () => {
                         type="text"
                         size="small"
                         icon={<EditOutlined />}
-                        aria-label="编辑项目"
+                        aria-label="Edit project"
                         style={{
                           position: 'absolute',
                           top: 8,
@@ -360,9 +254,7 @@ const PluginProjectCenterPage: React.FC = () => {
                       code={record.code}
                       nameZh={record.nameZh}
                       nameEn={record.nameEn}
-                      latestVersion={
-                        record.latestVersion || record.activeRelease?.version || record.latestReleased?.version || '-'
-                      }
+                      latestVersion={record.latestVersion || record.currentWorkflowVersion || '-'}
                       workflowSummary={record.workflowSummary}
                       statusLabel={projectStatusMeta[record.currentStatus].label}
                       statusColor={projectStatusMeta[record.currentStatus].color}
@@ -397,9 +289,7 @@ const PluginProjectCenterPage: React.FC = () => {
                       code={record.code}
                       nameZh={record.nameZh}
                       nameEn={record.nameEn}
-                      latestVersion={
-                        record.latestVersion || record.activeRelease?.version || record.latestReleased?.version || '-'
-                      }
+                      latestVersion={record.latestVersion || record.currentWorkflowVersion || '-'}
                       workflowSummary={record.workflowSummary}
                       statusLabel={projectStatusMeta[record.currentStatus].label}
                       statusColor={projectStatusMeta[record.currentStatus].color}
@@ -413,7 +303,7 @@ const PluginProjectCenterPage: React.FC = () => {
                       style={{ paddingInline: 0, height: 'auto', flex: 'none', marginTop: 6 }}
                       onClick={() => handleOpenEdit(record)}
                     >
-                      编辑
+                      Edit
                     </Button>
                   ) : null}
                 </Space>
@@ -438,7 +328,7 @@ const PluginProjectCenterPage: React.FC = () => {
 
       <ModalForm
         key={editingProject?.ID || 'new-project'}
-        title={editingProject ? '编辑项目' : '新建项目'}
+        title={editingProject ? 'Edit project' : 'Create project'}
         width={840}
         open={projectModalOpen}
         initialValues={editingProject}
@@ -454,10 +344,10 @@ const PluginProjectCenterPage: React.FC = () => {
           const payload = editingProject ? { ...values, id: editingProject.ID } : values;
           const res: any = await api(payload).catch((error) => error);
           if (!res || res.code !== 0) {
-            message.error(res?.msg || '保存项目失败');
+            message.error(res?.msg || 'Failed to save project');
             return false;
           }
-          message.success(editingProject ? '项目已更新' : '项目已创建');
+          message.success(editingProject ? 'Project updated' : 'Project created');
           setEditingProject(undefined);
           setProjectModalOpen(false);
           await loadData();
@@ -465,21 +355,21 @@ const PluginProjectCenterPage: React.FC = () => {
         }}
       >
         <Typography.Paragraph type="secondary">
-          项目首页只维护基础信息。发布包、测试报告、变更说明等版本资料请进入项目详情页后再维护。
+          Project info here is intentionally lightweight. Release packages, test reports, and changelog details belong on the detail page.
         </Typography.Paragraph>
         <Row gutter={16}>
           <Col span={12}>
-            <ProFormText name="code" label="项目编码" rules={[{ required: true }]} />
+            <ProFormText name="code" label="Project code" rules={[{ required: true }]} />
           </Col>
           <Col span={12}>
-            <ProFormText name="owner" label="负责人" rules={[{ required: true }]} />
+            <ProFormText name="owner" label="Owner" rules={[{ required: true }]} />
           </Col>
         </Row>
-        <ProFormText name="repositoryUrl" label="Git 仓库地址" rules={[{ required: true }]} />
-        <Card size="small" title="中文信息" style={{ marginBottom: 16 }}>
-          <ProFormText name="nameZh" label="项目名称（中文）" rules={[{ required: true }]} />
-          <ProFormTextArea name="descriptionZh" label="简短描述（中文）" fieldProps={{ rows: 3 }} rules={[{ required: true }]} />
-          <ProFormTextArea name="capabilityZh" label="项目能力（中文）" fieldProps={{ rows: 4 }} rules={[{ required: true }]} />
+        <ProFormText name="repositoryUrl" label="Git repository URL" rules={[{ required: true }]} />
+        <Card size="small" title="Chinese" style={{ marginBottom: 16 }}>
+          <ProFormText name="nameZh" label="Project name (zh)" rules={[{ required: true }]} />
+          <ProFormTextArea name="descriptionZh" label="Short description (zh)" fieldProps={{ rows: 3 }} rules={[{ required: true }]} />
+          <ProFormTextArea name="capabilityZh" label="Capabilities (zh)" fieldProps={{ rows: 4 }} rules={[{ required: true }]} />
         </Card>
         <Card size="small" title="English Info">
           <ProFormText name="nameEn" label="Project Name (English)" rules={[{ required: true }]} />

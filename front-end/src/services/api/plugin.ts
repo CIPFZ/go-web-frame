@@ -1,5 +1,50 @@
 import { request } from '@umijs/max';
 
+export type ReleaseRequestType = 'initial' | 'maintenance' | 'offline';
+export type ReleaseStatus =
+  | 'draft'
+  | 'release_preparing'
+  | 'pending_review'
+  | 'approved'
+  | 'rejected'
+  | 'released'
+  | 'offlined';
+
+export interface ReleaseListItem {
+  ID: number;
+  pluginId: number;
+  pluginCode: string;
+  pluginNameZh: string;
+  pluginNameEn: string;
+  requestType: ReleaseRequestType;
+  status: ReleaseStatus;
+  version: string;
+  versionConstraint: string;
+  publisher: string;
+  reviewerId?: number | null;
+  publisherId?: number | null;
+  reviewComment: string;
+  isOfflined: boolean;
+  createdBy: number;
+  createdAt: string;
+  submittedAt?: string | null;
+  approvedAt?: string | null;
+  releasedAt?: string | null;
+  offlinedAt?: string | null;
+}
+
+export interface ReleaseListQuery {
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+  pluginId?: number;
+  requestType?: ReleaseRequestType;
+  status?: ReleaseStatus;
+  createdBy?: number;
+  reviewerId?: number;
+  publisherId?: number;
+}
+
 export async function getPluginList(body: any, options?: { [key: string]: any }) {
   return request<API.CommonResponse>('/api/v1/plugin/plugin/getPluginList', {
     method: 'POST',
@@ -43,7 +88,7 @@ export async function updatePlugin(body: any, options?: { [key: string]: any }) 
   });
 }
 
-export async function getReleaseList(body: any, options?: { [key: string]: any }) {
+export async function getReleaseList(body: ReleaseListQuery, options?: { [key: string]: any }) {
   return request<API.CommonResponse>('/api/v1/plugin/release/getReleaseList', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

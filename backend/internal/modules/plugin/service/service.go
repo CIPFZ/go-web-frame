@@ -25,13 +25,13 @@ const (
 )
 
 type IPluginService interface {
-	GetPluginList(ctx context.Context, req dto.SearchPluginReq) (common.PageResult, error)
+	GetPluginList(ctx context.Context, req dto.SearchPluginReq, userID uint) (common.PageResult, error)
 	GetPluginOverview(ctx context.Context) (*dto.PluginOverview, error)
 	GetProjectDetail(ctx context.Context, id uint) (*dto.ProjectDetail, error)
 	GetPublishedPluginList(ctx context.Context, req dto.SearchPublishedPluginReq) (common.PageResult, error)
 	GetPublishedPluginDetail(ctx context.Context, pluginID uint) (*dto.PublishedPluginDetail, error)
-	CreatePlugin(ctx context.Context, req dto.CreatePluginReq) error
-	UpdatePlugin(ctx context.Context, req dto.UpdatePluginReq) error
+	CreatePlugin(ctx context.Context, req dto.CreatePluginReq, creatorID uint) error
+	UpdatePlugin(ctx context.Context, req dto.UpdatePluginReq, actorID uint) error
 	GetReleaseList(ctx context.Context, req dto.SearchReleaseReq) (common.PageResult, error)
 	GetReleaseDetail(ctx context.Context, id uint) (*dto.ReleaseDetail, error)
 	CreateRelease(ctx context.Context, req dto.CreateReleaseReq, creatorID uint) error
@@ -49,7 +49,16 @@ func NewPluginService(svcCtx *svc.ServiceContext, repo repository.IPluginReposit
 	return &PluginService{svcCtx: svcCtx, repo: repo, users: users}
 }
 
-func (s *PluginService) GetPluginList(ctx context.Context, req dto.SearchPluginReq) (common.PageResult, error) {
+func (s *PluginService) GetPluginList(ctx context.Context, req dto.SearchPluginReq, userID uint) (common.PageResult, error) {
+	if userID > 0 {
+		user, err := s.users.FindById(ctx, userID)
+		if err != nil {
+			return common.PageResult{}, errors.New("current user not found")
+		}
+		if s.shouldScopePluginListToRequester(user) {
+			req.CreatedBy = userID
+		}
+	}
 	list, total, err := s.repo.ListPlugins(ctx, req)
 	if err != nil {
 		return common.PageResult{}, err
@@ -77,7 +86,7 @@ func (s *PluginService) GetPublishedPluginDetail(ctx context.Context, pluginID u
 	return s.repo.GetPublishedPluginDetail(ctx, pluginID)
 }
 
-func (s *PluginService) CreatePlugin(ctx context.Context, req dto.CreatePluginReq) error {
+func (s *PluginService) CreatePlugin(ctx context.Context, req dto.CreatePluginReq, creatorID uint) error {
 	if err := s.validatePluginReq(ctx, req, 0); err != nil {
 		return err
 	}
@@ -91,15 +100,22 @@ func (s *PluginService) CreatePlugin(ctx context.Context, req dto.CreatePluginRe
 		CapabilityZh:  strings.TrimSpace(req.CapabilityZh),
 		CapabilityEn:  strings.TrimSpace(req.CapabilityEn),
 		Owner:         strings.TrimSpace(req.Owner),
+		CreatedBy:     creatorID,
 		CurrentStatus: pluginModel.PluginStatusPlanning,
 	}
 	return s.repo.CreatePlugin(ctx, plugin)
 }
 
-func (s *PluginService) UpdatePlugin(ctx context.Context, req dto.UpdatePluginReq) error {
+func (s *PluginService) UpdatePlugin(ctx context.Context, req dto.UpdatePluginReq, actorID uint) error {
 	plugin, err := s.repo.FindPluginByID(ctx, req.ID)
 	if err != nil {
 		return errors.New("plugin not found")
+	}
+	if plugin.CreatedBy == 0 {
+		return errors.New("plugin owner is not configured")
+	}
+	if actorID == 0 || plugin.CreatedBy != actorID {
+		return errors.New("you are not allowed to edit this project")
 	}
 	if err := s.validatePluginReq(ctx, req.CreatePluginReq, req.ID); err != nil {
 		return err
@@ -598,4 +614,27 @@ func hasAuthority(user *systemModel.SysUser, authorityID uint) bool {
 		}
 	}
 	return false
+}
+
+func (s *PluginService) shouldScopePluginListToRequester(user *systemModel.SysUser) bool {
+	if user == nil {
+		return false
+	}
+	if !hasAuthority(user, pluginAuthorityRequester) {
+		return false
+	}
+	authorityIDs := map[uint]struct{}{}
+	if user.AuthorityID > 0 {
+		authorityIDs[user.AuthorityID] = struct{}{}
+	}
+	for _, item := range user.Authorities {
+		if item.AuthorityId > 0 {
+			authorityIDs[item.AuthorityId] = struct{}{}
+		}
+	}
+	if len(authorityIDs) != 1 {
+		return false
+	}
+	_, ok := authorityIDs[pluginAuthorityRequester]
+	return ok
 }

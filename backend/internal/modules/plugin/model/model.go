@@ -54,6 +54,7 @@ type Plugin struct {
 	CapabilityZh   string       `json:"capabilityZh" gorm:"type:text;not null;comment:capabilities zh"`
 	CapabilityEn   string       `json:"capabilityEn" gorm:"type:text;not null;comment:capabilities en"`
 	Owner          string       `json:"owner" gorm:"type:varchar(128);not null;comment:owner"`
+	CreatedBy      uint         `json:"createdBy" gorm:"index;comment:creator user id"`
 	CurrentStatus  PluginStatus `json:"currentStatus" gorm:"type:varchar(32);default:planning;index;comment:plugin status"`
 	LatestVersion  string       `json:"latestVersion" gorm:"type:varchar(64);comment:latest released version"`
 	LastReleasedAt *time.Time   `json:"lastReleasedAt" gorm:"comment:last released at"`

@@ -10,6 +10,7 @@ type PluginChecklistItem = pluginModel.PluginChecklistItem
 type SearchPluginReq struct {
 	common.PageInfo
 	CurrentStatus pluginModel.PluginStatus `json:"currentStatus" form:"currentStatus"`
+	CreatedBy     uint                     `json:"createdBy" form:"createdBy"`
 }
 
 type GetProjectDetailReq struct {
@@ -106,6 +107,7 @@ type PluginListItem struct {
 	CapabilityZh           string                          `json:"capabilityZh"`
 	CapabilityEn           string                          `json:"capabilityEn"`
 	Owner                  string                          `json:"owner"`
+	CreatedBy              uint                            `json:"createdBy"`
 	CurrentStatus          pluginModel.PluginStatus        `json:"currentStatus"`
 	LatestVersion          string                          `json:"latestVersion"`
 	LastReleasedAt         *string                         `json:"lastReleasedAt,omitempty"`
