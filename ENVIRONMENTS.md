@@ -29,11 +29,19 @@ Use these profiles to keep behavior consistent across `dev`, `stage`, and `produ
 
 ## Required Secret Replacements (Before Prod)
 - `jwt.signing_key`
-- `mysql.password`
+- `database.mysql.password` or `database.postgres.password`
 - `redis.password`
 - `file.minio.access_key`
 - `file.minio.secret_key`
 - `email.secret`
+
+## Database Driver
+Set `database.driver` in the backend config:
+
+- `mysql` uses `database.mysql`
+- `postgres` or `pgsql` uses `database.postgres`
+
+The default local profile uses MySQL. PostgreSQL is supported as an alternate primary database and should be verified with the PostgreSQL compose override before release.
 
 ## Seed Admin Controls
 Configure in `docker-compose.yml` (backend service env):

@@ -10,6 +10,7 @@ type Config struct {
 	Logger     Logger          `mapstructure:"logger" json:"logger" yaml:"logger"`
 	I18n       I18n            `mapstructure:"i18n" json:"i18n" yaml:"i18n"`
 	JWT        JWT             `mapstructure:"jwt" json:"jwt" yaml:"jwt"`
+	Database   Database        `mapstructure:"database" json:"database" yaml:"database"`
 	Mysql      MySQL           `mapstructure:"mysql" json:"mysql" yaml:"mysql"`
 	Mongo      Mongo           `mapstructure:"mongo" json:"mongo" yaml:"mongo"`
 	Redis      Redis           `mapstructure:"redis" json:"redis" yaml:"redis"`
@@ -19,6 +20,12 @@ type Config struct {
 	Cors       CORS            `mapstructure:"cors" json:"cors" yaml:"cors"`
 	Observable Observability   `mapstructure:"observable" json:"observable" yaml:"observable"`
 	RateLimit  RateLimitConfig `mapstructure:"rate_limit" json:"rate_limit" yaml:"rate_limit"`
+}
+
+type Database struct {
+	Driver   string   `mapstructure:"driver" json:"driver" yaml:"driver"`
+	MySQL    MySQL    `mapstructure:"mysql" json:"mysql" yaml:"mysql"`
+	Postgres Postgres `mapstructure:"postgres" json:"postgres" yaml:"postgres"`
 }
 
 type System struct {

@@ -5,6 +5,15 @@
 docker compose up -d --build
 ```
 
+## PostgreSQL Mode
+Set `backend/configs/config.yaml` to `database.driver: postgres`, then start the PostgreSQL override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.pgsql.yml up -d --build postgres redis minio minio-init backend
+```
+
+Restore `database.driver: mysql` to use the default MySQL stack again.
+
 ## Default Access
 - Frontend: `http://localhost`
 - Backend health: `http://localhost:8080/health`

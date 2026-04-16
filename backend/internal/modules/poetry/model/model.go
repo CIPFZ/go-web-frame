@@ -72,8 +72,8 @@ func (PoemWork) TableName() string { return "poem_work" }
 
 // PoemTagRel 关联表
 type PoemTagRel struct {
-	WorkID uint `gorm:"primaryKey;column:work_id;type:bigint unsigned;not null"`
-	TagID  uint `gorm:"primaryKey;column:tag_id;type:bigint unsigned;not null"`
+	WorkID uint `gorm:"primaryKey;column:work_id;not null"`
+	TagID  uint `gorm:"primaryKey;column:tag_id;not null"`
 }
 
 func (PoemTagRel) TableName() string { return "poem_tag_rel" }

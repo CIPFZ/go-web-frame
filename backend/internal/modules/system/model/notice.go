@@ -28,8 +28,8 @@ type SysNotice struct {
 	Content     string           `json:"content" gorm:"type:text;not null;comment:notice content"`
 	Level       NoticeLevel      `json:"level" gorm:"type:varchar(16);default:info;comment:notice level"`
 	TargetType  NoticeTargetType `json:"targetType" gorm:"type:varchar(16);not null;comment:target type"`
-	IsPopup     bool             `json:"isPopup" gorm:"type:tinyint(1);default:0;comment:popup on login"`
-	NeedConfirm bool             `json:"needConfirm" gorm:"type:tinyint(1);default:0;comment:need manual read confirm"`
+	IsPopup     bool             `json:"isPopup" gorm:"default:false;comment:popup on login"`
+	NeedConfirm bool             `json:"needConfirm" gorm:"default:false;comment:need manual read confirm"`
 	StartAt     *time.Time       `json:"startAt" gorm:"comment:effective start"`
 	EndAt       *time.Time       `json:"endAt" gorm:"comment:effective end"`
 	CreatedBy   uint             `json:"createdBy" gorm:"index;comment:creator user id"`

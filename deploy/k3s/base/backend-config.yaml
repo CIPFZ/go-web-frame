@@ -36,18 +36,33 @@ data:
       buffer_time: 1d
       issuer: GWF
 
-    mysql:
-      # Use your existing k3s MySQL service DNS
-      path: mysql.default.svc.cluster.local
-      port: "3306"
-      config: charset=utf8mb4&parseTime=True&loc=Local
-      db_name: gva
-      username: gva
-      password: Gva_Pass!2025
-      max_idle_conns: 10
-      max_open_conns: 100
-      log_mode: info
-      log_zap: false
+    database:
+      driver: mysql
+      mysql:
+        # Use your existing k3s MySQL service DNS
+        host: mysql.default.svc.cluster.local
+        port: "3306"
+        config: charset=utf8mb4&parseTime=True&loc=Local
+        db_name: gva
+        username: gva
+        password: Gva_Pass!2025
+        max_idle_conns: 10
+        max_open_conns: 100
+        log_mode: info
+        log_zap: false
+      postgres:
+        # Use your existing k3s PostgreSQL service DNS when driver=postgres
+        host: postgres.default.svc.cluster.local
+        port: "5432"
+        db_name: gva
+        username: gva
+        password: Gva_Pass!2025
+        ssl_mode: disable
+        timezone: Asia/Shanghai
+        max_idle_conns: 10
+        max_open_conns: 100
+        log_mode: info
+        log_zap: false
 
     mongo:
       coll: test

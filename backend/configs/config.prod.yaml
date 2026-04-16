@@ -30,17 +30,31 @@ jwt:
   buffer_time: 1d
   issuer: GoWebFrame
 
-mysql:
-  path: mysql
-  port: "3306"
-  config: charset=utf8mb4&parseTime=True&loc=Local
-  db_name: gva
-  username: gva
-  password: CHANGE_ME_DB_PASSWORD
-  max_idle_conns: 20
-  max_open_conns: 200
-  log_mode: warn
-  log_zap: false
+database:
+  driver: mysql
+  mysql:
+    host: mysql
+    port: "3306"
+    config: charset=utf8mb4&parseTime=True&loc=Local
+    db_name: gva
+    username: gva
+    password: CHANGE_ME_DB_PASSWORD
+    max_idle_conns: 20
+    max_open_conns: 200
+    log_mode: warn
+    log_zap: false
+  postgres:
+    host: postgres
+    port: "5432"
+    db_name: gva
+    username: gva
+    password: CHANGE_ME_DB_PASSWORD
+    ssl_mode: disable
+    timezone: Asia/Shanghai
+    max_idle_conns: 20
+    max_open_conns: 200
+    log_mode: warn
+    log_zap: false
 
 mongo:
   coll: test
