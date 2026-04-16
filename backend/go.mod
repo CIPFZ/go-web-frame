@@ -14,11 +14,10 @@ require (
 	github.com/qiniu/qmgo v1.1.10
 	github.com/redis/go-redis/extra/redisotel/v9 v9.17.2
 	github.com/redis/go-redis/v9 v9.17.2
+	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/sony/gobreaker v1.0.0
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
-	github.com/swaggo/files v1.0.1
-	github.com/swaggo/gin-swagger v1.6.1
 	github.com/swaggo/swag v1.8.12
 	github.com/uptrace/opentelemetry-go-extra/otelgorm v0.3.2
 	go.mongodb.org/mongo-driver v1.17.6
@@ -51,6 +50,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.2.7
 	gorm.io/driver/mysql v1.6.0
+	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.31.1
 )
 
@@ -124,7 +124,6 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230126093431-47fa9a501578 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
-	github.com/shirou/gopsutil/v3 v3.24.5 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
@@ -157,7 +156,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250825161204-c5933d9347a5 // indirect
 	google.golang.org/protobuf v1.36.9 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gorm.io/driver/postgres v1.5.9 // indirect
 	gorm.io/driver/sqlserver v1.6.0 // indirect
 	gorm.io/plugin/dbresolver v1.6.0 // indirect
 	modernc.org/libc v1.22.2 // indirect

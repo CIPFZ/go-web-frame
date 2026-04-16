@@ -163,9 +163,9 @@ func initializeSystem(path string, serviceCtx *svc.ServiceContext) ([]utils.Shut
 
 	// Step 5: 数据库连接 (core/db)
 	// MySQL (GORM)
-	serviceCtx.DB, err = db.InitMysql(cfg.Mysql, serviceCtx.Logger)
+	serviceCtx.DB, err = db.InitDatabase(cfg.Database, serviceCtx.Logger)
 	if err != nil {
-		return nil, fmt.Errorf("mysql init failed: %w", err)
+		return nil, fmt.Errorf("database init failed: %w", err)
 	}
 	if err := seedAdminIfNeeded(context.Background(), serviceCtx); err != nil {
 		return nil, fmt.Errorf("seed admin failed: %w", err)

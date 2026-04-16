@@ -29,7 +29,7 @@ type SysUser struct {
 	Bio      string `json:"bio" gorm:"type:varchar(255);comment:个人简介"`
 
 	// --- 状态与配置 ---
-	Status   int            `json:"status" gorm:"type:tinyint(1);default:1;comment:用户状态 1正常 2冻结"`
+	Status   int            `json:"status" gorm:"type:smallint;default:1;comment:用户状态 1正常 2冻结"`
 	Settings datatypes.JSON `json:"settings" gorm:"type:json;comment:个性化设置"`
 
 	// --- 权限关联 ---

@@ -22,15 +22,16 @@ func main() {
 	}
 
 	logger, _ := zap.NewDevelopment()
-	gormDB, err := db.InitMysql(cfg.Mysql, logger)
+	gormDB, err := db.InitDatabase(cfg.Database, logger)
 	if err != nil {
-		log.Fatalf("mysql init failed: %v", err)
+		log.Fatalf("database init failed: %v", err)
 	}
 
 	fmt.Println("Start AutoMigrate...")
 	err = gormDB.AutoMigrate(
 		&sysModel.SysApi{},
 		&sysModel.SysAuthority{},
+		&sysModel.SysCasbinRule{},
 		&sysModel.SysMenu{},
 		&sysModel.SysAuthorityMenu{},
 		&sysModel.JwtBlacklist{},

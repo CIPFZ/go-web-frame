@@ -42,6 +42,64 @@ func Load(path string) (*Config, *viper.Viper, error) {
 func normalizeConfig(cfg *Config, configDir string) {
 	cfg.System.RouterPrefix = normalizeRouterPrefix(cfg.System.RouterPrefix)
 	cfg.I18n.Path = normalizeI18nPath(cfg.I18n.Path, configDir)
+	normalizeDatabase(&cfg.Database, cfg.Mysql)
+}
+
+func normalizeDatabase(database *Database, legacy MySQL) {
+	database.Driver = normalizeDatabaseDriver(database.Driver)
+	if database.Driver == "" {
+		database.Driver = "mysql"
+	}
+	if isEmptyMySQL(database.MySQL) && !isEmptyMySQL(legacy) {
+		database.MySQL = legacy
+	}
+	normalizeMySQLDefaults(&database.MySQL)
+	normalizePostgresDefaults(&database.Postgres)
+}
+
+func normalizeDatabaseDriver(driver string) string {
+	switch strings.ToLower(strings.TrimSpace(driver)) {
+	case "", "mysql":
+		return strings.ToLower(strings.TrimSpace(driver))
+	case "postgres", "postgresql", "pgsql":
+		return "postgres"
+	default:
+		return strings.ToLower(strings.TrimSpace(driver))
+	}
+}
+
+func isEmptyMySQL(mysql MySQL) bool {
+	return strings.TrimSpace(mysql.Host) == "" &&
+		strings.TrimSpace(mysql.Path) == "" &&
+		strings.TrimSpace(mysql.Dbname) == "" &&
+		strings.TrimSpace(mysql.Username) == ""
+}
+
+func normalizeMySQLDefaults(mysql *MySQL) {
+	if strings.TrimSpace(mysql.Host) == "" {
+		mysql.Host = strings.TrimSpace(mysql.Path)
+	}
+	if strings.TrimSpace(mysql.Path) == "" {
+		mysql.Path = strings.TrimSpace(mysql.Host)
+	}
+	if strings.TrimSpace(mysql.Port) == "" {
+		mysql.Port = "3306"
+	}
+	if strings.TrimSpace(mysql.Engine) == "" {
+		mysql.Engine = "InnoDB"
+	}
+}
+
+func normalizePostgresDefaults(postgres *Postgres) {
+	if strings.TrimSpace(postgres.Port) == "" {
+		postgres.Port = "5432"
+	}
+	if strings.TrimSpace(postgres.SSLMode) == "" {
+		postgres.SSLMode = "disable"
+	}
+	if strings.TrimSpace(postgres.TimeZone) == "" {
+		postgres.TimeZone = "Asia/Shanghai"
+	}
 }
 
 func normalizeRouterPrefix(prefix string) string {

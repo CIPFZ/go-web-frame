@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo "Waiting for MySQL to start..."
+echo "Waiting for database to start..."
 sleep 15
 
 echo "Starting database migration..."

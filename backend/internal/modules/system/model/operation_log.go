@@ -27,8 +27,8 @@ type SysOperationLog struct {
 	Remark string `json:"remark" gorm:"type:varchar(128);comment:操作描述"`
 
 	// --- 数据体 (使用 MEDIUMTEXT 防止截断) ---
-	Body string `json:"body" gorm:"type:mediumtext;comment:请求Body"`
-	Resp string `json:"resp" gorm:"type:mediumtext;comment:响应Body"`
+	Body string `json:"body" gorm:"type:text;comment:请求Body"`
+	Resp string `json:"resp" gorm:"type:text;comment:响应Body"`
 
 	// --- 关联用户 ---
 	UserID uint    `json:"userId" gorm:"column:user_id;index;comment:用户ID"`
