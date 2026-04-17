@@ -13,6 +13,7 @@ type SystemApis struct {
 	MenuApi      *api.MenuApi
 	AuthorityApi *api.AuthorityApi
 	SysApiApi    *api.SysApiApi
+	ApiTokenApi  *api.ApiTokenApi
 	CasbinApi    *api.CasbinApi
 	OpLogApi     *api.OperationLogApi
 	FileApi      *api.FileApi
@@ -73,6 +74,7 @@ func (s *SystemRouter) initPrivateRoutes(private *gin.RouterGroup) {
 	s.initMenuRoutes(systemGroup)
 	s.initAuthorityRoutes(systemGroup)
 	s.initApiRoutes(systemGroup)
+	s.initApiTokenRoutes(systemGroup)
 	s.initCasbinRoutes(systemGroup)
 	s.initOperationLogRoutes(systemGroup)
 	s.initFileUploadRoutes(systemGroup)
@@ -154,6 +156,24 @@ func (s *SystemRouter) initApiRoutes(group *gin.RouterGroup) {
 			apiWriteGroup.POST("createApi", s.apis.SysApiApi.CreateApi)
 			apiWriteGroup.PUT("updateApi", s.apis.SysApiApi.UpdateApi)    // 建议: PUT
 			apiWriteGroup.DELETE("deleteApi", s.apis.SysApiApi.DeleteApi) // 建议: DELETE
+		}
+	}
+}
+
+func (s *SystemRouter) initApiTokenRoutes(group *gin.RouterGroup) {
+	apiTokenRouter := group.Group("api-token")
+	{
+		apiTokenRouter.POST("getApiTokenList", s.apis.ApiTokenApi.GetApiTokenList)
+		apiTokenRouter.GET("detail", s.apis.ApiTokenApi.GetApiTokenDetail)
+
+		apiTokenWriteGroup := apiTokenRouter.Group("", middleware.OperationRecord(s.svcCtx))
+		{
+			apiTokenWriteGroup.POST("create", s.apis.ApiTokenApi.CreateApiToken)
+			apiTokenWriteGroup.PUT("update", s.apis.ApiTokenApi.UpdateApiToken)
+			apiTokenWriteGroup.DELETE("delete", s.apis.ApiTokenApi.DeleteApiToken)
+			apiTokenWriteGroup.POST("reset", s.apis.ApiTokenApi.ResetApiToken)
+			apiTokenWriteGroup.POST("enable", s.apis.ApiTokenApi.EnableApiToken)
+			apiTokenWriteGroup.POST("disable", s.apis.ApiTokenApi.DisableApiToken)
 		}
 	}
 }

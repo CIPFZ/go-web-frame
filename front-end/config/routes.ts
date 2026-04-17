@@ -43,6 +43,11 @@
         path: '/',
         redirect: '/dashboard/workplace',
       },
+      {
+        path: '/sys/api-token',
+        component: './sys/api-token',
+        hideInMenu: true,
+      },
       // ... 动态路由会被注入到这里 ...
     ],
   },

@@ -33,11 +33,13 @@ func InitRouters(svcCtx *svc.ServiceContext) *gin.Engine {
 	routerPrefix := svcCtx.Config.System.RouterPrefix
 	publicGroup := r.Group(routerPrefix)
 	privateGroup := r.Group(routerPrefix)
+	apiTokenGroup := r.Group(routerPrefix)
 	privateGroup.Use(middleware.JWTAuth(svcCtx), middleware.CasbinHandler(svcCtx))
+	apiTokenGroup.Use(middleware.ApiTokenAuth(svcCtx))
 
 	sysRouter := wireSystemModule(svcCtx)
 	sysRouter.InitSystemRoutes(privateGroup, publicGroup)
-	wirePoetryModule(svcCtx).InitPoetryRoutes(privateGroup, publicGroup)
+	wirePoetryModule(svcCtx).InitPoetryRoutes(privateGroup, publicGroup, apiTokenGroup)
 
 	svcCtx.Routers = r.Routes()
 	svcCtx.Logger.Info("all routes initialized")
@@ -114,6 +116,7 @@ func wireSystemModule(svcCtx *svc.ServiceContext) *systemRouter.SystemRouter {
 	menuRepo := systemRepo.NewMenuRepository(svcCtx.DB)
 	authRepo := systemRepo.NewAuthorityRepository(svcCtx.DB)
 	apiRepo := systemRepo.NewApiRepository(svcCtx.DB)
+	apiTokenRepo := systemRepo.NewApiTokenRepository(svcCtx.DB)
 	casbinRepo := systemRepo.NewCasbinRepository(svcCtx.CasbinEnforcer)
 	opLogRepo := systemRepo.NewOperationLogRepository(svcCtx.DB)
 	noticeRepo := systemRepo.NewNoticeRepository(svcCtx.DB)
@@ -123,6 +126,7 @@ func wireSystemModule(svcCtx *svc.ServiceContext) *systemRouter.SystemRouter {
 	menuService := systemService.NewMenuService(svcCtx, menuRepo)
 	authService := systemService.NewAuthorityService(svcCtx, authRepo)
 	apiService := systemService.NewApiService(svcCtx, apiRepo)
+	apiTokenService := systemService.NewApiTokenService(svcCtx, apiTokenRepo)
 	casbinService := systemService.NewCasbinService(svcCtx, casbinRepo)
 	noticeService := systemService.NewNoticeService(svcCtx, noticeRepo)
 
@@ -131,6 +135,7 @@ func wireSystemModule(svcCtx *svc.ServiceContext) *systemRouter.SystemRouter {
 		MenuApi:      systemApi.NewMenuApi(svcCtx, menuService),
 		AuthorityApi: systemApi.NewAuthorityApi(svcCtx, authService),
 		SysApiApi:    systemApi.NewSysApiApi(svcCtx, apiService),
+		ApiTokenApi:  systemApi.NewApiTokenApi(svcCtx, apiTokenService),
 		CasbinApi:    systemApi.NewCasbinApi(svcCtx, casbinService),
 		OpLogApi:     systemApi.NewOperationLogApi(svcCtx, opLogService),
 		FileApi:      systemApi.NewFileApi(svcCtx),
