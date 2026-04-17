@@ -54,7 +54,6 @@ docker compose restart backend frontend
 ## Quality Docs
 - Template quality baseline: `TEMPLATE_QUALITY.md`
 - Environment profiles: `ENVIRONMENTS.md`
-- CI pipeline: `.github/workflows/ci.yml`
 
 ## Seed Admin Environment Variables
 Set on `backend` service in `docker-compose.yml`:

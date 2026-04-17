@@ -41,7 +41,7 @@
       // 实际运行时，patchClientRoutes 会根据用户角色动态修改这里的跳转目标。
       {
         path: '/',
-        redirect: '/dashboard/analysis', // 或者是 '/sys/user' 等存在的页面
+        redirect: '/dashboard/workplace',
       },
       // ... 动态路由会被注入到这里 ...
     ],
