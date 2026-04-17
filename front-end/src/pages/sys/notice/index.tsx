@@ -186,11 +186,12 @@ const NoticeAdminPage: React.FC = () => {
           valueEnum={{ all: '全体用户', roles: '按角色', users: '指定用户' }}
           fieldProps={{
             onChange: async (v) => {
-              setTargetType(v);
-              if (v === 'roles' && roleOptions.length === 0) {
+              const nextTargetType = v as 'all' | 'roles' | 'users';
+              setTargetType(nextTargetType);
+              if (nextTargetType === 'roles' && roleOptions.length === 0) {
                 await loadRoles();
               }
-              if (v === 'users' && userOptions.length === 0) {
+              if (nextTargetType === 'users' && userOptions.length === 0) {
                 await loadUsers();
               }
             },
