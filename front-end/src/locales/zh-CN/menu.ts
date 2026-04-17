@@ -56,6 +56,7 @@
   'menu.system.authority': '角色管理',
   'menu.system.menu': '菜单管理',
   'menu.system.api': 'API 管理',
+  'menu.system.apiToken': 'API Token',
   'menu.system.operation': '操作日志',
   'menu.system.notice': '通知公告',
   'menu.poetry': '诗词管理',

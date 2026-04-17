@@ -10,6 +10,7 @@ import (
 	"github.com/CIPFZ/gowebframe/internal/core/config"
 	"github.com/CIPFZ/gowebframe/internal/core/i18n"
 	"github.com/CIPFZ/gowebframe/internal/core/jwt"
+	coretoken "github.com/CIPFZ/gowebframe/internal/core/token"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/gin-gonic/gin"
@@ -35,6 +36,7 @@ type ServiceContext struct {
 	Timer              time.Timer
 	ConcurrencyControl *singleflight.Group
 	CasbinEnforcer     *casbin.SyncedCachedEnforcer
+	APITokenLimiter    *coretoken.InMemoryLimiter
 	lock               sync.RWMutex
 	AuditRecorder      *audit.AuditRecorder
 	OSS                file.OSS
@@ -43,5 +45,6 @@ type ServiceContext struct {
 func NewServiceContext() *ServiceContext {
 	return &ServiceContext{
 		ConcurrencyControl: &singleflight.Group{},
+		APITokenLimiter:    coretoken.NewInMemoryLimiter(),
 	}
 }

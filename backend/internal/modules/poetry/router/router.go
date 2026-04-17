@@ -19,12 +19,15 @@ func NewPoetryRouter(svcCtx *svc.ServiceContext, apis *api.PoetryApi) *PoetryRou
 	}
 }
 
-func (r *PoetryRouter) InitPoetryRoutes(privateGroup *gin.RouterGroup, publicGroup *gin.RouterGroup) {
+func (r *PoetryRouter) InitPoetryRoutes(privateGroup *gin.RouterGroup, publicGroup *gin.RouterGroup, apiTokenGroup *gin.RouterGroup) {
 	group := privateGroup.Group("poetry")
 	r.initDynastyRoutes(group)
 	r.initGenreRoutes(group)
 	r.initAuthorRoutes(group)
 	r.initPoemRoutes(group)
+
+	tokenPoetryGroup := apiTokenGroup.Group("poetry")
+	r.initApiTokenReadOnlyRoutes(tokenPoetryGroup)
 }
 
 // 初始化朝代路由
@@ -71,6 +74,32 @@ func (r *PoetryRouter) initPoemRoutes(group *gin.RouterGroup) {
 		pGroup.POST("", r.apis.CreatePoem)
 		pGroup.PUT(":id", r.apis.UpdatePoem)
 		pGroup.DELETE(":id", r.apis.DeletePoem)
+		pGroup.GET("list", r.apis.ListPoem)
+		pGroup.GET(":id", r.apis.DetailPoem)
+	}
+}
+
+func (r *PoetryRouter) initApiTokenReadOnlyRoutes(group *gin.RouterGroup) {
+	dGroup := group.Group("dynasty")
+	{
+		dGroup.GET("list", r.apis.ListDynasty)
+		dGroup.GET("all", r.apis.AllDynasties)
+	}
+
+	gGroup := group.Group("genre")
+	{
+		gGroup.GET("list", r.apis.ListGenre)
+		gGroup.GET("all", r.apis.AllGenres)
+	}
+
+	aGroup := group.Group("author")
+	{
+		aGroup.GET("list", r.apis.ListAuthor)
+		aGroup.GET(":id", r.apis.DetailAuthor)
+	}
+
+	pGroup := group.Group("poem")
+	{
 		pGroup.GET("list", r.apis.ListPoem)
 		pGroup.GET(":id", r.apis.DetailPoem)
 	}

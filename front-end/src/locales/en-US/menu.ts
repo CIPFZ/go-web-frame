@@ -56,6 +56,7 @@
   'menu.system.authority': 'Roles',
   'menu.system.menu': 'Menus',
   'menu.system.api': 'APIs',
+  'menu.system.apiToken': 'API Tokens',
   'menu.system.operation': 'Operation Logs',
   'menu.system.notice': 'Notices',
   'menu.poetry': 'Poetry',

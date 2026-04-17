@@ -30,10 +30,13 @@ func main() {
 	fmt.Println("Start AutoMigrate...")
 	err = gormDB.AutoMigrate(
 		&sysModel.SysApi{},
+		&sysModel.SysAuthorityApi{},
 		&sysModel.SysAuthority{},
 		&sysModel.SysCasbinRule{},
 		&sysModel.SysMenu{},
 		&sysModel.SysAuthorityMenu{},
+		&sysModel.SysApiToken{},
+		&sysModel.SysApiTokenApi{},
 		&sysModel.JwtBlacklist{},
 		&sysModel.SysOperationLog{},
 		&sysModel.SysUser{},
