@@ -91,6 +91,8 @@ declare namespace API {
     settings?: any;
   };
 
+  type CurrentUser = UserInfo;
+
   // 记录前端登录的状态
   type LoginResult = {
     // -1 还没有操作 0：失败  1：成功

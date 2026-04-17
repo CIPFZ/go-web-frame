@@ -232,7 +232,7 @@ const Settings: React.FC = () => {
 
   const [initConfig, setInitConfig] = useState<'base' | 'security'>('base');
 
-  const menuMap = {
+  const menuMap: Record<'base' | 'security', string> = {
     base: '基本设置',
     security: '安全设置',
   };
@@ -263,7 +263,7 @@ const Settings: React.FC = () => {
             onClick={({ key }) => setInitConfig(key as 'base' | 'security')}
             style={{ border: 'none' }}
           >
-            {Object.keys(menuMap).map((item: string) => (
+            {(Object.keys(menuMap) as Array<keyof typeof menuMap>).map((item) => (
               <Menu.Item key={item}>{menuMap[item]}</Menu.Item>
             ))}
           </Menu>

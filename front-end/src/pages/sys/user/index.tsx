@@ -188,7 +188,7 @@ const UserTableList: React.FC = () => {
       // ✨ 关键修改：使用 render 自定义渲染为 Tag
       render: (_, record) => {
         // 定义状态映射
-        const statusMap = {
+        const statusMap: Record<number, { color: string; text: string }> = {
           1: { color: 'success', text: '正常' }, // 绿色胶囊
           2: { color: 'error', text: '冻结' },   // 红色胶囊
         };
