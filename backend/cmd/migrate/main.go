@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	configPath := flag.String("f", "../../configs/config.yaml", "config file path")
+	configPath := flag.String("f", defaultConfigPath, "config file path")
 	flag.Parse()
 
 	cfg, _, err := config.Load(*configPath)
@@ -53,3 +53,5 @@ func main() {
 	}
 	fmt.Println("AutoMigrate finished successfully!")
 }
+
+const defaultConfigPath = "./configs/config.yaml"

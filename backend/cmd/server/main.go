@@ -35,7 +35,7 @@ import (
 
 func main() {
 	// ---------------- 1. 初始化系统 ----------------
-	configPath := flag.String("f", "../../configs/config.yaml", "config file path")
+	configPath := flag.String("f", defaultConfigPath, "config file path")
 	flag.Parse()
 
 	serviceCtx := svc.NewServiceContext()
@@ -93,6 +93,8 @@ func main() {
 	// (defer logger.Sync 会在这里执行)
 	log.Println("👋 服务已成功关闭")
 }
+
+const defaultConfigPath = "./configs/config.yaml"
 
 // initializeSystem 初始化核心组件并组装
 func initializeSystem(path string, serviceCtx *svc.ServiceContext) ([]utils.ShutdownFunc, error) {
