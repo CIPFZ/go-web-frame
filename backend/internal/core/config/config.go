@@ -26,6 +26,7 @@ type Database struct {
 	Driver   string   `mapstructure:"driver" json:"driver" yaml:"driver"`
 	MySQL    MySQL    `mapstructure:"mysql" json:"mysql" yaml:"mysql"`
 	Postgres Postgres `mapstructure:"postgres" json:"postgres" yaml:"postgres"`
+	SQLite   SQLite   `mapstructure:"sqlite" json:"sqlite" yaml:"sqlite"`
 }
 
 type System struct {

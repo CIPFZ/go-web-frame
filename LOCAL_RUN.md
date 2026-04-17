@@ -14,6 +14,32 @@ docker compose -f docker-compose.yml -f docker-compose.pgsql.yml up -d --build p
 
 Restore `database.driver: mysql` to use the default MySQL stack again.
 
+## SQLite3 Mode
+Set `backend/configs/config.yaml` to `database.driver: sqlite3`, then configure `database.sqlite`:
+
+```yaml
+database:
+  driver: sqlite3
+  sqlite:
+    path: data/app.db
+    wal: true
+    busy_timeout_ms: 5000
+    foreign_keys: true
+```
+
+Optional local simplifications:
+- set `system.use_redis: false`
+- set `file.driver: local`
+- override the database file path with `SQLITE_PATH`
+
+Typical commands:
+
+```bash
+cd backend
+go run ./cmd/migrate
+go run ./cmd/server
+```
+
 ## Default Access
 - Frontend: `http://localhost`
 - Backend health: `http://localhost:8080/health`

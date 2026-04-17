@@ -55,6 +55,15 @@ database:
     max_open_conns: 100
     log_mode: info
     log_zap: false
+  sqlite:
+    path: data/app.db
+    wal: true
+    busy_timeout_ms: 5000
+    foreign_keys: true
+    max_idle_conns: 1
+    max_open_conns: 1
+    log_mode: info
+    log_zap: false
 
 mongo:
   coll: test
