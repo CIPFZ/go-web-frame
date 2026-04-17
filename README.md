@@ -278,6 +278,28 @@ front-end
 - 后端统一在服务端做扩展名、大小、文件名校验
 - OSS 实现负责真正落盘或对象存储写入
 
+## 数据库驱动
+
+当前后端支持三种数据库驱动：
+
+- `mysql`：使用 `database.mysql`
+- `postgres`：使用 `database.postgres`
+- `sqlite3`：使用 `database.sqlite`
+
+`sqlite3` 的定位是本地开发优先，同时支持单实例、小规模生产。推荐配置：
+
+- `database.sqlite.wal=true`
+- `database.sqlite.foreign_keys=true`
+- `database.sqlite.busy_timeout_ms=5000`
+
+支持通过环境变量 `SQLITE_PATH` 覆盖配置文件中的 sqlite 数据库文件路径。
+
+不建议将 `sqlite3` 用于：
+
+- 多副本部署
+- 共享网络存储数据库文件
+- 高频并发写入场景
+
 ## 开发入口
 
 ### 后端
@@ -288,6 +310,24 @@ front-end
 go run ./cmd/server
 go run ./cmd/migrate
 go test ./...
+```
+
+如果要使用 `sqlite3`，可在 `backend/configs/config.yaml` 中设置：
+
+```yaml
+database:
+  driver: sqlite3
+  sqlite:
+    path: data/app.db
+    wal: true
+    busy_timeout_ms: 5000
+    foreign_keys: true
+```
+
+也可以通过环境变量覆盖 sqlite 数据库文件路径：
+
+```bash
+SQLITE_PATH=./data/app.db
 ```
 
 ### 前端

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -42,10 +43,10 @@ func Load(path string) (*Config, *viper.Viper, error) {
 func normalizeConfig(cfg *Config, configDir string) {
 	cfg.System.RouterPrefix = normalizeRouterPrefix(cfg.System.RouterPrefix)
 	cfg.I18n.Path = normalizeI18nPath(cfg.I18n.Path, configDir)
-	normalizeDatabase(&cfg.Database, cfg.Mysql)
+	normalizeDatabase(&cfg.Database, cfg.Mysql, configDir)
 }
 
-func normalizeDatabase(database *Database, legacy MySQL) {
+func normalizeDatabase(database *Database, legacy MySQL, configDir string) {
 	database.Driver = normalizeDatabaseDriver(database.Driver)
 	if database.Driver == "" {
 		database.Driver = "mysql"
@@ -55,6 +56,7 @@ func normalizeDatabase(database *Database, legacy MySQL) {
 	}
 	normalizeMySQLDefaults(&database.MySQL)
 	normalizePostgresDefaults(&database.Postgres)
+	normalizeSQLiteDefaults(&database.SQLite, configDir)
 }
 
 func normalizeDatabaseDriver(driver string) string {
@@ -63,6 +65,8 @@ func normalizeDatabaseDriver(driver string) string {
 		return strings.ToLower(strings.TrimSpace(driver))
 	case "postgres", "postgresql", "pgsql":
 		return "postgres"
+	case "sqlite3":
+		return "sqlite3"
 	default:
 		return strings.ToLower(strings.TrimSpace(driver))
 	}
@@ -99,6 +103,26 @@ func normalizePostgresDefaults(postgres *Postgres) {
 	}
 	if strings.TrimSpace(postgres.TimeZone) == "" {
 		postgres.TimeZone = "Asia/Shanghai"
+	}
+}
+
+func normalizeSQLiteDefaults(sqlite *SQLite, configDir string) {
+	if envPath := strings.TrimSpace(os.Getenv("SQLITE_PATH")); envPath != "" {
+		sqlite.Path = envPath
+	}
+	if strings.TrimSpace(sqlite.Path) == "" {
+		sqlite.Path = filepath.Join(configDir, "data", "app.db")
+	} else if !filepath.IsAbs(sqlite.Path) {
+		sqlite.Path = filepath.Join(configDir, sqlite.Path)
+	}
+	if sqlite.BusyTimeoutMS <= 0 {
+		sqlite.BusyTimeoutMS = 5000
+	}
+	if sqlite.MaxIdleConns <= 0 {
+		sqlite.MaxIdleConns = 1
+	}
+	if sqlite.MaxOpenConns <= 0 {
+		sqlite.MaxOpenConns = 1
 	}
 }
 

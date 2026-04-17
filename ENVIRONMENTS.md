@@ -40,8 +40,20 @@ Set `database.driver` in the backend config:
 
 - `mysql` uses `database.mysql`
 - `postgres` or `pgsql` uses `database.postgres`
+- `sqlite3` uses `database.sqlite`
 
 The default local profile uses MySQL. PostgreSQL is supported as an alternate primary database and should be verified with the PostgreSQL compose override before release.
+
+SQLite3 is intended for local development, CI/integration-style usage, and single-instance small-scale production deployments. It is not recommended for multi-instance deployment or high write concurrency.
+
+Recommended SQLite3 settings:
+- `database.driver=sqlite3`
+- `database.sqlite.wal=true`
+- `database.sqlite.foreign_keys=true`
+- `database.sqlite.busy_timeout_ms=5000`
+
+Optional database file override:
+- `SQLITE_PATH=/path/to/app.db`
 
 ## Seed Admin Controls
 Configure in `docker-compose.yml` (backend service env):
