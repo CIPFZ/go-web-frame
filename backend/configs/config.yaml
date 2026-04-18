@@ -31,7 +31,7 @@ jwt:
   issuer: GWF
 
 database:
-  driver: mysql
+  driver: postgres
   mysql:
     host: mysql
     port: "3306"
