@@ -19,6 +19,7 @@ export const componentMap: Record<string, React.LazyExoticComponent<any>> = {
   'sys/authority': React.lazy(() => import('@/pages/sys/authority')),
   'sys/menu': React.lazy(() => import('@/pages/sys/menu')),
   'sys/api': React.lazy(() => import('@/pages/sys/api')),
+  'sys/api-token': React.lazy(() => import('@/pages/sys/api-token')),
   'sys/operation': React.lazy(() => import('@/pages/sys/operation')),
   'sys/notice': React.lazy(() => import('@/pages/sys/notice')),
   // 个人信息

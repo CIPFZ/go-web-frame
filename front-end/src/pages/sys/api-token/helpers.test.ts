@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 
 import {
+  API_TOKEN_TABLE_LAYOUT,
   buildPermissionSummary,
   buildTokenFormInitialValues,
   buildTokenSubmitPayload,
@@ -51,5 +52,13 @@ describe('api-token helpers', () => {
       expiresAt: expiresAt.toISOString(),
       apiIds: [2, 5],
     });
+  });
+
+  it('allocates more width to authorized apis than secondary metadata columns', () => {
+    expect(API_TOKEN_TABLE_LAYOUT.apisWidth).toBeGreaterThan(API_TOKEN_TABLE_LAYOUT.statusWidth);
+    expect(API_TOKEN_TABLE_LAYOUT.apisWidth).toBeGreaterThan(API_TOKEN_TABLE_LAYOUT.concurrencyWidth);
+    expect(API_TOKEN_TABLE_LAYOUT.apisWidth).toBeGreaterThan(API_TOKEN_TABLE_LAYOUT.lastUsedWidth);
+    expect(API_TOKEN_TABLE_LAYOUT.apisWidth).toBeGreaterThan(API_TOKEN_TABLE_LAYOUT.nameWidth);
+    expect(API_TOKEN_TABLE_LAYOUT.scrollX).toBeGreaterThanOrEqual(1360);
   });
 });

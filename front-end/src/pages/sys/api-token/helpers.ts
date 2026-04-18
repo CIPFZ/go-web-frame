@@ -21,6 +21,18 @@ export type PermissionSummaryItem = {
 
 const DEFAULT_MAX_CONCURRENCY = 5;
 
+export const API_TOKEN_TABLE_LAYOUT = {
+  nameWidth: 180,
+  tokenPrefixWidth: 150,
+  statusWidth: 88,
+  concurrencyWidth: 76,
+  expiresAtWidth: 158,
+  lastUsedWidth: 120,
+  apisWidth: 360,
+  actionWidth: 220,
+  scrollX: 1360,
+} as const;
+
 export const formatApiLabel = (method?: string, path?: string) =>
   `[${method || 'GET'}] ${path || '/'}`;
 

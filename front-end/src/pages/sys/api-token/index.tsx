@@ -41,6 +41,7 @@ import {
   type ApiPermissionOption,
 } from './components/ApiPermissionTransfer';
 import {
+  API_TOKEN_TABLE_LAYOUT,
   buildTokenFormInitialValues,
   buildTokenSubmitPayload,
   type TokenFormValues,
@@ -256,6 +257,7 @@ const ApiTokenPage: React.FC = () => {
     {
       title: '名称',
       dataIndex: 'name',
+      width: API_TOKEN_TABLE_LAYOUT.nameWidth,
       ellipsis: true,
       render: (_, record) => (
         <Space direction="vertical" size={0}>
@@ -267,7 +269,7 @@ const ApiTokenPage: React.FC = () => {
     {
       title: 'Token 前缀',
       dataIndex: 'tokenPrefix',
-      width: 220,
+      width: API_TOKEN_TABLE_LAYOUT.tokenPrefixWidth,
       search: false,
       render: (_, record) => (
         <Space direction="vertical" size={4}>
@@ -280,9 +282,16 @@ const ApiTokenPage: React.FC = () => {
       ),
     },
     {
+      title: '授权 API',
+      dataIndex: 'apis',
+      width: API_TOKEN_TABLE_LAYOUT.apisWidth,
+      search: false,
+      render: (_, record) => <ApiPermissionSummary apis={record.apis} />,
+    },
+    {
       title: '状态',
       dataIndex: 'enabled',
-      width: 120,
+      width: API_TOKEN_TABLE_LAYOUT.statusWidth,
       valueEnum: {
         true: { text: '启用', status: 'Success' },
         false: { text: '禁用', status: 'Default' },
@@ -299,7 +308,7 @@ const ApiTokenPage: React.FC = () => {
     {
       title: '并发上限',
       dataIndex: 'maxConcurrency',
-      width: 110,
+      width: API_TOKEN_TABLE_LAYOUT.concurrencyWidth,
       search: false,
       align: 'center',
       render: (_, record) => record.maxConcurrency || '-',
@@ -307,7 +316,7 @@ const ApiTokenPage: React.FC = () => {
     {
       title: '过期时间',
       dataIndex: 'expiresAt',
-      width: 220,
+      width: API_TOKEN_TABLE_LAYOUT.expiresAtWidth,
       search: false,
       render: (_, record) => (
         <Space direction="vertical" size={4}>
@@ -319,23 +328,16 @@ const ApiTokenPage: React.FC = () => {
     {
       title: '最近使用',
       dataIndex: 'lastUsedAt',
-      width: 180,
+      width: API_TOKEN_TABLE_LAYOUT.lastUsedWidth,
       search: false,
       render: (_, record) =>
         record.lastUsedAt ? dayjs(record.lastUsedAt).format('YYYY-MM-DD HH:mm') : '暂无记录',
     },
     {
-      title: '授权 API',
-      dataIndex: 'apis',
-      search: false,
-      render: (_, record) => <ApiPermissionSummary apis={record.apis} />,
-    },
-    {
       title: '操作',
       dataIndex: 'option',
       valueType: 'option',
-      width: 320,
-      fixed: 'right',
+      width: API_TOKEN_TABLE_LAYOUT.actionWidth,
       render: (_, record) => (
         <Space size="small" wrap>
           <a onClick={() => openEditDrawer(record)}>
@@ -436,7 +438,7 @@ const ApiTokenPage: React.FC = () => {
             };
           }}
           columns={columns}
-          scroll={{ x: 1500 }}
+          scroll={{ x: API_TOKEN_TABLE_LAYOUT.scrollX }}
           toolBarRender={() => [
             <Button key="create" type="primary" onClick={openCreateDrawer}>
               <PlusOutlined /> 新建 Token
