@@ -32,7 +32,8 @@ export const errorConfig: RequestConfig = {
   ],
   responseInterceptors: [
     (response) => {
-      const newToken = response.headers?.get?.(HEADER_NEW_TOKEN_KEY);
+      const newToken =
+        response.headers instanceof Headers ? response.headers.get(HEADER_NEW_TOKEN_KEY) : null;
       if (newToken) {
         localStorage.setItem(TOKEN_KEY, newToken);
       }
