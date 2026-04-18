@@ -1,0 +1,104 @@
+.apiTokenPage {
+  .apiTokenHero {
+    margin-bottom: 16px;
+    overflow: hidden;
+    border: 1px solid #d7e3ff;
+    border-radius: 20px;
+    background:
+      radial-gradient(circle at top right, rgba(22, 119, 255, 0.16), transparent 32%),
+      linear-gradient(135deg, #f8fbff 0%, #f3f7ff 52%, #ffffff 100%);
+    box-shadow: 0 12px 32px rgba(17, 24, 39, 0.06);
+  }
+
+  .heroTitle {
+    margin-bottom: 8px !important;
+  }
+
+  .heroParagraph {
+    max-width: 760px;
+    margin-bottom: 0 !important;
+    color: rgba(0, 0, 0, 0.58);
+  }
+
+  .statsRow {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  .statCard {
+    padding: 16px 18px;
+    border: 1px solid rgba(22, 119, 255, 0.12);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.82);
+  }
+
+  .statLabel {
+    display: block;
+    margin-bottom: 6px;
+    color: rgba(0, 0, 0, 0.45);
+    font-size: 12px;
+  }
+
+  .statValue {
+    display: block;
+    color: #111827;
+    font-weight: 600;
+    font-size: 24px;
+    line-height: 1.2;
+  }
+
+  .statHint {
+    display: block;
+    margin-top: 4px;
+    color: rgba(0, 0, 0, 0.45);
+    font-size: 12px;
+  }
+
+  .tableCard {
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(17, 24, 39, 0.05);
+  }
+
+  .tokenPrefix {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #f4f7ff;
+    color: #1d4ed8;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+  }
+
+  .tokenPrefixMeta {
+    color: rgba(0, 0, 0, 0.45);
+    font-size: 12px;
+  }
+
+  .drawerTips {
+    padding: 12px 14px;
+    border: 1px solid #dbeafe;
+    border-radius: 14px;
+    background: #f8fbff;
+  }
+
+  .drawerTipsTitle {
+    margin-bottom: 6px;
+    color: #0f172a;
+    font-weight: 600;
+  }
+
+  .drawerTipsText {
+    margin-bottom: 0;
+    color: rgba(0, 0, 0, 0.58);
+  }
+
+  @media (max-width: 992px) {
+    .statsRow {
+      grid-template-columns: 1fr;
+    }
+  }
+}
