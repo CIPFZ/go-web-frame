@@ -3,6 +3,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import ApiTokenPage from './index';
 import { getApiTokenList } from '@/services/api/apiToken';
 
+const mockProFormDateTimePicker = jest.fn((_: any) => null);
+let capturedColumns: any[] = [];
+
 jest.mock('@/services/api/apiToken', () => ({
   getApiTokenList: jest.fn(),
   createApiToken: jest.fn(),
@@ -25,7 +28,9 @@ jest.mock('@ant-design/pro-layout', () => ({
 jest.mock('@ant-design/pro-components', () => {
   const ReactLib = require('react');
   return {
-    ProTable: ({ request, toolBarRender }: any) => {
+    ProTable: (props: any) => {
+      const { request, toolBarRender, columns } = props;
+      capturedColumns = columns || [];
       ReactLib.useEffect(() => {
         request?.({ current: 1, pageSize: 10 });
       }, [request]);
@@ -36,16 +41,24 @@ jest.mock('@ant-design/pro-components', () => {
         ReactLib.createElement('div', { 'data-testid': 'api-token-table' }),
       );
     },
-    ModalForm: ({ children }: any) => ReactLib.createElement('div', null, children),
+    DrawerForm: ({ children }: any) => ReactLib.createElement('div', null, children),
+    ProCard: ({ children }: any) => ReactLib.createElement('div', null, children),
+    ProForm: {
+      Item: ({ children }: any) => ReactLib.createElement('div', null, children),
+    },
     ProFormText: () => null,
     ProFormTextArea: () => null,
-    ProFormSelect: () => null,
     ProFormDigit: () => null,
-    ProFormDateTimePicker: () => null,
+    ProFormDateTimePicker: (props: any) => mockProFormDateTimePicker(props),
   };
 });
 
 describe('sys/api-token page', () => {
+  beforeEach(() => {
+    mockProFormDateTimePicker.mockClear();
+    capturedColumns = [];
+  });
+
   it('renders and requests list data', async () => {
     (getApiTokenList as jest.Mock).mockResolvedValue({
       code: 0,
@@ -61,5 +74,45 @@ describe('sys/api-token page', () => {
     await waitFor(() => {
       expect(getApiTokenList).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('marks expiresAt as required in the token form', async () => {
+    (getApiTokenList as jest.Mock).mockResolvedValue({
+      code: 0,
+      data: { list: [], total: 0 },
+    });
+
+    const ReactLib = require('react');
+    render(ReactLib.createElement(ApiTokenPage));
+
+    await waitFor(() => {
+      expect(mockProFormDateTimePicker).toHaveBeenCalled();
+    });
+
+    const firstCall = mockProFormDateTimePicker.mock.calls[0]?.[0];
+
+    expect(firstCall?.rules).toEqual(
+      expect.arrayContaining([expect.objectContaining({ required: true })]),
+    );
+  });
+
+  it('places authorized api column before status and usage metadata', async () => {
+    (getApiTokenList as jest.Mock).mockResolvedValue({
+      code: 0,
+      data: { list: [], total: 0 },
+    });
+
+    const ReactLib = require('react');
+    render(ReactLib.createElement(ApiTokenPage));
+
+    await waitFor(() => {
+      expect(capturedColumns.length).toBeGreaterThan(0);
+    });
+
+    const order = capturedColumns.map((column) => String(column.dataIndex));
+
+    expect(order.indexOf('apis')).toBeGreaterThan(-1);
+    expect(order.indexOf('apis')).toBeLessThan(order.indexOf('enabled'));
+    expect(order.indexOf('apis')).toBeLessThan(order.indexOf('expiresAt'));
   });
 });
