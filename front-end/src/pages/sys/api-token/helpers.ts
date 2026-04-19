@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 
 import type { ApiTokenItem } from '@/services/api/apiToken';
+import type { ApiTokenFormPayload } from '@/services/api/apiToken';
 
 export type ApiPermissionRecord = NonNullable<ApiTokenItem['apis']>[number];
 
@@ -75,9 +76,12 @@ export const buildTokenFormInitialValues = (currentRow?: ApiTokenItem): TokenFor
   };
 };
 
-export const buildTokenSubmitPayload = (values: TokenFormValues, currentId?: number) => ({
+export const buildTokenSubmitPayload = (
+  values: TokenFormValues,
+  currentId?: number,
+): ApiTokenFormPayload => ({
   ...(currentId ? { id: currentId } : {}),
-  name: values.name,
+  name: values.name || '',
   description: values.description,
   maxConcurrency: values.maxConcurrency,
   expiresAt: values.expiresAt ? dayjs(values.expiresAt).toISOString() : undefined,

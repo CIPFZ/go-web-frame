@@ -18,6 +18,7 @@ import '@ant-design/v5-patch-for-react-19';
 import { processMenuData, buildRoutes } from '@/utils/menuHelpers';
 import { fetchMenuData } from '@/utils/menuDataStore';
 import { updateUiConfig } from '@/services/api/user';
+import { isPublicPluginRoute } from '@/utils/plugin';
 
 const isDev = process.env.NODE_ENV === 'development' || process.env.CI;
 const loginPath = '/user/login';
@@ -74,9 +75,14 @@ export async function getInitialState(): Promise<{
   // 2. 判断逻辑
   const { location } = history;
   const token = localStorage.getItem('token');
+  const isPublicRoute = isPublicPluginRoute(location.pathname);
 
   // 只有 (非登录页) 且 (有Token) 时才请求
-  if (![loginPath, '/user/register', '/user/register-result'].includes(location.pathname) && token) {
+  if (
+    ![loginPath, '/user/register', '/user/register-result'].includes(location.pathname) &&
+    token &&
+    !isPublicRoute
+  ) {
     try {
       // 并行请求
       const [currentUser, rawMenuData] = await Promise.all([
@@ -145,11 +151,12 @@ export const layout: RunTimeLayoutConfig = ({
     onPageChange: () => {
       const { location } = history;
       const token = localStorage.getItem('token');
+      const isPublicRoute = isPublicPluginRoute(location.pathname);
 
       // 1. 未登录检查：
       // 如果没有 currentUser，且连 token 都没有，那必须去登录
       // (注意：如果 token 存在但 currentUser 为空，可能是接口 500 了，此时不跳登录，而是停留在当前页显示错误)
-      if (!initialState?.currentUser && !token && location.pathname !== loginPath) {
+      if (!initialState?.currentUser && !token && location.pathname !== loginPath && !isPublicRoute) {
         history.push(loginPath);
         return;
       }
