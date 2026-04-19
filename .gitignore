@@ -36,6 +36,12 @@ front-end/.cache/
 front-end/playwright-report/
 front-end/test-results/
 front-end/coverage/
+front-end/plugin-master-body.txt
+front-end/plugin-master-en.png
+front-end/plugin-master-page.png
+front-end/plugin-project-detail-en.png
+front-end/plugin-work-order-pool-en.png
+plugin-docs-package-*.zip
 
 # Go build outputs
 backend/main
