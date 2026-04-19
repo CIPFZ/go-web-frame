@@ -1,0 +1,27 @@
+services:
+  plugin-market-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.plugin-market
+    container_name: plugin-market-backend
+    environment:
+      MARKET_SYNC_TOKEN: plugin-market-sync-token
+    ports:
+      - "18081:18081"
+    volumes:
+      - plugin_market_data:/app/data
+    restart: unless-stopped
+
+  plugin-market-front-end:
+    build:
+      context: ./plugin-market-front-end
+      dockerfile: Dockerfile
+    container_name: plugin-market-front-end
+    depends_on:
+      - plugin-market-backend
+    ports:
+      - "18082:80"
+    restart: unless-stopped
+
+volumes:
+  plugin_market_data:

@@ -1,0 +1,38 @@
+system:
+  name: plugin-market
+  environment: dev
+  port: 18081
+  router_prefix: /api/v1
+  use_redis: false
+  use_mongo: false
+  use_multipoint: false
+
+logger:
+  level: info
+  output: stdout
+  format: console
+  file_path: logs/plugin-market.log
+  max_size_mb: 20
+  max_backups: 3
+  max_age_days: 7
+  compress: false
+  enable_caller: true
+  enable_sample: false
+
+i18n:
+  path: locales
+
+database:
+  driver: sqlite3
+  sqlite:
+    path: data/plugin-market.db
+    wal: true
+    busy_timeout_ms: 5000
+    foreign_keys: true
+    max_idle_conns: 1
+    max_open_conns: 1
+    log_mode: info
+    log_zap: false
+
+plugin_market:
+  sync_token: changeme-plugin-market-sync-token

@@ -1,0 +1,36 @@
+{
+  "name": "plugin-market-front-end",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "max build",
+    "dev": "cross-env UMI_ENV=dev max dev",
+    "postinstall": "max setup",
+    "test": "jest --runInBand",
+    "tsc": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^5.6.1",
+    "@ant-design/v5-patch-for-react-19": "^1.0.3",
+    "@umijs/max": "^4.3.24",
+    "antd": "^5.25.4",
+    "dayjs": "^1.11.13",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.0.1",
+    "@types/jest": "^30.0.0",
+    "@types/react": "^19.1.5",
+    "@types/react-dom": "^19.1.5",
+    "cross-env": "^7.0.3",
+    "jest": "^30.0.4",
+    "jest-environment-jsdom": "^29.7.0",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
