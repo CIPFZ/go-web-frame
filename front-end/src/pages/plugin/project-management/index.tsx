@@ -1,0 +1,305 @@
+import React, { useMemo, useRef, useState } from 'react';
+import { PageContainer } from '@ant-design/pro-layout';
+import type { ActionType, ProColumns } from '@ant-design/pro-components';
+import {
+  ModalForm,
+  ProCard,
+  ProFormSelect,
+  ProFormText,
+  ProFormTextArea,
+  ProTable,
+} from '@ant-design/pro-components';
+import { getLocale, history } from '@umijs/max';
+import { EditOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Form, Space, Statistic, Typography, message } from 'antd';
+
+import {
+  createPlugin,
+  getDepartmentList,
+  getPluginList,
+  type DepartmentItem,
+  type PluginItem,
+  updatePlugin,
+} from '@/services/api/plugin';
+import { getDisplayDescription, getDisplayName, isEnglishLocale, pickLocaleText } from '@/utils/plugin';
+
+type ProjectFormValues = {
+  code: string;
+  repositoryUrl: string;
+  nameZh: string;
+  nameEn: string;
+  descriptionZh: string;
+  descriptionEn: string;
+  departmentId: number;
+};
+
+const copyMap = {
+  zh: {
+    title: '插件项目管理',
+    subtitle: '维护插件元数据，并从项目详情继续完成发布、重提、下架与流程追踪。',
+    listTitle: '项目列表',
+    create: '新建项目',
+    edit: '编辑项目',
+    detail: '查看详情',
+    code: '插件编码',
+    name: '插件名称',
+    department: '归属部门',
+    repository: '仓库地址',
+    description: '插件描述',
+    total: '项目总数',
+    actions: '操作',
+    saveFailed: '保存项目失败',
+    saveSuccess: '项目已保存',
+    nameZh: '中文名称',
+    nameEn: '英文名称',
+    descriptionZh: '中文描述',
+    descriptionEn: '英文描述',
+    market: '前往插件生态中心',
+  },
+  en: {
+    title: 'Plugin Project Management',
+    subtitle:
+      'Maintain plugin metadata and continue release, review, and offline workflows from project detail.',
+    listTitle: 'Projects',
+    create: 'New Project',
+    edit: 'Edit Project',
+    detail: 'View Detail',
+    code: 'Code',
+    name: 'Name',
+    department: 'Department',
+    repository: 'Repository',
+    description: 'Description',
+    total: 'Projects',
+    actions: 'Actions',
+    saveFailed: 'Failed to save project',
+    saveSuccess: 'Project saved',
+    nameZh: 'Chinese Name',
+    nameEn: 'English Name',
+    descriptionZh: 'Chinese Description',
+    descriptionEn: 'English Description',
+    market: 'Open Plugin Ecosystem',
+  },
+};
+
+const PluginProjectManagementPage: React.FC = () => {
+  const locale = getLocale();
+  const copy = isEnglishLocale(locale) ? copyMap.en : copyMap.zh;
+  const actionRef = useRef<ActionType>(null);
+  const [form] = Form.useForm<ProjectFormValues>();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<PluginItem>();
+  const [departments, setDepartments] = useState<DepartmentItem[]>([]);
+  const [summaryTotal, setSummaryTotal] = useState(0);
+
+  const getDepartmentLabel = (item: DepartmentItem) => {
+    const zh = [item.productLineZh || item.productLine, item.nameZh || item.name].filter(Boolean).join(' / ');
+    const en = [item.productLineEn || item.productLine, item.nameEn || item.name].filter(Boolean).join(' / ');
+    if (zh && en && zh !== en) return `${zh} / ${en}`;
+    return pickLocaleText(locale, zh, en);
+  };
+
+  const departmentOptions = useMemo(
+    () => departments.map((item) => ({ label: getDepartmentLabel(item), value: item.ID })),
+    [departments, locale],
+  );
+
+  const loadDepartments = async () => {
+    if (departments.length) return;
+    const res = await getDepartmentList({ page: 1, pageSize: 999 });
+    if (res.code === 0) {
+      setDepartments(res.data?.list || []);
+    }
+  };
+
+  React.useEffect(() => {
+    void loadDepartments();
+  }, []);
+
+  const openCreateModal = async () => {
+    setEditing(undefined);
+    form.resetFields();
+    await loadDepartments();
+    setModalOpen(true);
+  };
+
+  const openEditModal = async (record: PluginItem) => {
+    setEditing(record);
+    await loadDepartments();
+    form.setFieldsValue({
+      code: record.code,
+      repositoryUrl: record.repositoryUrl,
+      nameZh: record.nameZh,
+      nameEn: record.nameEn,
+      descriptionZh: record.descriptionZh,
+      descriptionEn: record.descriptionEn,
+      departmentId: record.departmentId,
+    });
+    setModalOpen(true);
+  };
+
+  const handleSubmit = async (values: ProjectFormValues) => {
+    const payload = editing?.ID ? { id: editing.ID, ...values, ownerId: editing.ownerId } : values;
+    const res = editing?.ID ? await updatePlugin(payload) : await createPlugin(payload);
+    if (res.code !== 0) {
+      message.error(res.msg || copy.saveFailed);
+      return false;
+    }
+    message.success(copy.saveSuccess);
+    setModalOpen(false);
+    actionRef.current?.reload();
+    return true;
+  };
+
+  const columns: ProColumns<PluginItem>[] = [
+    {
+      title: copy.code,
+      dataIndex: 'code',
+      width: 160,
+    },
+    {
+      title: copy.name,
+      dataIndex: 'nameZh',
+      width: 220,
+      render: (_, record) => <Typography.Text strong>{getDisplayName(locale, record)}</Typography.Text>,
+    },
+    {
+      title: copy.department,
+      dataIndex: 'department',
+      width: 180,
+      search: false,
+      render: (_, record) =>
+        pickLocaleText(
+          locale,
+          record.departmentNameZh || record.department,
+          record.departmentNameEn || record.department,
+        ),
+    },
+    {
+      title: copy.repository,
+      dataIndex: 'repositoryUrl',
+      search: false,
+      ellipsis: true,
+      render: (_, record) => (
+        <Typography.Link href={record.repositoryUrl} target="_blank">
+          {record.repositoryUrl}
+        </Typography.Link>
+      ),
+    },
+    {
+      title: copy.description,
+      dataIndex: 'descriptionZh',
+      search: false,
+      ellipsis: true,
+      render: (_, record) => getDisplayDescription(locale, record),
+    },
+    {
+      title: copy.actions,
+      dataIndex: 'option',
+      valueType: 'option',
+      width: 180,
+      render: (_, record) => [
+        <a key="detail" onClick={() => history.push(`/plugin/project/${record.ID}`)}>
+          <EyeOutlined /> {copy.detail}
+        </a>,
+        <a key="edit" onClick={() => void openEditModal(record)}>
+          <EditOutlined /> {copy.edit}
+        </a>,
+      ],
+    },
+  ];
+
+  return (
+    <PageContainer title={false}>
+      <Space direction="vertical" size={20} style={{ width: '100%' }}>
+        <ProCard
+          bordered
+          style={{
+            borderRadius: 24,
+            overflow: 'hidden',
+            background: 'linear-gradient(135deg, #f8fafc 0%, #eef4ff 100%)',
+          }}
+        >
+          <Space direction="vertical" size={20} style={{ width: '100%' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                gap: 16,
+                flexWrap: 'wrap',
+              }}
+            >
+              <Button
+                key="market"
+                onClick={() => window.open('/#/plugins', '_blank', 'noopener,noreferrer')}
+                style={{ width: 'fit-content' }}
+              >
+                {copy.market}
+              </Button>
+              <Statistic title={copy.total} value={summaryTotal} />
+            </div>
+            <Space direction="vertical" size={12} style={{ width: '100%' }}>
+              <Typography.Title level={3} style={{ margin: 0 }}>
+                {copy.title}
+              </Typography.Title>
+              <Typography.Paragraph type="secondary" style={{ margin: 0, maxWidth: 760 }}>
+                {copy.subtitle}
+              </Typography.Paragraph>
+            </Space>
+          </Space>
+        </ProCard>
+
+        <ProTable<PluginItem>
+          actionRef={actionRef}
+          rowKey="ID"
+          headerTitle={copy.listTitle}
+          search={{ labelWidth: 'auto' }}
+          columns={columns}
+          request={async (params) => {
+            const res = await getPluginList({
+              code: params.code,
+              name: params.nameZh || params.name,
+              page: params.current,
+              pageSize: params.pageSize,
+            });
+            setSummaryTotal(res.data?.total || 0);
+            return {
+              data: res.data?.list || [],
+              success: res.code === 0,
+              total: res.data?.total || 0,
+            };
+          }}
+          toolBarRender={() => [
+            <Button key="new" type="primary" onClick={() => void openCreateModal()}>
+              <PlusOutlined /> {copy.create}
+            </Button>,
+          ]}
+        />
+      </Space>
+
+      <ModalForm<ProjectFormValues>
+        form={form}
+        title={editing?.ID ? copy.edit : copy.create}
+        open={modalOpen}
+        modalProps={{ destroyOnHidden: true }}
+        onOpenChange={setModalOpen}
+        onFinish={handleSubmit}
+      >
+        <ProFormText name="code" label={copy.code} disabled={Boolean(editing?.ID)} rules={[{ required: true }]} />
+        <ProFormText name="repositoryUrl" label={copy.repository} rules={[{ required: true }]} />
+        <ProFormText name="nameZh" label={copy.nameZh} rules={[{ required: true }]} />
+        <ProFormText name="nameEn" label={copy.nameEn} rules={[{ required: true }]} />
+        <ProFormSelect
+          name="departmentId"
+          label={copy.department}
+          options={departmentOptions}
+          rules={[{ required: true }]}
+        />
+        <ProFormTextArea name="descriptionZh" label={copy.descriptionZh} rules={[{ required: true }]} />
+        <ProFormTextArea name="descriptionEn" label={copy.descriptionEn} rules={[{ required: true }]} />
+      </ModalForm>
+    </PageContainer>
+  );
+};
+
+export default PluginProjectManagementPage;

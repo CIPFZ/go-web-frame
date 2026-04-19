@@ -7,6 +7,7 @@ import (
 
 	"github.com/CIPFZ/gowebframe/internal/core/config"
 	"github.com/CIPFZ/gowebframe/internal/core/db"
+	pluginModel "github.com/CIPFZ/gowebframe/internal/modules/plugin/model"
 	"github.com/CIPFZ/gowebframe/internal/modules/poetry/model"
 	sysModel "github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"go.uber.org/zap"
@@ -43,6 +44,12 @@ func main() {
 		&sysModel.SysUserAuthority{},
 		&sysModel.SysNotice{},
 		&sysModel.SysNoticeReceiver{},
+		&pluginModel.PluginDepartment{},
+		&pluginModel.PluginProduct{},
+		&pluginModel.Plugin{},
+		&pluginModel.PluginRelease{},
+		&pluginModel.PluginCompatibleProduct{},
+		&pluginModel.PluginReleaseEvent{},
 
 		&model.MetaDynasty{},
 		&model.MetaGenre{},

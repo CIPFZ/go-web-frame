@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	pluginModel "github.com/CIPFZ/gowebframe/internal/modules/plugin/model"
 	poetryModel "github.com/CIPFZ/gowebframe/internal/modules/poetry/model"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/CIPFZ/gowebframe/internal/svc"
@@ -152,6 +153,8 @@ func loadSeedAdminOptions(serviceCtx *svc.ServiceContext) seedAdminOptions {
 func ensureAuthorities(tx *gorm.DB, opts seedAdminOptions) error {
 	authorities := []model.SysAuthority{
 		{AuthorityId: opts.AuthorityID, AuthorityName: "Administrator", ParentId: 0, DefaultRouter: opts.DefaultRoute},
+		{AuthorityId: 10010, AuthorityName: "PluginProvider", ParentId: 0, DefaultRouter: "plugin/project-management"},
+		{AuthorityId: 10013, AuthorityName: "PluginReviewer", ParentId: 0, DefaultRouter: "plugin/work-order-pool"},
 		{AuthorityId: 888, AuthorityName: "CommonUser", ParentId: 0, DefaultRouter: "dashboard/workplace"},
 		{AuthorityId: 9528, AuthorityName: "TestUser", ParentId: 0, DefaultRouter: "dashboard/workplace"},
 		{AuthorityId: 8881, AuthorityName: "CommonUserChild", ParentId: 888, DefaultRouter: "dashboard/workplace"},
@@ -183,6 +186,11 @@ func ensureBaseMenus(tx *gorm.DB) (map[string]uint, error) {
 		{Key: "sys_api_token", ParentKey: "sys_root", Path: "/sys/api-token", Name: "menu.system.apiToken", Component: "sys/api-token", Icon: "KeyOutlined", Sort: 5, Locale: "menu.system.apiToken"},
 		{Key: "sys_operation", ParentKey: "sys_root", Path: "/sys/operation", Name: "menu.system.operation", Component: "sys/operation", Icon: "HistoryOutlined", Sort: 6, Locale: "menu.system.operation"},
 		{Key: "sys_notice", ParentKey: "sys_root", Path: "/sys/notice", Name: "menu.system.notice", Component: "sys/notice", Icon: "NotificationOutlined", Sort: 7, Locale: "menu.system.notice"},
+		{Key: "sys_plugin_master", ParentKey: "sys_root", Path: "/sys/plugin-master", Name: "menu.system.pluginMaster", Component: "sys/plugin-master", Icon: "DatabaseOutlined", Sort: 8, Locale: "menu.system.pluginMaster"},
+		{Key: "plugin_root", Path: "/plugin", Name: "menu.plugin", Component: "components/RouterLayout", Icon: "AppstoreAddOutlined", Sort: 15, Locale: "menu.plugin"},
+		{Key: "plugin_project_management", ParentKey: "plugin_root", Path: "/plugin/project-management", Name: "menu.plugin.projectManagement", Component: "plugin/project-management", Icon: "FolderOpenOutlined", Sort: 1, Locale: "menu.plugin.projectManagement"},
+		{Key: "plugin_project_detail", ParentKey: "plugin_root", Path: "/plugin/project/:id", Name: "menu.plugin.projectDetail", Component: "plugin/project-detail", Icon: "ProfileOutlined", Sort: 2, Locale: "menu.plugin.projectDetail", HideInMenu: true},
+		{Key: "plugin_work_order_pool", ParentKey: "plugin_root", Path: "/plugin/work-order-pool", Name: "menu.plugin.workOrderPool", Component: "plugin/work-order-pool", Icon: "AuditOutlined", Sort: 3, Locale: "menu.plugin.workOrderPool"},
 		{Key: "poetry_root", Path: "/poetry", Name: "menu.poetry", Component: "components/RouterLayout", Icon: "BookOutlined", Sort: 20, Locale: "menu.poetry"},
 		{Key: "poetry_dynasty", ParentKey: "poetry_root", Path: "/poetry/dynasty", Name: "menu.poetry.dynasty", Component: "poetry/dynasty", Icon: "AppstoreOutlined", Sort: 1, Locale: "menu.poetry.dynasty"},
 		{Key: "poetry_genre", ParentKey: "poetry_root", Path: "/poetry/genre", Name: "menu.poetry.genre", Component: "poetry/genre", Icon: "TagsOutlined", Sort: 2, Locale: "menu.poetry.genre"},
@@ -245,8 +253,10 @@ func ensureBaseMenus(tx *gorm.DB) (map[string]uint, error) {
 
 func bindAuthorityMenus(tx *gorm.DB, menuIDs map[string]uint, adminAuthorityID uint) error {
 	roleMenuKeys := map[uint][]string{
-		adminAuthorityID: {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_api_token", "sys_operation", "sys_notice", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
-		9528:             {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_api_token", "sys_operation", "sys_notice", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
+		adminAuthorityID: {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_api_token", "sys_operation", "sys_notice", "sys_plugin_master", "plugin_root", "plugin_project_management", "plugin_project_detail", "plugin_work_order_pool", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
+		10010:            {"dashboard", "about", "plugin_root", "plugin_project_management", "plugin_project_detail", "account_settings"},
+		10013:            {"dashboard", "about", "plugin_root", "plugin_project_detail", "plugin_work_order_pool", "account_settings"},
+		9528:             {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_api_token", "sys_operation", "sys_notice", "sys_plugin_master", "plugin_root", "plugin_project_management", "plugin_project_detail", "plugin_work_order_pool", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
 		888:              {"dashboard", "state", "about", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
 		8881:             {"dashboard", "about", "account_settings"},
 	}
@@ -319,6 +329,25 @@ func ensureBaseApis(tx *gorm.DB) (map[string]uint, error) {
 		{Path: "/api/v1/sys/notice/getNoticeList", Method: "POST", ApiGroup: "system-notice", Description: "Get notice list"},
 		{Path: "/api/v1/sys/notice/getMyNotices", Method: "GET", ApiGroup: "system-notice", Description: "Get my notices"},
 		{Path: "/api/v1/sys/notice/markRead", Method: "POST", ApiGroup: "system-notice", Description: "Mark notice as read"},
+		{Path: "/api/v1/plugin/plugin/getPluginList", Method: "POST", ApiGroup: "plugin", Description: "Get plugin list"},
+		{Path: "/api/v1/plugin/plugin/getProjectDetail", Method: "POST", ApiGroup: "plugin", Description: "Get plugin project detail"},
+		{Path: "/api/v1/plugin/plugin/createPlugin", Method: "POST", ApiGroup: "plugin", Description: "Create plugin"},
+		{Path: "/api/v1/plugin/plugin/updatePlugin", Method: "PUT", ApiGroup: "plugin", Description: "Update plugin"},
+		{Path: "/api/v1/plugin/release/getReleaseDetail", Method: "POST", ApiGroup: "plugin", Description: "Get release detail"},
+		{Path: "/api/v1/plugin/release/createRelease", Method: "POST", ApiGroup: "plugin", Description: "Create release"},
+		{Path: "/api/v1/plugin/release/updateRelease", Method: "PUT", ApiGroup: "plugin", Description: "Update release"},
+		{Path: "/api/v1/plugin/release/transition", Method: "POST", ApiGroup: "plugin", Description: "Transition release"},
+		{Path: "/api/v1/plugin/release/claim", Method: "POST", ApiGroup: "plugin", Description: "Claim release work order"},
+		{Path: "/api/v1/plugin/release/reset", Method: "POST", ApiGroup: "plugin", Description: "Reset release work order"},
+		{Path: "/api/v1/plugin/work-order/getWorkOrderPool", Method: "POST", ApiGroup: "plugin", Description: "Get work order pool"},
+		{Path: "/api/v1/plugin/product/getProductList", Method: "POST", ApiGroup: "plugin", Description: "Get product list"},
+		{Path: "/api/v1/plugin/product/createProduct", Method: "POST", ApiGroup: "plugin", Description: "Create product"},
+		{Path: "/api/v1/plugin/product/updateProduct", Method: "PUT", ApiGroup: "plugin", Description: "Update product"},
+		{Path: "/api/v1/plugin/department/getDepartmentList", Method: "POST", ApiGroup: "plugin", Description: "Get department list"},
+		{Path: "/api/v1/plugin/department/createDepartment", Method: "POST", ApiGroup: "plugin", Description: "Create department"},
+		{Path: "/api/v1/plugin/department/updateDepartment", Method: "PUT", ApiGroup: "plugin", Description: "Update department"},
+		{Path: "/api/v1/plugin/public/getPublishedPluginList", Method: "POST", ApiGroup: "plugin-public", Description: "Get published plugin list"},
+		{Path: "/api/v1/plugin/public/getPublishedPluginDetail", Method: "POST", ApiGroup: "plugin-public", Description: "Get published plugin detail"},
 
 		{Path: "/api/v1/poetry/dynasty", Method: "POST", ApiGroup: "poetry", Description: "Create dynasty"},
 		{Path: "/api/v1/poetry/dynasty/:id", Method: "PUT", ApiGroup: "poetry", Description: "Update dynasty"},
@@ -411,6 +440,23 @@ func bindAuthorityApis(tx *gorm.DB, apiIDs map[string]uint, adminAuthorityID uin
 		apiSign("POST", "/api/v1/sys/notice/getNoticeList"),
 		apiSign("GET", "/api/v1/sys/notice/getMyNotices"),
 		apiSign("POST", "/api/v1/sys/notice/markRead"),
+		apiSign("POST", "/api/v1/plugin/plugin/getPluginList"),
+		apiSign("POST", "/api/v1/plugin/plugin/getProjectDetail"),
+		apiSign("POST", "/api/v1/plugin/plugin/createPlugin"),
+		apiSign("PUT", "/api/v1/plugin/plugin/updatePlugin"),
+		apiSign("POST", "/api/v1/plugin/release/getReleaseDetail"),
+		apiSign("POST", "/api/v1/plugin/release/createRelease"),
+		apiSign("PUT", "/api/v1/plugin/release/updateRelease"),
+		apiSign("POST", "/api/v1/plugin/release/transition"),
+		apiSign("POST", "/api/v1/plugin/release/claim"),
+		apiSign("POST", "/api/v1/plugin/release/reset"),
+		apiSign("POST", "/api/v1/plugin/work-order/getWorkOrderPool"),
+		apiSign("POST", "/api/v1/plugin/product/getProductList"),
+		apiSign("POST", "/api/v1/plugin/product/createProduct"),
+		apiSign("PUT", "/api/v1/plugin/product/updateProduct"),
+		apiSign("POST", "/api/v1/plugin/department/getDepartmentList"),
+		apiSign("POST", "/api/v1/plugin/public/getPublishedPluginList"),
+		apiSign("POST", "/api/v1/plugin/public/getPublishedPluginDetail"),
 		apiSign("POST", "/api/v1/poetry/dynasty"),
 		apiSign("PUT", "/api/v1/poetry/dynasty/:id"),
 		apiSign("DELETE", "/api/v1/poetry/dynasty/:id"),
@@ -455,9 +501,34 @@ func bindAuthorityApis(tx *gorm.DB, apiIDs map[string]uint, adminAuthorityID uin
 
 	roleAccess := map[uint][]string{
 		adminAuthorityID: fullAccess,
-		9528:             fullAccess,
-		888:              basicAccess,
-		8881:             basicAccess,
+		10010: append(basicAccess,
+			apiSign("POST", "/api/v1/plugin/plugin/getPluginList"),
+			apiSign("POST", "/api/v1/plugin/plugin/getProjectDetail"),
+			apiSign("POST", "/api/v1/plugin/plugin/createPlugin"),
+			apiSign("PUT", "/api/v1/plugin/plugin/updatePlugin"),
+			apiSign("POST", "/api/v1/plugin/release/getReleaseDetail"),
+			apiSign("POST", "/api/v1/plugin/release/createRelease"),
+			apiSign("PUT", "/api/v1/plugin/release/updateRelease"),
+			apiSign("POST", "/api/v1/plugin/release/transition"),
+			apiSign("POST", "/api/v1/plugin/product/getProductList"),
+			apiSign("POST", "/api/v1/plugin/department/getDepartmentList"),
+			apiSign("POST", "/api/v1/plugin/public/getPublishedPluginList"),
+			apiSign("POST", "/api/v1/plugin/public/getPublishedPluginDetail"),
+		),
+		10013: append(basicAccess,
+			apiSign("POST", "/api/v1/plugin/plugin/getProjectDetail"),
+			apiSign("POST", "/api/v1/plugin/release/getReleaseDetail"),
+			apiSign("POST", "/api/v1/plugin/release/transition"),
+			apiSign("POST", "/api/v1/plugin/release/claim"),
+			apiSign("POST", "/api/v1/plugin/work-order/getWorkOrderPool"),
+			apiSign("POST", "/api/v1/plugin/product/getProductList"),
+			apiSign("POST", "/api/v1/plugin/department/getDepartmentList"),
+			apiSign("POST", "/api/v1/plugin/public/getPublishedPluginList"),
+			apiSign("POST", "/api/v1/plugin/public/getPublishedPluginDetail"),
+		),
+		9528: fullAccess,
+		888:  basicAccess,
+		8881: basicAccess,
 	}
 
 	relations := make([]model.SysAuthorityApi, 0)
@@ -523,6 +594,23 @@ func ensureCasbinPolicies(tx *gorm.DB, apiIDs map[string]uint, adminAuthorityID 
 		{"POST", "/api/v1/sys/notice/getNoticeList"},
 		{"GET", "/api/v1/sys/notice/getMyNotices"},
 		{"POST", "/api/v1/sys/notice/markRead"},
+		{"POST", "/api/v1/plugin/plugin/getPluginList"},
+		{"POST", "/api/v1/plugin/plugin/getProjectDetail"},
+		{"POST", "/api/v1/plugin/plugin/createPlugin"},
+		{"PUT", "/api/v1/plugin/plugin/updatePlugin"},
+		{"POST", "/api/v1/plugin/release/getReleaseDetail"},
+		{"POST", "/api/v1/plugin/release/createRelease"},
+		{"PUT", "/api/v1/plugin/release/updateRelease"},
+		{"POST", "/api/v1/plugin/release/transition"},
+		{"POST", "/api/v1/plugin/release/claim"},
+		{"POST", "/api/v1/plugin/release/reset"},
+		{"POST", "/api/v1/plugin/work-order/getWorkOrderPool"},
+		{"POST", "/api/v1/plugin/product/getProductList"},
+		{"POST", "/api/v1/plugin/product/createProduct"},
+		{"PUT", "/api/v1/plugin/product/updateProduct"},
+		{"POST", "/api/v1/plugin/department/getDepartmentList"},
+		{"POST", "/api/v1/plugin/public/getPublishedPluginList"},
+		{"POST", "/api/v1/plugin/public/getPublishedPluginDetail"},
 		{"POST", "/api/v1/poetry/dynasty"},
 		{"PUT", "/api/v1/poetry/dynasty/:id"},
 		{"DELETE", "/api/v1/poetry/dynasty/:id"},
@@ -567,9 +655,34 @@ func ensureCasbinPolicies(tx *gorm.DB, apiIDs map[string]uint, adminAuthorityID 
 
 	rolePolicies := map[uint][][]string{
 		adminAuthorityID: fullAccess,
-		9528:             fullAccess,
-		888:              basicAccess,
-		8881:             basicAccess,
+		10010: append(basicAccess,
+			[]string{"POST", "/api/v1/plugin/plugin/getPluginList"},
+			[]string{"POST", "/api/v1/plugin/plugin/getProjectDetail"},
+			[]string{"POST", "/api/v1/plugin/plugin/createPlugin"},
+			[]string{"PUT", "/api/v1/plugin/plugin/updatePlugin"},
+			[]string{"POST", "/api/v1/plugin/release/getReleaseDetail"},
+			[]string{"POST", "/api/v1/plugin/release/createRelease"},
+			[]string{"PUT", "/api/v1/plugin/release/updateRelease"},
+			[]string{"POST", "/api/v1/plugin/release/transition"},
+			[]string{"POST", "/api/v1/plugin/product/getProductList"},
+			[]string{"POST", "/api/v1/plugin/department/getDepartmentList"},
+			[]string{"POST", "/api/v1/plugin/public/getPublishedPluginList"},
+			[]string{"POST", "/api/v1/plugin/public/getPublishedPluginDetail"},
+		),
+		10013: append(basicAccess,
+			[]string{"POST", "/api/v1/plugin/plugin/getProjectDetail"},
+			[]string{"POST", "/api/v1/plugin/release/getReleaseDetail"},
+			[]string{"POST", "/api/v1/plugin/release/transition"},
+			[]string{"POST", "/api/v1/plugin/release/claim"},
+			[]string{"POST", "/api/v1/plugin/work-order/getWorkOrderPool"},
+			[]string{"POST", "/api/v1/plugin/product/getProductList"},
+			[]string{"POST", "/api/v1/plugin/department/getDepartmentList"},
+			[]string{"POST", "/api/v1/plugin/public/getPublishedPluginList"},
+			[]string{"POST", "/api/v1/plugin/public/getPublishedPluginDetail"},
+		),
+		9528: fullAccess,
+		888:  basicAccess,
+		8881: basicAccess,
 	}
 
 	rules := make([]casbinRuleSeed, 0)
@@ -632,6 +745,9 @@ func ensurePoetryBaseData(tx *gorm.DB) error {
 	if err != nil {
 		return err
 	}
+	if err := ensurePluginBaseDataClean(tx); err != nil {
+		return err
+	}
 	genres, err := ensureGenres(tx)
 	if err != nil {
 		return err
@@ -649,6 +765,64 @@ func ensurePoetryBaseData(tx *gorm.DB) error {
 		return err
 	}
 	return ensureWorkTags(tx, works, tags)
+}
+
+func ensurePluginBaseData(tx *gorm.DB) error {
+	departments := []pluginModel.PluginDepartment{
+		{Name: "存储产品部", NameZh: "存储产品部", NameEn: "Storage Products", ProductLine: "Storage", Sort: 1, Status: true},
+		{Name: "网络产品部", NameZh: "网络产品部", NameEn: "Network Products", ProductLine: "Network", Sort: 2, Status: true},
+	}
+	for _, seed := range departments {
+		var item pluginModel.PluginDepartment
+		err := tx.Where("name = ?", seed.Name).First(&item).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if err := tx.Create(&seed).Error; err != nil {
+				return err
+			}
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := tx.Model(&item).Updates(map[string]interface{}{
+			"name_zh":      seed.NameZh,
+			"name_en":      seed.NameEn,
+			"product_line": seed.ProductLine,
+			"sort":         seed.Sort,
+			"status":       seed.Status,
+		}).Error; err != nil {
+			return err
+		}
+	}
+
+	products := []pluginModel.PluginProduct{
+		{Code: "HCI", Name: "超融合", Type: pluginModel.CompatibleTargetTypeProduct, Description: "HCI 平台", Sort: 1, Status: true},
+		{Code: "ACLI", Name: "aCLI", Type: pluginModel.CompatibleTargetTypeAcli, Description: "aCLI 命令行工具", Sort: 2, Status: true},
+		{Code: "VDC", Name: "云桌面", Type: pluginModel.CompatibleTargetTypeProduct, Description: "VDC 平台", Sort: 3, Status: true},
+	}
+	for _, seed := range products {
+		var item pluginModel.PluginProduct
+		err := tx.Where("code = ?", seed.Code).First(&item).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if err := tx.Create(&seed).Error; err != nil {
+				return err
+			}
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := tx.Model(&item).Updates(map[string]interface{}{
+			"name":        seed.Name,
+			"type":        seed.Type,
+			"description": seed.Description,
+			"sort":        seed.Sort,
+			"status":      seed.Status,
+		}).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func ensureDynasties(tx *gorm.DB) (map[string]uint, error) {
@@ -906,4 +1080,64 @@ func ensureWorkTags(tx *gorm.DB, workIDs map[string]uint, tagIDs map[string]uint
 		return nil
 	}
 	return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&relations).Error
+}
+
+func ensurePluginBaseDataClean(tx *gorm.DB) error {
+	departments := []pluginModel.PluginDepartment{
+		{Name: "存储产品部", NameZh: "存储产品部", NameEn: "Storage Products", ProductLine: "Storage", Sort: 1, Status: true},
+		{Name: "网络产品部", NameZh: "网络产品部", NameEn: "Network Products", ProductLine: "Network", Sort: 2, Status: true},
+	}
+	for _, seed := range departments {
+		var item pluginModel.PluginDepartment
+		err := tx.Where("sort = ?", seed.Sort).First(&item).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if err := tx.Create(&seed).Error; err != nil {
+				return err
+			}
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := tx.Model(&item).Updates(map[string]interface{}{
+			"name":         seed.Name,
+			"name_zh":      seed.NameZh,
+			"name_en":      seed.NameEn,
+			"product_line": seed.ProductLine,
+			"sort":         seed.Sort,
+			"status":       seed.Status,
+		}).Error; err != nil {
+			return err
+		}
+	}
+
+	products := []pluginModel.PluginProduct{
+		{Code: "HCI", Name: "超融合", Type: pluginModel.CompatibleTargetTypeProduct, Description: "HCI 平台", Sort: 1, Status: true},
+		{Code: "ACLI", Name: "aCLI", Type: pluginModel.CompatibleTargetTypeAcli, Description: "aCLI 命令行工具", Sort: 2, Status: true},
+		{Code: "VDC", Name: "云桌面", Type: pluginModel.CompatibleTargetTypeProduct, Description: "VDC 平台", Sort: 3, Status: true},
+	}
+	for _, seed := range products {
+		var item pluginModel.PluginProduct
+		err := tx.Where("code = ?", seed.Code).First(&item).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if err := tx.Create(&seed).Error; err != nil {
+				return err
+			}
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := tx.Model(&item).Updates(map[string]interface{}{
+			"name":        seed.Name,
+			"type":        seed.Type,
+			"description": seed.Description,
+			"sort":        seed.Sort,
+			"status":      seed.Status,
+		}).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

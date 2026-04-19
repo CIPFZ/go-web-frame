@@ -1,5 +1,4 @@
-﻿export default [
-  // 1. 登录/注册页 Layout (无侧边栏)
+export default [
   {
     path: '/user',
     layout: false,
@@ -29,16 +28,22 @@
       },
     ],
   },
-
-  // 2. ✨✨✨ 主系统 Layout (关键补充) ✨✨✨
-  // patchClientRoutes 会找到这个路由，并将动态菜单注入到它的 routes 中
+  {
+    path: '/plugins',
+    component: './plugin/public-list',
+    layout: false,
+    hideInMenu: true,
+  },
+  {
+    path: '/plugins/:id',
+    component: './plugin/public-detail',
+    layout: false,
+    hideInMenu: true,
+  },
   {
     path: '/',
-    // 给个 ID 方便 patchClientRoutes 查找 (虽然 path='/' 也能找)
     id: 'ant-design-pro-layout',
     routes: [
-      // 这里的 redirect 只是一个静态兜底。
-      // 实际运行时，patchClientRoutes 会根据用户角色动态修改这里的跳转目标。
       {
         path: '/',
         redirect: '/dashboard/workplace',
@@ -48,10 +53,22 @@
         component: './sys/api-token',
         hideInMenu: true,
       },
-      // ... 动态路由会被注入到这里 ...
+      {
+        path: '/plugin/project/:id',
+        component: './plugin/project-detail',
+        hideInMenu: true,
+      },
+      {
+        path: '/plugin/work-order/:pluginId/:id',
+        component: './plugin/work-order-detail',
+        hideInMenu: true,
+      },
+      {
+        path: '/sys/plugin-master',
+        component: './sys/plugin-master',
+      },
     ],
   },
-
   {
     path: '/account',
     routes: [
@@ -59,11 +76,9 @@
         path: '/account/settings',
         component: './account/settings',
         hideInMenu: true,
-      }
+      },
     ],
   },
-
-  // 3. 全局 404
   {
     path: '/*',
     component: '404',
