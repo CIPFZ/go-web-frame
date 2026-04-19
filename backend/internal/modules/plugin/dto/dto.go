@@ -160,6 +160,10 @@ type GetPublishedPluginListReq struct {
 	PageInfo
 }
 
+type GetPublishedPluginDetailReq struct {
+	PluginID uint `json:"pluginId" binding:"required"`
+}
+
 type DepartmentItem struct {
 	ID          uint   `json:"ID"`
 	Name        string `json:"name"`
@@ -271,6 +275,9 @@ type PublishedPluginItem struct {
 	DescriptionZh   string                  `json:"descriptionZh"`
 	DescriptionEn   string                  `json:"descriptionEn"`
 	LatestVersion   string                  `json:"latestVersion"`
+	ReleasedAt      *string                 `json:"releasedAt"`
+	PackageX86URL   string                  `json:"packageX86Url"`
+	PackageARMURL   string                  `json:"packageArmUrl"`
 	CompatibleItems []CompatibleProductItem `json:"compatibleItems"`
 }
 
@@ -281,7 +288,7 @@ type PublishedPluginDetail struct {
 }
 
 type PublishedReleaseItem struct {
-	ID              uint                    `json:"ID"`
+	ReleaseID       uint                    `json:"releaseId"`
 	Version         string                  `json:"version"`
 	ChangelogZh     string                  `json:"changelogZh"`
 	ChangelogEn     string                  `json:"changelogEn"`

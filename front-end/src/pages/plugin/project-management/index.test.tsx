@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import PluginProjectManagementPage from './index';
 import { getDepartmentList, getPluginList } from '@/services/api/plugin';
+import { history } from '@umijs/max';
 
 let capturedColumns: any[] = [];
 let mockCapturedSelectProps: any[] = [];
@@ -74,10 +75,28 @@ describe('plugin/project-management page', () => {
     expect(await screen.findByTestId('plugin-project-table')).toBeTruthy();
     expect(screen.getByText('Plugin Project Management')).toBeTruthy();
     expect(screen.getByText('New Project')).toBeTruthy();
+    expect(screen.getByText('Open Plugin Ecosystem')).toBeTruthy();
 
     await waitFor(() => {
       expect(getPluginList).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('opens plugin ecosystem in a new tab from the summary card', async () => {
+    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
+    (getPluginList as jest.Mock).mockResolvedValue({ code: 0, data: { list: [], total: 3 } });
+    (getDepartmentList as jest.Mock).mockResolvedValue({ code: 0, data: { list: [], total: 0 } });
+
+    const ReactLib = require('react');
+    render(ReactLib.createElement(PluginProjectManagementPage));
+
+    expect(await screen.findByText('Open Plugin Ecosystem')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Open Plugin Ecosystem'));
+
+    expect(openSpy).toHaveBeenCalledWith('/#/plugins', '_blank', 'noopener,noreferrer');
+    expect(history.push).not.toHaveBeenCalled();
+    openSpy.mockRestore();
   });
 
   it('keeps the detail action column', async () => {

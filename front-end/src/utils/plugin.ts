@@ -1,7 +1,18 @@
 export const publicPluginRoutePatterns = [/^\/plugins$/, /^\/plugins\/[^/]+$/];
 
-export const isPublicPluginRoute = (pathname?: string) =>
-  Boolean(pathname && publicPluginRoutePatterns.some((pattern) => pattern.test(pathname)));
+const normalizeRoutePath = (rawPath?: string) => {
+  if (!rawPath) return '';
+  const hashIndex = rawPath.indexOf('#');
+  const candidate = hashIndex >= 0 ? rawPath.slice(hashIndex + 1) : rawPath;
+  const normalized = candidate.trim();
+  if (!normalized) return '';
+  return normalized.startsWith('/') ? normalized : `/${normalized}`;
+};
+
+export const isPublicPluginRoute = (pathname?: string) => {
+  const normalized = normalizeRoutePath(pathname);
+  return Boolean(normalized && publicPluginRoutePatterns.some((pattern) => pattern.test(normalized)));
+};
 
 export const isEnglishLocale = (locale?: string) => locale?.toLowerCase().startsWith('en') ?? false;
 

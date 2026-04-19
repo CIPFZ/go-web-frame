@@ -106,27 +106,27 @@ export type PublishedPluginItem = {
   descriptionZh: string;
   descriptionEn: string;
   latestVersion: string;
+  releasedAt?: string;
+  packageX86Url?: string;
+  packageArmUrl?: string;
   compatibleItems?: CompatibleProductItem[];
 };
 
 export type PublishedPluginDetail = {
-  plugin: PluginItem;
-  release: {
-    ID: number;
-    version: string;
-    changelogZh?: string;
-    changelogEn?: string;
-    testReportUrl?: string;
-    packageX86Url?: string;
-    packageArmUrl?: string;
-    releasedAt?: string;
-    compatibleItems?: CompatibleProductItem[];
+  plugin: PluginItem & {
+    capabilityZh?: string;
+    capabilityEn?: string;
+    ownerName?: string;
   };
   versions: Array<{
-    ID: number;
+    releaseId: number;
     version: string;
+    publisher?: string;
+    versionConstraint?: string;
     changelogZh?: string;
     changelogEn?: string;
+    performanceSummaryZh?: string;
+    performanceSummaryEn?: string;
     testReportUrl?: string;
     packageX86Url?: string;
     packageArmUrl?: string;

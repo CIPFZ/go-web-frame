@@ -75,7 +75,8 @@ export async function getInitialState(): Promise<{
   // 2. 判断逻辑
   const { location } = history;
   const token = localStorage.getItem('token');
-  const isPublicRoute = isPublicPluginRoute(location.pathname);
+  const currentRoute = window.location.hash || location.pathname;
+  const isPublicRoute = isPublicPluginRoute(currentRoute);
 
   // 只有 (非登录页) 且 (有Token) 时才请求
   if (
@@ -151,7 +152,8 @@ export const layout: RunTimeLayoutConfig = ({
     onPageChange: () => {
       const { location } = history;
       const token = localStorage.getItem('token');
-      const isPublicRoute = isPublicPluginRoute(location.pathname);
+      const currentRoute = window.location.hash || location.pathname;
+      const isPublicRoute = isPublicPluginRoute(currentRoute);
 
       // 1. 未登录检查：
       // 如果没有 currentUser，且连 token 都没有，那必须去登录

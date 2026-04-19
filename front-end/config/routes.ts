@@ -29,6 +29,18 @@ export default [
     ],
   },
   {
+    path: '/plugins',
+    component: './plugin/public-list',
+    layout: false,
+    hideInMenu: true,
+  },
+  {
+    path: '/plugins/:id',
+    component: './plugin/public-detail',
+    layout: false,
+    hideInMenu: true,
+  },
+  {
     path: '/',
     id: 'ant-design-pro-layout',
     routes: [
@@ -39,18 +51,6 @@ export default [
       {
         path: '/sys/api-token',
         component: './sys/api-token',
-        hideInMenu: true,
-      },
-      {
-        path: '/plugins',
-        component: './plugin/public-list',
-        layout: false,
-        hideInMenu: true,
-      },
-      {
-        path: '/plugins/:id',
-        component: './plugin/public-detail',
-        layout: false,
         hideInMenu: true,
       },
       {

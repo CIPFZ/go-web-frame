@@ -264,12 +264,12 @@ func (a *PluginApi) GetPublishedPluginList(c *gin.Context) {
 }
 
 func (a *PluginApi) GetPublishedPluginDetail(c *gin.Context) {
-	var req dto.GetReleaseDetailReq
+	var req dto.GetPublishedPluginDetailReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.FailWithMessage("参数绑定失败: "+err.Error(), c)
 		return
 	}
-	item, err := a.service.GetPublishedPluginDetail(c.Request.Context(), req.ID)
+	item, err := a.service.GetPublishedPluginDetail(c.Request.Context(), req.PluginID)
 	if err != nil {
 		response.FailWithError(err, c)
 		return

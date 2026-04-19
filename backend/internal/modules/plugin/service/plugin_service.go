@@ -563,6 +563,11 @@ func (s *PluginService) GetPublishedPluginList(ctx context.Context, req dto.GetP
 		if err != nil {
 			continue
 		}
+		var releasedAt *string
+		if release.ReleasedAt != nil {
+			v := release.ReleasedAt.Format(time.RFC3339)
+			releasedAt = &v
+		}
 		resp = append(resp, dto.PublishedPluginItem{
 			ID:              item.ID,
 			Code:            item.Code,
@@ -571,6 +576,9 @@ func (s *PluginService) GetPublishedPluginList(ctx context.Context, req dto.GetP
 			DescriptionZh:   item.DescriptionZh,
 			DescriptionEn:   item.DescriptionEn,
 			LatestVersion:   release.Version,
+			ReleasedAt:      releasedAt,
+			PackageX86URL:   release.PackageX86URL,
+			PackageARMURL:   release.PackageARMURL,
 			CompatibleItems: toCompatibleItems(release.CompatibleItems),
 		})
 	}
@@ -863,7 +871,7 @@ func toEventItems(items []model.PluginReleaseEvent) []dto.EventItem {
 
 func toPublishedReleaseItem(item *model.PluginRelease) dto.PublishedReleaseItem {
 	resp := dto.PublishedReleaseItem{
-		ID:              item.ID,
+		ReleaseID:       item.ID,
 		Version:         item.Version,
 		ChangelogZh:     item.ChangelogZh,
 		ChangelogEn:     item.ChangelogEn,

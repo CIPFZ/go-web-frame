@@ -8,13 +8,12 @@ jest.mock('@/services/api/plugin', () => ({
 }));
 
 jest.mock('@umijs/max', () => ({
-  getLocale: () => 'zh-CN',
   history: { push: jest.fn() },
   useParams: () => ({ id: '1' }),
 }));
 
 describe('plugin/public-detail page', () => {
-  it('loads public detail and renders version history', async () => {
+  it('loads market detail and renders version history', async () => {
     (getPublishedPluginDetail as jest.Mock).mockResolvedValue({
       code: 0,
       data: {
@@ -26,32 +25,21 @@ describe('plugin/public-detail page', () => {
           nameEn: 'Disk Analyzer',
           descriptionZh: '用于磁盘诊断',
           descriptionEn: 'Disk diagnostics',
-          departmentId: 1,
-          department: '存储产品部',
-          ownerId: 1,
-          createdBy: 1,
-          createdAt: '2026-04-18T10:00:00Z',
-        },
-        release: {
-          ID: 11,
-          pluginId: 1,
-          pluginCode: 'disk-analyzer',
-          pluginNameZh: '磁盘分析插件',
-          requestType: 1,
-          status: 5,
-          processStatus: 3,
-          version: '1.0.0',
-          compatibleItems: [],
-          createdBy: 1,
-          createdAt: '2026-04-18T10:00:00Z',
+          capabilityZh: '分析磁盘健康度与容量占用',
+          capabilityEn: 'Analyze disk health and capacity',
+          ownerName: '张三',
         },
         versions: [
           {
-            ID: 11,
+            releaseId: 11,
             version: '1.0.0',
             changelogZh: '首发版本',
             releasedAt: '2026-04-18T10:00:00Z',
             compatibleItems: [],
+            packageX86Url: 'https://files.example.com/x86.zip',
+            testReportUrl: 'https://files.example.com/report.pdf',
+            publisher: '张三',
+            versionConstraint: '>= 1.0.0',
           },
         ],
       },
@@ -60,11 +48,12 @@ describe('plugin/public-detail page', () => {
     const ReactLib = require('react');
     render(ReactLib.createElement(PluginPublicDetailPage));
 
-    expect(await screen.findByText('磁盘分析插件')).toBeTruthy();
-    expect(screen.getByText('版本历史')).toBeTruthy();
+    expect((await screen.findAllByText('磁盘分析插件')).length).toBeGreaterThan(0);
+    expect(screen.getByText('历史版本')).toBeTruthy();
+    expect(screen.getByText('获取与安装')).toBeTruthy();
 
     await waitFor(() => {
-      expect(getPublishedPluginDetail).toHaveBeenCalledWith({ id: 1 }, { skipErrorHandler: true });
+      expect(getPublishedPluginDetail).toHaveBeenCalledWith({ pluginId: 1 }, { skipErrorHandler: true });
     });
   });
 });

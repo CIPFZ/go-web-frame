@@ -461,6 +461,51 @@ func TestDepartmentMasterCRUDAndInactiveQuery(t *testing.T) {
 	}
 }
 
+func TestGetPublishedPluginDetailUsesPluginID(t *testing.T) {
+	service, gormDB := newPluginTestService(t)
+	ctx := context.Background()
+
+	project := mustCreatePlugin(t, service, ctx, 11, dto.CreatePluginReq{
+		Code:          "public-plugin-detail",
+		NameZh:        "公开插件详情",
+		NameEn:        "Public Plugin Detail",
+		RepositoryURL: "https://example.com/public-plugin-detail.git",
+		DescriptionZh: "用于测试公开插件详情",
+		DescriptionEn: "Used to test public plugin detail",
+		DepartmentID:  1,
+		OwnerID:       11,
+	})
+
+	release := mustCreateRelease(t, service, ctx, 11, project.ID, "1.0.0", dto.ReleaseCompatibilityReq{
+		ProductItems: []dto.UpsertCompatibleProductReq{{ProductID: 1, VersionConstraint: ">=5.2"}},
+	})
+
+	now := release.CreatedAt
+	if err := gormDB.Model(&model.PluginRelease{}).
+		Where("id = ?", release.ID).
+		Updates(map[string]interface{}{
+			"status":         model.ReleaseStatusReleased,
+			"process_status": model.ReleaseProcessStatusDone,
+			"released_at":    now,
+		}).Error; err != nil {
+		t.Fatalf("mark release as published error = %v", err)
+	}
+
+	detail, err := service.GetPublishedPluginDetail(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("GetPublishedPluginDetail() error = %v", err)
+	}
+	if detail.Plugin.ID != project.ID {
+		t.Fatalf("detail plugin id = %d, want %d", detail.Plugin.ID, project.ID)
+	}
+	if len(detail.Versions) != 1 {
+		t.Fatalf("detail versions = %d, want 1", len(detail.Versions))
+	}
+	if detail.Versions[0].ReleaseID != release.ID {
+		t.Fatalf("detail release id = %d, want %d", detail.Versions[0].ReleaseID, release.ID)
+	}
+}
+
 func newPluginTestService(t *testing.T) (IPluginService, *gorm.DB) {
 	t.Helper()
 

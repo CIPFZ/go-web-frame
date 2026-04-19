@@ -36,7 +36,7 @@ type ProjectFormValues = {
 const copyMap = {
   zh: {
     title: '插件项目管理',
-    subtitle: '维护插件主数据，并从项目详情继续完成发布、重提、下架与流程追踪。',
+    subtitle: '维护插件元数据，并从项目详情继续完成发布、重提、下架与流程追踪。',
     listTitle: '项目列表',
     create: '新建项目',
     edit: '编辑项目',
@@ -54,6 +54,7 @@ const copyMap = {
     nameEn: '英文名称',
     descriptionZh: '中文描述',
     descriptionEn: '英文描述',
+    market: '前往插件生态中心',
   },
   en: {
     title: 'Plugin Project Management',
@@ -76,6 +77,7 @@ const copyMap = {
     nameEn: 'English Name',
     descriptionZh: 'Chinese Description',
     descriptionEn: 'English Description',
+    market: 'Open Plugin Ecosystem',
   },
 };
 
@@ -218,7 +220,25 @@ const PluginProjectManagementPage: React.FC = () => {
           }}
         >
           <Space direction="vertical" size={20} style={{ width: '100%' }}>
-            <Space direction="vertical" size={6}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                gap: 16,
+                flexWrap: 'wrap',
+              }}
+            >
+              <Button
+                key="market"
+                onClick={() => window.open('/#/plugins', '_blank', 'noopener,noreferrer')}
+                style={{ width: 'fit-content' }}
+              >
+                {copy.market}
+              </Button>
+              <Statistic title={copy.total} value={summaryTotal} />
+            </div>
+            <Space direction="vertical" size={12} style={{ width: '100%' }}>
               <Typography.Title level={3} style={{ margin: 0 }}>
                 {copy.title}
               </Typography.Title>
@@ -226,7 +246,6 @@ const PluginProjectManagementPage: React.FC = () => {
                 {copy.subtitle}
               </Typography.Paragraph>
             </Space>
-            <Statistic title={copy.total} value={summaryTotal} />
           </Space>
         </ProCard>
 

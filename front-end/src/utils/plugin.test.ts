@@ -11,6 +11,8 @@ describe('plugin utils', () => {
   it('recognizes public plugin routes', () => {
     expect(isPublicPluginRoute('/plugins')).toBe(true);
     expect(isPublicPluginRoute('/plugins/12')).toBe(true);
+    expect(isPublicPluginRoute('#/plugins')).toBe(true);
+    expect(isPublicPluginRoute('/plugins/#/plugins/12')).toBe(true);
     expect(isPublicPluginRoute('/plugin/project-management')).toBe(false);
   });
 
