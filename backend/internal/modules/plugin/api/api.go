@@ -223,6 +223,32 @@ func (a *PluginApi) GetDepartmentList(c *gin.Context) {
 	response.OkWithPage(list, total, req.Page, req.PageSize, c)
 }
 
+func (a *PluginApi) CreateDepartment(c *gin.Context) {
+	var req dto.CreateDepartmentReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailWithMessage("鍙傛暟缁戝畾澶辫触: "+err.Error(), c)
+		return
+	}
+	if err := a.service.CreateDepartment(c.Request.Context(), c.GetUint("authorityId"), req); err != nil {
+		response.FailWithError(err, c)
+		return
+	}
+	response.Ok(c)
+}
+
+func (a *PluginApi) UpdateDepartment(c *gin.Context) {
+	var req dto.UpdateDepartmentReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailWithMessage("鍙傛暟缁戝畾澶辫触: "+err.Error(), c)
+		return
+	}
+	if err := a.service.UpdateDepartment(c.Request.Context(), c.GetUint("authorityId"), req); err != nil {
+		response.FailWithError(err, c)
+		return
+	}
+	response.Ok(c)
+}
+
 func (a *PluginApi) GetPublishedPluginList(c *gin.Context) {
 	var req dto.GetPublishedPluginListReq
 	if err := c.ShouldBindJSON(&req); err != nil {

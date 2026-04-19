@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"strconv"
+	"strings"
 
 	"github.com/CIPFZ/gowebframe/internal/modules/plugin/model"
 	"gorm.io/gorm"
@@ -16,6 +18,8 @@ type IPluginRepository interface {
 	CreateRelease(ctx context.Context, item *model.PluginRelease, compatibles []model.PluginCompatibleProduct) error
 	UpdateRelease(ctx context.Context, item *model.PluginRelease, updates map[string]interface{}, compatibles []model.PluginCompatibleProduct) error
 	FindReleaseByID(ctx context.Context, id uint) (*model.PluginRelease, error)
+	FindReleaseByPluginVersion(ctx context.Context, pluginID uint, version string) (*model.PluginRelease, error)
+	FindHighestVersionReleaseByPluginID(ctx context.Context, pluginID uint, excludeReleaseID uint) (*model.PluginRelease, error)
 	FindLatestPublishedReleaseByPluginID(ctx context.Context, pluginID uint) (*model.PluginRelease, error)
 	ListPublishedReleasesByPluginID(ctx context.Context, pluginID uint) ([]model.PluginRelease, error)
 	ListReleasesByPluginID(ctx context.Context, pluginID uint) ([]model.PluginRelease, error)
@@ -27,10 +31,15 @@ type IPluginRepository interface {
 	ClaimRelease(ctx context.Context, id, claimerID uint) (bool, error)
 	ResetClaim(ctx context.Context, id uint) error
 	ListProducts(ctx context.Context, page, pageSize int) ([]model.PluginProduct, int64, error)
+	ListProductsWithInactive(ctx context.Context, page, pageSize int, includeInactive bool) ([]model.PluginProduct, int64, error)
 	CreateProduct(ctx context.Context, item *model.PluginProduct) error
 	UpdateProduct(ctx context.Context, item *model.PluginProduct, updates map[string]interface{}) error
 	FindProductByID(ctx context.Context, id uint) (*model.PluginProduct, error)
 	ListDepartments(ctx context.Context, page, pageSize int) ([]model.PluginDepartment, int64, error)
+	ListDepartmentsWithInactive(ctx context.Context, page, pageSize int, includeInactive bool) ([]model.PluginDepartment, int64, error)
+	CreateDepartment(ctx context.Context, item *model.PluginDepartment) error
+	UpdateDepartment(ctx context.Context, item *model.PluginDepartment, updates map[string]interface{}) error
+	FindDepartmentByID(ctx context.Context, id uint) (*model.PluginDepartment, error)
 }
 
 type PluginRepository struct {
@@ -118,10 +127,53 @@ func (r *PluginRepository) FindReleaseByID(ctx context.Context, id uint) (*model
 	err := r.db.WithContext(ctx).
 		Preload("Plugin").
 		Preload("Plugin.Department").
+		Preload("Claimer").
 		Preload("CompatibleItems").
 		Preload("CompatibleItems.Product").
 		First(&item, id).Error
 	return &item, err
+}
+
+func (r *PluginRepository) FindReleaseByPluginVersion(ctx context.Context, pluginID uint, version string) (*model.PluginRelease, error) {
+	var item model.PluginRelease
+	err := r.db.WithContext(ctx).
+		Where("plugin_id = ? AND version = ?", pluginID, version).
+		Preload("Plugin").
+		Preload("Plugin.Department").
+		Preload("Claimer").
+		Preload("CompatibleItems").
+		Preload("CompatibleItems.Product").
+		First(&item).Error
+	return &item, err
+}
+
+func (r *PluginRepository) FindHighestVersionReleaseByPluginID(ctx context.Context, pluginID uint, excludeReleaseID uint) (*model.PluginRelease, error) {
+	var items []model.PluginRelease
+	query := r.db.WithContext(ctx).
+		Where("plugin_id = ? AND version <> ''", pluginID).
+		Order("id desc")
+	if excludeReleaseID != 0 {
+		query = query.Where("id <> ?", excludeReleaseID)
+	}
+	if err := query.
+		Preload("Plugin").
+		Preload("Plugin.Department").
+		Preload("Claimer").
+		Preload("CompatibleItems").
+		Preload("CompatibleItems.Product").
+		Find(&items).Error; err != nil {
+		return nil, err
+	}
+	if len(items) == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	best := items[0]
+	for _, item := range items[1:] {
+		if compareSemver(item.Version, best.Version) > 0 {
+			best = item
+		}
+	}
+	return &best, nil
 }
 
 func (r *PluginRepository) FindLatestPublishedReleaseByPluginID(ctx context.Context, pluginID uint) (*model.PluginRelease, error) {
@@ -171,9 +223,10 @@ func (r *PluginRepository) ListWorkOrders(ctx context.Context, query *gorm.DB, p
 	}
 	err := query.WithContext(ctx).
 		Preload("Plugin").
+		Preload("Claimer").
 		Preload("CompatibleItems").
 		Preload("CompatibleItems.Product").
-		Order("id desc").
+		Order("plugin_releases.id desc").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		Find(&items).Error
@@ -239,9 +292,16 @@ func (r *PluginRepository) ResetClaim(ctx context.Context, id uint) error {
 }
 
 func (r *PluginRepository) ListProducts(ctx context.Context, page, pageSize int) ([]model.PluginProduct, int64, error) {
+	return r.ListProductsWithInactive(ctx, page, pageSize, false)
+}
+
+func (r *PluginRepository) ListProductsWithInactive(ctx context.Context, page, pageSize int, includeInactive bool) ([]model.PluginProduct, int64, error) {
 	var items []model.PluginProduct
 	var total int64
-	query := r.db.WithContext(ctx).Model(&model.PluginProduct{}).Where("status = ?", true)
+	query := r.db.WithContext(ctx).Model(&model.PluginProduct{})
+	if !includeInactive {
+		query = query.Where("status = ?", true)
+	}
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
@@ -270,9 +330,16 @@ func (r *PluginRepository) FindProductByID(ctx context.Context, id uint) (*model
 }
 
 func (r *PluginRepository) ListDepartments(ctx context.Context, page, pageSize int) ([]model.PluginDepartment, int64, error) {
+	return r.ListDepartmentsWithInactive(ctx, page, pageSize, false)
+}
+
+func (r *PluginRepository) ListDepartmentsWithInactive(ctx context.Context, page, pageSize int, includeInactive bool) ([]model.PluginDepartment, int64, error) {
 	var items []model.PluginDepartment
 	var total int64
-	query := r.db.WithContext(ctx).Model(&model.PluginDepartment{}).Where("status = ?", true)
+	query := r.db.WithContext(ctx).Model(&model.PluginDepartment{})
+	if !includeInactive {
+		query = query.Where("status = ?", true)
+	}
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
@@ -284,4 +351,40 @@ func (r *PluginRepository) ListDepartments(ctx context.Context, page, pageSize i
 	}
 	err := query.Order("sort asc, id asc").Offset((page - 1) * pageSize).Limit(pageSize).Find(&items).Error
 	return items, total, err
+}
+
+func (r *PluginRepository) CreateDepartment(ctx context.Context, item *model.PluginDepartment) error {
+	return r.db.WithContext(ctx).Create(item).Error
+}
+
+func (r *PluginRepository) UpdateDepartment(ctx context.Context, item *model.PluginDepartment, updates map[string]interface{}) error {
+	return r.db.WithContext(ctx).Model(item).Updates(updates).Error
+}
+
+func (r *PluginRepository) FindDepartmentByID(ctx context.Context, id uint) (*model.PluginDepartment, error) {
+	var item model.PluginDepartment
+	err := r.db.WithContext(ctx).First(&item, id).Error
+	return &item, err
+}
+
+func compareSemver(left, right string) int {
+	lparts := strings.Split(left, ".")
+	rparts := strings.Split(right, ".")
+	if len(lparts) != 3 || len(rparts) != 3 {
+		return strings.Compare(left, right)
+	}
+	for i := 0; i < 3; i++ {
+		li, lerr := strconv.Atoi(lparts[i])
+		ri, rerr := strconv.Atoi(rparts[i])
+		if lerr != nil || rerr != nil {
+			return strings.Compare(left, right)
+		}
+		if li < ri {
+			return -1
+		}
+		if li > ri {
+			return 1
+		}
+	}
+	return 0
 }

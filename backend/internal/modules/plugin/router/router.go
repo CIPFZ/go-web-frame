@@ -60,6 +60,11 @@ func (r *PluginRouter) InitPluginRoutes(privateGroup, publicGroup *gin.RouterGro
 		}
 
 		departmentGroup := privateGroup.Group("plugin/department")
-		departmentGroup.POST("getDepartmentList", r.api.GetDepartmentList)
+		{
+			departmentGroup.POST("getDepartmentList", r.api.GetDepartmentList)
+			write := departmentGroup.Group("", middleware.OperationRecord(r.svcCtx))
+			write.POST("createDepartment", r.api.CreateDepartment)
+			write.PUT("updateDepartment", r.api.UpdateDepartment)
+		}
 	}
 }

@@ -9,7 +9,7 @@ const releaseStatusText: Record<number, { zh: string; en: string }> = {
   1: { zh: '待提交', en: 'Ready' },
   2: { zh: '待审核', en: 'Pending Review' },
   3: { zh: '已通过', en: 'Approved' },
-  4: { zh: '已打回', en: 'Rejected' },
+  4: { zh: '已驳回', en: 'Rejected' },
   5: { zh: '已发布', en: 'Released' },
   6: { zh: '已下架', en: 'Offlined' },
 };

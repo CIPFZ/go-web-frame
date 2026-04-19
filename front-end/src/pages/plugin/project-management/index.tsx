@@ -21,7 +21,7 @@ import {
   type PluginItem,
   updatePlugin,
 } from '@/services/api/plugin';
-import { getDisplayDescription, getDisplayName, isEnglishLocale } from '@/utils/plugin';
+import { getDisplayDescription, getDisplayName, isEnglishLocale, pickLocaleText } from '@/utils/plugin';
 
 type ProjectFormValues = {
   code: string;
@@ -50,6 +50,10 @@ const copyMap = {
     actions: '操作',
     saveFailed: '保存项目失败',
     saveSuccess: '项目已保存',
+    nameZh: '中文名称',
+    nameEn: '英文名称',
+    descriptionZh: '中文描述',
+    descriptionEn: '英文描述',
   },
   en: {
     title: 'Plugin Project Management',
@@ -68,6 +72,10 @@ const copyMap = {
     actions: 'Actions',
     saveFailed: 'Failed to save project',
     saveSuccess: 'Project saved',
+    nameZh: 'Chinese Name',
+    nameEn: 'English Name',
+    descriptionZh: 'Chinese Description',
+    descriptionEn: 'English Description',
   },
 };
 
@@ -81,9 +89,16 @@ const PluginProjectManagementPage: React.FC = () => {
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [summaryTotal, setSummaryTotal] = useState(0);
 
+  const getDepartmentLabel = (item: DepartmentItem) => {
+    const zh = [item.productLineZh || item.productLine, item.nameZh || item.name].filter(Boolean).join(' / ');
+    const en = [item.productLineEn || item.productLine, item.nameEn || item.name].filter(Boolean).join(' / ');
+    if (zh && en && zh !== en) return `${zh} / ${en}`;
+    return pickLocaleText(locale, zh, en);
+  };
+
   const departmentOptions = useMemo(
-    () => departments.map((item) => ({ label: `${item.productLine} / ${item.name}`, value: item.ID })),
-    [departments],
+    () => departments.map((item) => ({ label: getDepartmentLabel(item), value: item.ID })),
+    [departments, locale],
   );
 
   const loadDepartments = async () => {
@@ -93,6 +108,10 @@ const PluginProjectManagementPage: React.FC = () => {
       setDepartments(res.data?.list || []);
     }
   };
+
+  React.useEffect(() => {
+    void loadDepartments();
+  }, []);
 
   const openCreateModal = async () => {
     setEditing(undefined);
@@ -138,20 +157,20 @@ const PluginProjectManagementPage: React.FC = () => {
     {
       title: copy.name,
       dataIndex: 'nameZh',
-      width: 240,
-      render: (_, record) => (
-        <Space direction="vertical" size={2}>
-          <Typography.Text strong>{getDisplayName(locale, record)}</Typography.Text>
-          <Typography.Text type="secondary">{record.code}</Typography.Text>
-        </Space>
-      ),
+      width: 220,
+      render: (_, record) => <Typography.Text strong>{getDisplayName(locale, record)}</Typography.Text>,
     },
     {
       title: copy.department,
       dataIndex: 'department',
       width: 180,
       search: false,
-      render: (_, record) => record.department || '-',
+      render: (_, record) =>
+        pickLocaleText(
+          locale,
+          record.departmentNameZh || record.department,
+          record.departmentNameEn || record.department,
+        ),
     },
     {
       title: copy.repository,
@@ -243,27 +262,22 @@ const PluginProjectManagementPage: React.FC = () => {
         form={form}
         title={editing?.ID ? copy.edit : copy.create}
         open={modalOpen}
-        modalProps={{ destroyOnClose: true }}
+        modalProps={{ destroyOnHidden: true }}
         onOpenChange={setModalOpen}
         onFinish={handleSubmit}
       >
-        <ProFormText
-          name="code"
-          label={copy.code}
-          disabled={Boolean(editing?.ID)}
-          rules={[{ required: true }]}
-        />
+        <ProFormText name="code" label={copy.code} disabled={Boolean(editing?.ID)} rules={[{ required: true }]} />
         <ProFormText name="repositoryUrl" label={copy.repository} rules={[{ required: true }]} />
-        <ProFormText name="nameZh" label="中文名称" rules={[{ required: true }]} />
-        <ProFormText name="nameEn" label="English Name" rules={[{ required: true }]} />
+        <ProFormText name="nameZh" label={copy.nameZh} rules={[{ required: true }]} />
+        <ProFormText name="nameEn" label={copy.nameEn} rules={[{ required: true }]} />
         <ProFormSelect
           name="departmentId"
           label={copy.department}
           options={departmentOptions}
           rules={[{ required: true }]}
         />
-        <ProFormTextArea name="descriptionZh" label="中文描述" rules={[{ required: true }]} />
-        <ProFormTextArea name="descriptionEn" label="English Description" rules={[{ required: true }]} />
+        <ProFormTextArea name="descriptionZh" label={copy.descriptionZh} rules={[{ required: true }]} />
+        <ProFormTextArea name="descriptionEn" label={copy.descriptionEn} rules={[{ required: true }]} />
       </ModalForm>
     </PageContainer>
   );

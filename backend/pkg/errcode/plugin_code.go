@@ -1,11 +1,15 @@
 package errcode
 
 var (
-	PluginForbidden             = NewError(3001, "插件模块无权访问")
-	PluginStatusInvalid         = NewError(3002, "当前发布单状态不允许执行该操作")
-	PluginWorkOrderAlreadyClaim = NewError(3003, "工单已被其他审核员认领")
-	PluginWorkOrderNotClaimed   = NewError(3004, "当前工单尚未被认领")
-	PluginResetReasonRequired   = NewError(3005, "重置原因不能为空")
-	PluginReviewCommentRequired = NewError(3006, "审核意见不能为空")
-	PluginProductInvalid        = NewError(3007, "兼容产品信息无效")
+	PluginForbidden             = NewError(3001, "plugin access forbidden")
+	PluginStatusInvalid         = NewError(3002, "invalid plugin release status transition")
+	PluginWorkOrderAlreadyClaim = NewError(3003, "work order has already been claimed")
+	PluginWorkOrderNotClaimed   = NewError(3004, "work order has not been claimed")
+	PluginResetReasonRequired   = NewError(3005, "reset reason is required")
+	PluginReviewCommentRequired = NewError(3006, "review comment is required")
+	PluginProductInvalid        = NewError(3007, "invalid compatible target")
+	PluginVersionInvalid        = NewError(3008, "invalid plugin version")
+	PluginVersionDuplicate      = NewError(3009, "duplicate plugin version")
+	PluginCompatibilityRequired = NewError(3010, "compatibility is required")
+	PluginReleaseNotEditable    = NewError(3011, "release content is not editable in current status")
 )

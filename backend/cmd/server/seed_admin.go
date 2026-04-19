@@ -186,6 +186,7 @@ func ensureBaseMenus(tx *gorm.DB) (map[string]uint, error) {
 		{Key: "sys_api_token", ParentKey: "sys_root", Path: "/sys/api-token", Name: "menu.system.apiToken", Component: "sys/api-token", Icon: "KeyOutlined", Sort: 5, Locale: "menu.system.apiToken"},
 		{Key: "sys_operation", ParentKey: "sys_root", Path: "/sys/operation", Name: "menu.system.operation", Component: "sys/operation", Icon: "HistoryOutlined", Sort: 6, Locale: "menu.system.operation"},
 		{Key: "sys_notice", ParentKey: "sys_root", Path: "/sys/notice", Name: "menu.system.notice", Component: "sys/notice", Icon: "NotificationOutlined", Sort: 7, Locale: "menu.system.notice"},
+		{Key: "sys_plugin_master", ParentKey: "sys_root", Path: "/sys/plugin-master", Name: "menu.system.pluginMaster", Component: "sys/plugin-master", Icon: "DatabaseOutlined", Sort: 8, Locale: "menu.system.pluginMaster"},
 		{Key: "plugin_root", Path: "/plugin", Name: "menu.plugin", Component: "components/RouterLayout", Icon: "AppstoreAddOutlined", Sort: 15, Locale: "menu.plugin"},
 		{Key: "plugin_project_management", ParentKey: "plugin_root", Path: "/plugin/project-management", Name: "menu.plugin.projectManagement", Component: "plugin/project-management", Icon: "FolderOpenOutlined", Sort: 1, Locale: "menu.plugin.projectManagement"},
 		{Key: "plugin_project_detail", ParentKey: "plugin_root", Path: "/plugin/project/:id", Name: "menu.plugin.projectDetail", Component: "plugin/project-detail", Icon: "ProfileOutlined", Sort: 2, Locale: "menu.plugin.projectDetail", HideInMenu: true},
@@ -252,10 +253,10 @@ func ensureBaseMenus(tx *gorm.DB) (map[string]uint, error) {
 
 func bindAuthorityMenus(tx *gorm.DB, menuIDs map[string]uint, adminAuthorityID uint) error {
 	roleMenuKeys := map[uint][]string{
-		adminAuthorityID: {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_api_token", "sys_operation", "sys_notice", "plugin_root", "plugin_project_management", "plugin_project_detail", "plugin_work_order_pool", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
+		adminAuthorityID: {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_api_token", "sys_operation", "sys_notice", "sys_plugin_master", "plugin_root", "plugin_project_management", "plugin_project_detail", "plugin_work_order_pool", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
 		10010:            {"dashboard", "about", "plugin_root", "plugin_project_management", "plugin_project_detail", "account_settings"},
 		10013:            {"dashboard", "about", "plugin_root", "plugin_project_detail", "plugin_work_order_pool", "account_settings"},
-		9528:             {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_api_token", "sys_operation", "sys_notice", "plugin_root", "plugin_project_management", "plugin_project_detail", "plugin_work_order_pool", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
+		9528:             {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_api_token", "sys_operation", "sys_notice", "sys_plugin_master", "plugin_root", "plugin_project_management", "plugin_project_detail", "plugin_work_order_pool", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
 		888:              {"dashboard", "state", "about", "poetry_root", "poetry_dynasty", "poetry_genre", "poetry_author", "poetry_poem", "account_settings"},
 		8881:             {"dashboard", "about", "account_settings"},
 	}
@@ -343,6 +344,8 @@ func ensureBaseApis(tx *gorm.DB) (map[string]uint, error) {
 		{Path: "/api/v1/plugin/product/createProduct", Method: "POST", ApiGroup: "plugin", Description: "Create product"},
 		{Path: "/api/v1/plugin/product/updateProduct", Method: "PUT", ApiGroup: "plugin", Description: "Update product"},
 		{Path: "/api/v1/plugin/department/getDepartmentList", Method: "POST", ApiGroup: "plugin", Description: "Get department list"},
+		{Path: "/api/v1/plugin/department/createDepartment", Method: "POST", ApiGroup: "plugin", Description: "Create department"},
+		{Path: "/api/v1/plugin/department/updateDepartment", Method: "PUT", ApiGroup: "plugin", Description: "Update department"},
 		{Path: "/api/v1/plugin/public/getPublishedPluginList", Method: "POST", ApiGroup: "plugin-public", Description: "Get published plugin list"},
 		{Path: "/api/v1/plugin/public/getPublishedPluginDetail", Method: "POST", ApiGroup: "plugin-public", Description: "Get published plugin detail"},
 
@@ -766,8 +769,8 @@ func ensurePoetryBaseData(tx *gorm.DB) error {
 
 func ensurePluginBaseData(tx *gorm.DB) error {
 	departments := []pluginModel.PluginDepartment{
-		{Name: "存储产品部", ProductLine: "存储", Sort: 1, Status: true},
-		{Name: "网络产品部", ProductLine: "网络", Sort: 2, Status: true},
+		{Name: "存储产品部", NameZh: "存储产品部", NameEn: "Storage Products", ProductLine: "Storage", Sort: 1, Status: true},
+		{Name: "网络产品部", NameZh: "网络产品部", NameEn: "Network Products", ProductLine: "Network", Sort: 2, Status: true},
 	}
 	for _, seed := range departments {
 		var item pluginModel.PluginDepartment
@@ -782,6 +785,8 @@ func ensurePluginBaseData(tx *gorm.DB) error {
 			return err
 		}
 		if err := tx.Model(&item).Updates(map[string]interface{}{
+			"name_zh":      seed.NameZh,
+			"name_en":      seed.NameEn,
 			"product_line": seed.ProductLine,
 			"sort":         seed.Sort,
 			"status":       seed.Status,
@@ -791,9 +796,9 @@ func ensurePluginBaseData(tx *gorm.DB) error {
 	}
 
 	products := []pluginModel.PluginProduct{
-		{Code: "HCI", Name: "超融合", Description: "HCI 平台", Sort: 1, Status: true},
-		{Code: "ACLI", Name: "aCLI", Description: "aCLI 命令行工具", Sort: 2, Status: true},
-		{Code: "VDC", Name: "云桌面", Description: "VDC 平台", Sort: 3, Status: true},
+		{Code: "HCI", Name: "超融合", Type: pluginModel.CompatibleTargetTypeProduct, Description: "HCI 平台", Sort: 1, Status: true},
+		{Code: "ACLI", Name: "aCLI", Type: pluginModel.CompatibleTargetTypeAcli, Description: "aCLI 命令行工具", Sort: 2, Status: true},
+		{Code: "VDC", Name: "云桌面", Type: pluginModel.CompatibleTargetTypeProduct, Description: "VDC 平台", Sort: 3, Status: true},
 	}
 	for _, seed := range products {
 		var item pluginModel.PluginProduct
@@ -809,6 +814,7 @@ func ensurePluginBaseData(tx *gorm.DB) error {
 		}
 		if err := tx.Model(&item).Updates(map[string]interface{}{
 			"name":        seed.Name,
+			"type":        seed.Type,
 			"description": seed.Description,
 			"sort":        seed.Sort,
 			"status":      seed.Status,
@@ -1078,8 +1084,8 @@ func ensureWorkTags(tx *gorm.DB, workIDs map[string]uint, tagIDs map[string]uint
 
 func ensurePluginBaseDataClean(tx *gorm.DB) error {
 	departments := []pluginModel.PluginDepartment{
-		{Name: "存储产品部", ProductLine: "存储", Sort: 1, Status: true},
-		{Name: "网络产品部", ProductLine: "网络", Sort: 2, Status: true},
+		{Name: "存储产品部", NameZh: "存储产品部", NameEn: "Storage Products", ProductLine: "Storage", Sort: 1, Status: true},
+		{Name: "网络产品部", NameZh: "网络产品部", NameEn: "Network Products", ProductLine: "Network", Sort: 2, Status: true},
 	}
 	for _, seed := range departments {
 		var item pluginModel.PluginDepartment
@@ -1095,6 +1101,8 @@ func ensurePluginBaseDataClean(tx *gorm.DB) error {
 		}
 		if err := tx.Model(&item).Updates(map[string]interface{}{
 			"name":         seed.Name,
+			"name_zh":      seed.NameZh,
+			"name_en":      seed.NameEn,
 			"product_line": seed.ProductLine,
 			"sort":         seed.Sort,
 			"status":       seed.Status,
@@ -1104,9 +1112,9 @@ func ensurePluginBaseDataClean(tx *gorm.DB) error {
 	}
 
 	products := []pluginModel.PluginProduct{
-		{Code: "HCI", Name: "超融合", Description: "HCI 平台", Sort: 1, Status: true},
-		{Code: "ACLI", Name: "aCLI", Description: "aCLI 命令行工具", Sort: 2, Status: true},
-		{Code: "VDC", Name: "云桌面", Description: "VDC 平台", Sort: 3, Status: true},
+		{Code: "HCI", Name: "超融合", Type: pluginModel.CompatibleTargetTypeProduct, Description: "HCI 平台", Sort: 1, Status: true},
+		{Code: "ACLI", Name: "aCLI", Type: pluginModel.CompatibleTargetTypeAcli, Description: "aCLI 命令行工具", Sort: 2, Status: true},
+		{Code: "VDC", Name: "云桌面", Type: pluginModel.CompatibleTargetTypeProduct, Description: "VDC 平台", Sort: 3, Status: true},
 	}
 	for _, seed := range products {
 		var item pluginModel.PluginProduct
@@ -1122,6 +1130,7 @@ func ensurePluginBaseDataClean(tx *gorm.DB) error {
 		}
 		if err := tx.Model(&item).Updates(map[string]interface{}{
 			"name":        seed.Name,
+			"type":        seed.Type,
 			"description": seed.Description,
 			"sort":        seed.Sort,
 			"status":      seed.Status,

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/CIPFZ/gowebframe/internal/modules/common"
+	sysModel "github.com/CIPFZ/gowebframe/internal/modules/system/model"
 )
 
 const (
@@ -41,9 +42,22 @@ const (
 	ReleaseActionReset          = "reset"
 )
 
+const (
+	CompatibleTargetTypeProduct = "product"
+	CompatibleTargetTypeAcli    = "acli"
+)
+
+const (
+	CompatibilityTypeProduct   = CompatibleTargetTypeProduct
+	CompatibilityTypeAcli      = CompatibleTargetTypeAcli
+	CompatibilityTypeUniversal = "universal"
+)
+
 type PluginDepartment struct {
 	common.BaseModel
 	Name        string `json:"name" gorm:"type:varchar(64);not null"`
+	NameZh      string `json:"nameZh" gorm:"type:varchar(64);default:''"`
+	NameEn      string `json:"nameEn" gorm:"type:varchar(64);default:''"`
 	ProductLine string `json:"productLine" gorm:"type:varchar(64);not null"`
 	ParentID    *uint  `json:"parentId"`
 	Sort        int    `json:"sort" gorm:"default:0"`
@@ -56,6 +70,7 @@ type PluginProduct struct {
 	common.BaseModel
 	Code        string `json:"code" gorm:"type:varchar(64);uniqueIndex;not null"`
 	Name        string `json:"name" gorm:"type:varchar(128);not null"`
+	Type        string `json:"type" gorm:"type:varchar(16);default:'product';index;not null"`
 	Description string `json:"description" gorm:"type:text"`
 	Sort        int    `json:"sort" gorm:"default:0"`
 	Status      bool   `json:"status" gorm:"default:true"`
@@ -83,30 +98,32 @@ func (Plugin) TableName() string { return "plugins" }
 
 type PluginRelease struct {
 	common.BaseModel
-	PluginID         uint       `json:"pluginId" gorm:"index;not null"`
-	RequestType      int8       `json:"requestType" gorm:"default:1;not null"`
-	Status           int8       `json:"status" gorm:"default:0;not null"`
-	ProcessStatus    int8       `json:"processStatus" gorm:"default:0;not null"`
-	Version          string     `json:"version" gorm:"type:varchar(64)"`
-	ClaimerID        *uint      `json:"claimerId" gorm:"index"`
-	ClaimedAt        *time.Time `json:"claimedAt"`
-	Checklist        string     `json:"checklist" gorm:"type:text"`
-	TestReportURL    string     `json:"testReportUrl" gorm:"type:varchar(255)"`
-	PackageX86URL    string     `json:"packageX86Url" gorm:"type:varchar(255)"`
-	PackageARMURL    string     `json:"packageArmUrl" gorm:"type:varchar(255)"`
-	ChangelogZh      string     `json:"changelogZh" gorm:"type:text"`
-	ChangelogEn      string     `json:"changelogEn" gorm:"type:text"`
-	ReviewComment    string     `json:"reviewComment" gorm:"type:text"`
-	OfflineReasonZh  string     `json:"offlineReasonZh" gorm:"type:text"`
-	OfflineReasonEn  string     `json:"offlineReasonEn" gorm:"type:text"`
-	TDID             string     `json:"tdId" gorm:"column:td_id;type:varchar(64)"`
-	SubmittedAt      *time.Time `json:"submittedAt"`
-	ApprovedAt       *time.Time `json:"approvedAt"`
-	ReleasedAt       *time.Time `json:"releasedAt"`
-	OfflinedAt       *time.Time `json:"offlinedAt"`
-	CreatedBy        uint       `json:"createdBy"`
-	Plugin           Plugin     `json:"plugin,omitempty" gorm:"foreignKey:PluginID"`
-	CompatibleItems  []PluginCompatibleProduct `json:"compatibleItems,omitempty" gorm:"foreignKey:ReleaseID"`
+	PluginID        uint                      `json:"pluginId" gorm:"index;not null"`
+	RequestType     int8                      `json:"requestType" gorm:"default:1;not null"`
+	Status          int8                      `json:"status" gorm:"default:0;not null"`
+	ProcessStatus   int8                      `json:"processStatus" gorm:"default:0;not null"`
+	Version         string                    `json:"version" gorm:"type:varchar(64)"`
+	Universal       bool                      `json:"universal" gorm:"default:false;not null"`
+	ClaimerID       *uint                     `json:"claimerId" gorm:"index"`
+	ClaimedAt       *time.Time                `json:"claimedAt"`
+	Checklist       string                    `json:"checklist" gorm:"type:text"`
+	TestReportURL   string                    `json:"testReportUrl" gorm:"type:varchar(255)"`
+	PackageX86URL   string                    `json:"packageX86Url" gorm:"type:varchar(255)"`
+	PackageARMURL   string                    `json:"packageArmUrl" gorm:"type:varchar(255)"`
+	ChangelogZh     string                    `json:"changelogZh" gorm:"type:text"`
+	ChangelogEn     string                    `json:"changelogEn" gorm:"type:text"`
+	ReviewComment   string                    `json:"reviewComment" gorm:"type:text"`
+	OfflineReasonZh string                    `json:"offlineReasonZh" gorm:"type:text"`
+	OfflineReasonEn string                    `json:"offlineReasonEn" gorm:"type:text"`
+	TDID            string                    `json:"tdId" gorm:"column:td_id;type:varchar(64)"`
+	SubmittedAt     *time.Time                `json:"submittedAt"`
+	ApprovedAt      *time.Time                `json:"approvedAt"`
+	ReleasedAt      *time.Time                `json:"releasedAt"`
+	OfflinedAt      *time.Time                `json:"offlinedAt"`
+	CreatedBy       uint                      `json:"createdBy"`
+	Plugin          Plugin                    `json:"plugin,omitempty" gorm:"foreignKey:PluginID"`
+	Claimer         sysModel.SysUser          `json:"claimer,omitempty" gorm:"foreignKey:ClaimerID"`
+	CompatibleItems []PluginCompatibleProduct `json:"compatibleItems,omitempty" gorm:"foreignKey:ReleaseID"`
 }
 
 func (PluginRelease) TableName() string { return "plugin_releases" }
@@ -115,6 +132,7 @@ type PluginCompatibleProduct struct {
 	common.BaseModel
 	ReleaseID         uint          `json:"releaseId" gorm:"uniqueIndex:idx_release_product;not null"`
 	ProductID         uint          `json:"productId" gorm:"uniqueIndex:idx_release_product;not null"`
+	Type              string        `json:"type" gorm:"type:varchar(16);uniqueIndex:idx_release_product;default:'product';not null"`
 	VersionConstraint string        `json:"versionConstraint" gorm:"type:varchar(128)"`
 	Product           PluginProduct `json:"product,omitempty" gorm:"foreignKey:ProductID"`
 }
@@ -123,15 +141,15 @@ func (PluginCompatibleProduct) TableName() string { return "plugin_compatible_pr
 
 type PluginReleaseEvent struct {
 	common.BaseModel
-	ReleaseID          uint   `json:"releaseId" gorm:"index;not null"`
-	FromStatus         int8   `json:"fromStatus"`
-	ToStatus           int8   `json:"toStatus"`
-	FromProcessStatus  int8   `json:"fromProcessStatus"`
-	ToProcessStatus    int8   `json:"toProcessStatus"`
-	Action             string `json:"action" gorm:"type:varchar(32);index;not null"`
-	OperatorID         uint   `json:"operatorId"`
-	Comment            string `json:"comment" gorm:"type:text"`
-	SnapshotJSON       string `json:"snapshotJson" gorm:"type:text"`
+	ReleaseID         uint   `json:"releaseId" gorm:"index;not null"`
+	FromStatus        int8   `json:"fromStatus"`
+	ToStatus          int8   `json:"toStatus"`
+	FromProcessStatus int8   `json:"fromProcessStatus"`
+	ToProcessStatus   int8   `json:"toProcessStatus"`
+	Action            string `json:"action" gorm:"type:varchar(32);index;not null"`
+	OperatorID        uint   `json:"operatorId"`
+	Comment           string `json:"comment" gorm:"type:text"`
+	SnapshotJSON      string `json:"snapshotJson" gorm:"type:text"`
 }
 
 func (PluginReleaseEvent) TableName() string { return "plugin_release_events" }

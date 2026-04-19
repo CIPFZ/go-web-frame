@@ -63,6 +63,8 @@
   'menu.plugin.projectManagement': 'Plugin Projects',
   'menu.plugin.projectDetail': 'Plugin Project Detail',
   'menu.plugin.workOrderPool': 'Plugin Work Orders',
+  'menu.plugin.workOrderDetail': 'Plugin Work Order Detail',
+  'menu.system.pluginMaster': 'Department Management',
   'menu.poetry': 'Poetry',
   'menu.poetry.dynasty': 'Dynasties',
   'menu.poetry.genre': 'Genres',

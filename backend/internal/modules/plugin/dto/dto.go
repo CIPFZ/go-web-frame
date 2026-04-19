@@ -4,6 +4,11 @@ import "github.com/CIPFZ/gowebframe/internal/modules/common"
 
 type PageInfo = common.PageInfo
 
+const (
+	WorkOrderScopeAll  = "all"
+	WorkOrderScopeMine = "mine"
+)
+
 type CreatePluginReq struct {
 	Code          string `json:"code" binding:"required"`
 	RepositoryURL string `json:"repositoryUrl" binding:"required"`
@@ -37,33 +42,39 @@ type UpsertCompatibleProductReq struct {
 	VersionConstraint string `json:"versionConstraint"`
 }
 
+type ReleaseCompatibilityReq struct {
+	ProductItems []UpsertCompatibleProductReq `json:"productItems"`
+	AcliItems    []UpsertCompatibleProductReq `json:"acliItems"`
+	Universal    bool                         `json:"universal"`
+}
+
 type CreateReleaseReq struct {
-	PluginID        uint                         `json:"pluginId" binding:"required"`
-	RequestType     int8                         `json:"requestType" binding:"required"`
-	Version         string                       `json:"version"`
-	TestReportURL   string                       `json:"testReportUrl"`
-	PackageX86URL   string                       `json:"packageX86Url"`
-	PackageARMURL   string                       `json:"packageArmUrl"`
-	ChangelogZh     string                       `json:"changelogZh"`
-	ChangelogEn     string                       `json:"changelogEn"`
-	OfflineReasonZh string                       `json:"offlineReasonZh"`
-	OfflineReasonEn string                       `json:"offlineReasonEn"`
-	TDID            string                       `json:"tdId"`
-	CompatibleItems []UpsertCompatibleProductReq `json:"compatibleItems"`
+	PluginID        uint                    `json:"pluginId" binding:"required"`
+	RequestType     int8                    `json:"requestType" binding:"required"`
+	Version         string                  `json:"version"`
+	TestReportURL   string                  `json:"testReportUrl"`
+	PackageX86URL   string                  `json:"packageX86Url"`
+	PackageARMURL   string                  `json:"packageArmUrl"`
+	ChangelogZh     string                  `json:"changelogZh"`
+	ChangelogEn     string                  `json:"changelogEn"`
+	OfflineReasonZh string                  `json:"offlineReasonZh"`
+	OfflineReasonEn string                  `json:"offlineReasonEn"`
+	TDID            string                  `json:"tdId"`
+	Compatibility   ReleaseCompatibilityReq `json:"compatibility"`
 }
 
 type UpdateReleaseReq struct {
-	ID              uint                         `json:"id" binding:"required"`
-	Version         string                       `json:"version"`
-	TestReportURL   string                       `json:"testReportUrl"`
-	PackageX86URL   string                       `json:"packageX86Url"`
-	PackageARMURL   string                       `json:"packageArmUrl"`
-	ChangelogZh     string                       `json:"changelogZh"`
-	ChangelogEn     string                       `json:"changelogEn"`
-	OfflineReasonZh string                       `json:"offlineReasonZh"`
-	OfflineReasonEn string                       `json:"offlineReasonEn"`
-	TDID            string                       `json:"tdId"`
-	CompatibleItems []UpsertCompatibleProductReq `json:"compatibleItems"`
+	ID              uint                    `json:"id" binding:"required"`
+	Version         string                  `json:"version"`
+	TestReportURL   string                  `json:"testReportUrl"`
+	PackageX86URL   string                  `json:"packageX86Url"`
+	PackageARMURL   string                  `json:"packageArmUrl"`
+	ChangelogZh     string                  `json:"changelogZh"`
+	ChangelogEn     string                  `json:"changelogEn"`
+	OfflineReasonZh string                  `json:"offlineReasonZh"`
+	OfflineReasonEn string                  `json:"offlineReasonEn"`
+	TDID            string                  `json:"tdId"`
+	Compatibility   ReleaseCompatibilityReq `json:"compatibility"`
 }
 
 type TransitionReleaseReq struct {
@@ -85,11 +96,13 @@ type ResetWorkOrderReq struct {
 }
 
 type SearchWorkOrderReq struct {
-	ProcessStatus *int8 `json:"processStatus"`
-	Status        *int8 `json:"status"`
-	RequestType   *int8 `json:"requestType"`
-	ClaimerID     *uint `json:"claimerId"`
-	PluginID      *uint `json:"pluginId"`
+	Scope         string `json:"scope"`
+	Keyword       string `json:"keyword"`
+	ProcessStatus *int8  `json:"processStatus"`
+	Status        *int8  `json:"status"`
+	RequestType   *int8  `json:"requestType"`
+	ClaimerID     *uint  `json:"claimerId"`
+	PluginID      *uint  `json:"pluginId"`
 	PageInfo
 }
 
@@ -103,24 +116,44 @@ type GetReleaseDetailReq struct {
 }
 
 type SearchProductReq struct {
+	IncludeInactive bool `json:"includeInactive"`
 	PageInfo
 }
 
 type CreateProductReq struct {
 	Code        string `json:"code" binding:"required"`
 	Name        string `json:"name" binding:"required"`
+	Type        string `json:"type" binding:"required"`
 	Description string `json:"description"`
 }
 
 type UpdateProductReq struct {
 	ID          uint   `json:"id" binding:"required"`
 	Name        string `json:"name" binding:"required"`
+	Type        string `json:"type" binding:"required"`
 	Description string `json:"description"`
 	Status      bool   `json:"status"`
 }
 
 type SearchDepartmentReq struct {
+	IncludeInactive bool `json:"includeInactive"`
 	PageInfo
+}
+
+type CreateDepartmentReq struct {
+	NameZh      string `json:"nameZh" binding:"required"`
+	NameEn      string `json:"nameEn" binding:"required"`
+	ProductLine string `json:"productLine" binding:"required"`
+	ParentID    *uint  `json:"parentId"`
+}
+
+type UpdateDepartmentReq struct {
+	ID          uint   `json:"id" binding:"required"`
+	NameZh      string `json:"nameZh" binding:"required"`
+	NameEn      string `json:"nameEn" binding:"required"`
+	ProductLine string `json:"productLine" binding:"required"`
+	ParentID    *uint  `json:"parentId"`
+	Status      bool   `json:"status"`
 }
 
 type GetPublishedPluginListReq struct {
@@ -130,14 +163,19 @@ type GetPublishedPluginListReq struct {
 type DepartmentItem struct {
 	ID          uint   `json:"ID"`
 	Name        string `json:"name"`
+	NameZh      string `json:"nameZh"`
+	NameEn      string `json:"nameEn"`
 	ProductLine string `json:"productLine"`
+	Status      bool   `json:"status"`
 }
 
 type ProductItem struct {
 	ID          uint   `json:"ID"`
 	Code        string `json:"code"`
 	Name        string `json:"name"`
+	Type        string `json:"type"`
 	Description string `json:"description"`
+	Status      bool   `json:"status"`
 }
 
 type CompatibleProductItem struct {
@@ -145,7 +183,14 @@ type CompatibleProductItem struct {
 	ProductID         uint   `json:"productId"`
 	ProductCode       string `json:"productCode"`
 	ProductName       string `json:"productName"`
+	Type              string `json:"type"`
 	VersionConstraint string `json:"versionConstraint"`
+}
+
+type ReleaseCompatibility struct {
+	ProductItems []CompatibleProductItem `json:"productItems"`
+	AcliItems    []CompatibleProductItem `json:"acliItems"`
+	Universal    bool                    `json:"universal"`
 }
 
 type EventItem struct {
@@ -185,6 +230,8 @@ type PluginReleaseItem struct {
 	ProcessStatus   int8                    `json:"processStatus"`
 	Version         string                  `json:"version"`
 	ClaimerID       *uint                   `json:"claimerId"`
+	ClaimerName     string                  `json:"claimerName"`
+	ClaimerUsername string                  `json:"claimerUsername"`
 	ReviewComment   string                  `json:"reviewComment"`
 	TestReportURL   string                  `json:"testReportUrl"`
 	PackageX86URL   string                  `json:"packageX86Url"`
@@ -199,6 +246,7 @@ type PluginReleaseItem struct {
 	ReleasedAt      *string                 `json:"releasedAt"`
 	OfflinedAt      *string                 `json:"offlinedAt"`
 	ClaimedAt       *string                 `json:"claimedAt"`
+	Compatibility   ReleaseCompatibility    `json:"compatibility"`
 	CompatibleItems []CompatibleProductItem `json:"compatibleItems"`
 	CreatedBy       uint                    `json:"createdBy"`
 	CreatedAt       string                  `json:"createdAt"`

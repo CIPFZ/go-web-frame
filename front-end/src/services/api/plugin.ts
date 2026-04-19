@@ -10,6 +10,8 @@ export type PluginItem = {
   descriptionEn: string;
   departmentId: number;
   department?: string;
+  departmentNameZh?: string;
+  departmentNameEn?: string;
   ownerId: number;
   createdBy: number;
   createdAt: string;
@@ -19,13 +21,20 @@ export type ProductItem = {
   ID: number;
   code: string;
   name: string;
+  type: string;
   description?: string;
+  status?: boolean;
 };
 
 export type DepartmentItem = {
   ID: number;
-  name: string;
-  productLine: string;
+  name?: string;
+  nameZh?: string;
+  nameEn?: string;
+  productLine?: string;
+  productLineZh?: string;
+  productLineEn?: string;
+  status?: boolean;
 };
 
 export type CompatibleProductItem = {
@@ -36,16 +45,26 @@ export type CompatibleProductItem = {
   versionConstraint?: string;
 };
 
+export type CompatibleInfo = {
+  universal?: boolean;
+  products?: CompatibleProductItem[];
+  acli?: CompatibleProductItem[];
+};
+
 export type PluginReleaseItem = {
   ID: number;
   pluginId: number;
   pluginCode: string;
   pluginNameZh: string;
+  pluginNameEn?: string;
   requestType: number;
   status: number;
   processStatus: number;
   version: string;
   claimerId?: number;
+  claimerName?: string;
+  claimerUsername?: string;
+  editable?: boolean;
   reviewComment?: string;
   testReportUrl?: string;
   packageX86Url?: string;
@@ -61,6 +80,8 @@ export type PluginReleaseItem = {
   offlinedAt?: string;
   claimedAt?: string;
   compatibleItems?: CompatibleProductItem[];
+  compatibility?: CompatibleInfo;
+  compatibleInfo?: CompatibleInfo;
   createdBy: number;
   createdAt: string;
 };
@@ -146,8 +167,16 @@ export const getWorkOrderPool = (data: any, options?: Record<string, any>) =>
   jsonRequest('/api/v1/plugin/work-order/getWorkOrderPool', data, 'POST', options);
 export const getProductList = (data: any = { page: 1, pageSize: 999 }, options?: Record<string, any>) =>
   jsonRequest('/api/v1/plugin/product/getProductList', data, 'POST', options);
+export const createProduct = (data: any, options?: Record<string, any>) =>
+  jsonRequest('/api/v1/plugin/product/createProduct', data, 'POST', options);
+export const updateProduct = (data: any, options?: Record<string, any>) =>
+  jsonRequest('/api/v1/plugin/product/updateProduct', data, 'PUT', options);
 export const getDepartmentList = (data: any = { page: 1, pageSize: 999 }, options?: Record<string, any>) =>
   jsonRequest('/api/v1/plugin/department/getDepartmentList', data, 'POST', options);
+export const createDepartment = (data: any, options?: Record<string, any>) =>
+  jsonRequest('/api/v1/plugin/department/createDepartment', data, 'POST', options);
+export const updateDepartment = (data: any, options?: Record<string, any>) =>
+  jsonRequest('/api/v1/plugin/department/updateDepartment', data, 'PUT', options);
 export const getPublishedPluginList = (data: any, options?: Record<string, any>) =>
   jsonRequest('/api/v1/plugin/public/getPublishedPluginList', data, 'POST', options);
 export const getPublishedPluginDetail = (data: any, options?: Record<string, any>) =>

@@ -63,6 +63,8 @@
   'menu.plugin.projectManagement': '插件项目管理',
   'menu.plugin.projectDetail': '插件项目详情',
   'menu.plugin.workOrderPool': '插件工单池',
+  'menu.plugin.workOrderDetail': '插件工单详情',
+  'menu.system.pluginMaster': '部门管理',
   'menu.poetry': '诗词管理',
   'menu.poetry.dynasty': '朝代管理',
   'menu.poetry.genre': '体裁管理',

@@ -53,6 +53,20 @@ export default [
         layout: false,
         hideInMenu: true,
       },
+      {
+        path: '/plugin/project/:id',
+        component: './plugin/project-detail',
+        hideInMenu: true,
+      },
+      {
+        path: '/plugin/work-order/:pluginId/:id',
+        component: './plugin/work-order-detail',
+        hideInMenu: true,
+      },
+      {
+        path: '/sys/plugin-master',
+        component: './sys/plugin-master',
+      },
     ],
   },
   {

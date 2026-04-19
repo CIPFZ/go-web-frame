@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,6 +32,8 @@ type IPluginService interface {
 	CreateProduct(ctx context.Context, authorityID uint, req dto.CreateProductReq) error
 	UpdateProduct(ctx context.Context, authorityID uint, req dto.UpdateProductReq) error
 	GetDepartmentList(ctx context.Context, req dto.SearchDepartmentReq) ([]dto.DepartmentItem, int64, error)
+	CreateDepartment(ctx context.Context, authorityID uint, req dto.CreateDepartmentReq) error
+	UpdateDepartment(ctx context.Context, authorityID uint, req dto.UpdateDepartmentReq) error
 	GetPublishedPluginList(ctx context.Context, req dto.GetPublishedPluginListReq) ([]dto.PublishedPluginItem, int64, error)
 	GetPublishedPluginDetail(ctx context.Context, id uint) (*dto.PublishedPluginDetail, error)
 }
@@ -102,7 +106,8 @@ func (s *PluginService) GetPluginList(ctx context.Context, userID, authorityID u
 		query = query.Where("code LIKE ?", "%"+strings.TrimSpace(req.Code)+"%")
 	}
 	if req.Name != "" {
-		query = query.Where("name_zh LIKE ? OR name_en LIKE ?", "%"+strings.TrimSpace(req.Name)+"%", "%"+strings.TrimSpace(req.Name)+"%")
+		keyword := "%" + strings.TrimSpace(req.Name) + "%"
+		query = query.Where("name_zh LIKE ? OR name_en LIKE ?", keyword, keyword)
 	}
 	if !isAdmin(authorityID) && !isReviewer(authorityID) {
 		query = query.Where("created_by = ? OR owner_id = ?", userID, userID)
@@ -130,7 +135,10 @@ func (s *PluginService) GetProjectDetail(ctx context.Context, userID, authorityI
 	if err != nil {
 		return nil, err
 	}
-	detail := &dto.ProjectDetail{Plugin: toPluginItem(item), Releases: make([]dto.PluginReleaseItem, 0, len(releases))}
+	detail := &dto.ProjectDetail{
+		Plugin:   toPluginItem(item),
+		Releases: make([]dto.PluginReleaseItem, 0, len(releases)),
+	}
 	var releaseID uint
 	if req.ReleaseID != nil {
 		releaseID = *req.ReleaseID
@@ -163,20 +171,23 @@ func (s *PluginService) CreateRelease(ctx context.Context, userID, authorityID u
 	if !canEditPlugin(authorityID, userID, item) {
 		return nil, errcode.PluginForbidden
 	}
-	compatibles, err := s.buildCompatibles(req.CompatibleItems)
+
+	version, err := s.validateReleaseVersion(ctx, req.PluginID, 0, req.RequestType, req.Version)
 	if err != nil {
 		return nil, err
 	}
-	status := model.ReleaseStatusReady
-	if req.RequestType == model.ReleaseRequestTypeOffline {
-		status = model.ReleaseStatusReleased
+	compatibles, universal, err := s.buildCompatibles(ctx, req.Compatibility)
+	if err != nil {
+		return nil, err
 	}
+
 	release := &model.PluginRelease{
 		PluginID:        req.PluginID,
 		RequestType:     req.RequestType,
-		Status:          status,
+		Status:          model.ReleaseStatusReady,
 		ProcessStatus:   model.ReleaseProcessStatusDone,
-		Version:         strings.TrimSpace(req.Version),
+		Version:         version,
+		Universal:       universal,
 		TestReportURL:   strings.TrimSpace(req.TestReportURL),
 		PackageX86URL:   strings.TrimSpace(req.PackageX86URL),
 		PackageARMURL:   strings.TrimSpace(req.PackageARMURL),
@@ -190,7 +201,8 @@ func (s *PluginService) CreateRelease(ctx context.Context, userID, authorityID u
 	if err := s.repo.CreateRelease(ctx, release, compatibles); err != nil {
 		return nil, err
 	}
-	_ = s.repo.CreateEvent(ctx, s.newEvent(release.ID, 0, release.Status, 0, release.ProcessStatus, model.ReleaseActionCreate, userID, "创建发布单"))
+	_ = s.repo.CreateEvent(ctx, s.newEvent(release.ID, 0, release.Status, 0, release.ProcessStatus, model.ReleaseActionCreate, userID, "create release"))
+
 	loaded, err := s.repo.FindReleaseByID(ctx, release.ID)
 	if err != nil {
 		return nil, err
@@ -205,14 +217,24 @@ func (s *PluginService) UpdateRelease(ctx context.Context, userID, authorityID u
 		return err
 	}
 	if !canEditRelease(authorityID, userID, release) {
+		if isProvider(authorityID) && ownsRelease(userID, release) {
+			return errcode.PluginReleaseNotEditable
+		}
 		return errcode.PluginForbidden
 	}
-	compatibles, err := s.buildCompatibles(req.CompatibleItems)
+
+	version, err := s.validateReleaseVersion(ctx, release.PluginID, release.ID, release.RequestType, req.Version)
 	if err != nil {
 		return err
 	}
+	compatibles, universal, err := s.buildCompatibles(ctx, req.Compatibility)
+	if err != nil {
+		return err
+	}
+
 	return s.repo.UpdateRelease(ctx, release, map[string]interface{}{
-		"version":           strings.TrimSpace(req.Version),
+		"version":           version,
+		"universal":         universal,
 		"test_report_url":   strings.TrimSpace(req.TestReportURL),
 		"package_x86_url":   strings.TrimSpace(req.PackageX86URL),
 		"package_arm_url":   strings.TrimSpace(req.PackageARMURL),
@@ -249,7 +271,7 @@ func (s *PluginService) TransitionRelease(ctx context.Context, userID, authority
 
 	switch req.Action {
 	case model.ReleaseActionSubmitReview:
-		if !canEditRelease(authorityID, userID, release) || release.Status != model.ReleaseStatusReady {
+		if !canOperateOwnRelease(authorityID, userID, release) || release.Status != model.ReleaseStatusReady {
 			return nil, errcode.PluginStatusInvalid
 		}
 		updates["status"] = model.ReleaseStatusPendingReview
@@ -275,14 +297,13 @@ func (s *PluginService) TransitionRelease(ctx context.Context, userID, authority
 		updates["process_status"] = model.ReleaseProcessStatusRejected
 		updates["review_comment"] = strings.TrimSpace(req.ReviewComment)
 	case model.ReleaseActionRevise:
-		if !canEditRelease(authorityID, userID, release) || release.Status != model.ReleaseStatusRejected {
+		if !canOperateOwnRelease(authorityID, userID, release) || release.Status != model.ReleaseStatusRejected {
 			return nil, errcode.PluginStatusInvalid
 		}
-		updates["status"] = model.ReleaseStatusPendingReview
-		updates["process_status"] = model.ReleaseProcessStatusPending
+		updates["status"] = model.ReleaseStatusReady
+		updates["process_status"] = model.ReleaseProcessStatusDone
 		updates["claimer_id"] = nil
 		updates["claimed_at"] = nil
-		updates["submitted_at"] = now
 	case model.ReleaseActionRelease:
 		if !canReviewRelease(authorityID, userID, release) || release.Status != model.ReleaseStatusApproved || release.ProcessStatus != model.ReleaseProcessStatusProcessing {
 			return nil, errcode.PluginStatusInvalid
@@ -291,7 +312,7 @@ func (s *PluginService) TransitionRelease(ctx context.Context, userID, authority
 		updates["process_status"] = model.ReleaseProcessStatusDone
 		updates["released_at"] = now
 	case model.ReleaseActionRequestOffline:
-		if !canEditRelease(authorityID, userID, release) || release.Status != model.ReleaseStatusReleased {
+		if !canOperateOwnRelease(authorityID, userID, release) || release.Status != model.ReleaseStatusReleased {
 			return nil, errcode.PluginStatusInvalid
 		}
 		updates["request_type"] = model.ReleaseRequestTypeOffline
@@ -321,11 +342,13 @@ func (s *PluginService) TransitionRelease(ctx context.Context, userID, authority
 	if err != nil {
 		return nil, err
 	}
+
 	comment := strings.TrimSpace(req.ReviewComment)
 	if comment == "" {
 		comment = strings.TrimSpace(req.OfflineReasonZh)
 	}
 	_ = s.repo.CreateEvent(ctx, s.newEvent(release.ID, fromStatus, loaded.Status, fromProcess, loaded.ProcessStatus, req.Action, userID, comment))
+
 	resp := toReleaseItem(loaded)
 	return &resp, nil
 }
@@ -345,7 +368,7 @@ func (s *PluginService) ClaimWorkOrder(ctx context.Context, userID, authorityID 
 	if err != nil {
 		return nil, err
 	}
-	_ = s.repo.CreateEvent(ctx, s.newEvent(req.ID, loaded.Status, loaded.Status, model.ReleaseProcessStatusPending, loaded.ProcessStatus, model.ReleaseActionClaim, userID, "认领工单"))
+	_ = s.repo.CreateEvent(ctx, s.newEvent(req.ID, loaded.Status, loaded.Status, model.ReleaseProcessStatusPending, loaded.ProcessStatus, model.ReleaseActionClaim, userID, "claim work order"))
 	resp := toReleaseItem(loaded)
 	return &resp, nil
 }
@@ -380,13 +403,15 @@ func (s *PluginService) GetWorkOrderPool(ctx context.Context, userID, authorityI
 	if !isReviewer(authorityID) {
 		return nil, 0, errcode.PluginForbidden
 	}
-	query := s.repo.DB().Model(&model.PluginRelease{}).Where(
-		"(status = ? AND process_status IN ?) OR (status = ? AND process_status = ?)",
-		model.ReleaseStatusPendingReview,
-		[]int8{model.ReleaseProcessStatusPending, model.ReleaseProcessStatusProcessing},
-		model.ReleaseStatusApproved,
-		model.ReleaseProcessStatusProcessing,
-	)
+
+	query := s.repo.DB().Model(&model.PluginRelease{})
+	scope := strings.TrimSpace(req.Scope)
+	if scope == "" {
+		scope = dto.WorkOrderScopeAll
+	}
+	if scope == dto.WorkOrderScopeMine {
+		query = query.Where("claimer_id = ?", userID)
+	}
 	if req.ProcessStatus != nil {
 		query = query.Where("process_status = ?", *req.ProcessStatus)
 	}
@@ -402,10 +427,12 @@ func (s *PluginService) GetWorkOrderPool(ctx context.Context, userID, authorityI
 	if req.PluginID != nil {
 		query = query.Where("plugin_id = ?", *req.PluginID)
 	}
-	if req.Keyword != "" {
+	if keyword := strings.TrimSpace(req.Keyword); keyword != "" {
 		query = query.Joins("JOIN plugins ON plugins.id = plugin_releases.plugin_id").
-			Where("plugins.code LIKE ? OR plugins.name_zh LIKE ? OR plugin_releases.version LIKE ?", "%"+req.Keyword+"%", "%"+req.Keyword+"%", "%"+req.Keyword+"%")
+			Where("plugins.code LIKE ? OR plugins.name_zh LIKE ? OR plugins.name_en LIKE ? OR plugin_releases.version LIKE ?",
+				"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
 	}
+
 	items, total, err := s.repo.ListWorkOrders(ctx, query, req.Page, req.PageSize)
 	if err != nil {
 		return nil, 0, err
@@ -418,13 +445,20 @@ func (s *PluginService) GetWorkOrderPool(ctx context.Context, userID, authorityI
 }
 
 func (s *PluginService) GetProductList(ctx context.Context, req dto.SearchProductReq) ([]dto.ProductItem, int64, error) {
-	items, total, err := s.repo.ListProducts(ctx, req.Page, req.PageSize)
+	items, total, err := s.repo.ListProductsWithInactive(ctx, req.Page, req.PageSize, req.IncludeInactive)
 	if err != nil {
 		return nil, 0, err
 	}
 	resp := make([]dto.ProductItem, 0, len(items))
 	for _, item := range items {
-		resp = append(resp, dto.ProductItem{ID: item.ID, Code: item.Code, Name: item.Name, Description: item.Description})
+		resp = append(resp, dto.ProductItem{
+			ID:          item.ID,
+			Code:        item.Code,
+			Name:        item.Name,
+			Type:        item.Type,
+			Description: item.Description,
+			Status:      item.Status,
+		})
 	}
 	return resp, total, nil
 }
@@ -433,9 +467,13 @@ func (s *PluginService) CreateProduct(ctx context.Context, authorityID uint, req
 	if !isAdmin(authorityID) {
 		return errcode.PluginForbidden
 	}
+	if !isCompatibleType(req.Type) {
+		return errcode.PluginProductInvalid
+	}
 	return s.repo.CreateProduct(ctx, &model.PluginProduct{
 		Code:        strings.TrimSpace(req.Code),
 		Name:        strings.TrimSpace(req.Name),
+		Type:        strings.TrimSpace(req.Type),
 		Description: strings.TrimSpace(req.Description),
 		Status:      true,
 	})
@@ -445,27 +483,70 @@ func (s *PluginService) UpdateProduct(ctx context.Context, authorityID uint, req
 	if !isAdmin(authorityID) {
 		return errcode.PluginForbidden
 	}
+	if !isCompatibleType(req.Type) {
+		return errcode.PluginProductInvalid
+	}
 	item, err := s.repo.FindProductByID(ctx, req.ID)
 	if err != nil {
 		return err
 	}
 	return s.repo.UpdateProduct(ctx, item, map[string]interface{}{
 		"name":        strings.TrimSpace(req.Name),
+		"type":        strings.TrimSpace(req.Type),
 		"description": strings.TrimSpace(req.Description),
 		"status":      req.Status,
 	})
 }
 
 func (s *PluginService) GetDepartmentList(ctx context.Context, req dto.SearchDepartmentReq) ([]dto.DepartmentItem, int64, error) {
-	items, total, err := s.repo.ListDepartments(ctx, req.Page, req.PageSize)
+	items, total, err := s.repo.ListDepartmentsWithInactive(ctx, req.Page, req.PageSize, req.IncludeInactive)
 	if err != nil {
 		return nil, 0, err
 	}
 	resp := make([]dto.DepartmentItem, 0, len(items))
 	for _, item := range items {
-		resp = append(resp, dto.DepartmentItem{ID: item.ID, Name: item.Name, ProductLine: item.ProductLine})
+		resp = append(resp, dto.DepartmentItem{
+			ID:          item.ID,
+			Name:        firstNonEmpty(item.NameZh, item.Name),
+			NameZh:      firstNonEmpty(item.NameZh, item.Name),
+			NameEn:      firstNonEmpty(item.NameEn, item.Name),
+			ProductLine: item.ProductLine,
+			Status:      item.Status,
+		})
 	}
 	return resp, total, nil
+}
+
+func (s *PluginService) CreateDepartment(ctx context.Context, authorityID uint, req dto.CreateDepartmentReq) error {
+	if !isAdmin(authorityID) {
+		return errcode.PluginForbidden
+	}
+	return s.repo.CreateDepartment(ctx, &model.PluginDepartment{
+		Name:        strings.TrimSpace(req.NameZh),
+		NameZh:      strings.TrimSpace(req.NameZh),
+		NameEn:      strings.TrimSpace(req.NameEn),
+		ProductLine: strings.TrimSpace(req.ProductLine),
+		ParentID:    req.ParentID,
+		Status:      true,
+	})
+}
+
+func (s *PluginService) UpdateDepartment(ctx context.Context, authorityID uint, req dto.UpdateDepartmentReq) error {
+	if !isAdmin(authorityID) {
+		return errcode.PluginForbidden
+	}
+	item, err := s.repo.FindDepartmentByID(ctx, req.ID)
+	if err != nil {
+		return err
+	}
+	return s.repo.UpdateDepartment(ctx, item, map[string]interface{}{
+		"name":         strings.TrimSpace(req.NameZh),
+		"name_zh":      strings.TrimSpace(req.NameZh),
+		"name_en":      strings.TrimSpace(req.NameEn),
+		"product_line": strings.TrimSpace(req.ProductLine),
+		"parent_id":    req.ParentID,
+		"status":       req.Status,
+	})
 }
 
 func (s *PluginService) GetPublishedPluginList(ctx context.Context, req dto.GetPublishedPluginListReq) ([]dto.PublishedPluginItem, int64, error) {
@@ -517,23 +598,78 @@ func (s *PluginService) GetPublishedPluginDetail(ctx context.Context, id uint) (
 	return resp, nil
 }
 
-func (s *PluginService) buildCompatibles(items []dto.UpsertCompatibleProductReq) ([]model.PluginCompatibleProduct, error) {
-	result := make([]model.PluginCompatibleProduct, 0, len(items))
-	seen := map[uint]struct{}{}
-	for _, item := range items {
-		if item.ProductID == 0 {
-			return nil, errcode.PluginProductInvalid
-		}
-		if _, ok := seen[item.ProductID]; ok {
-			continue
-		}
-		seen[item.ProductID] = struct{}{}
-		result = append(result, model.PluginCompatibleProduct{
-			ProductID:         item.ProductID,
-			VersionConstraint: strings.TrimSpace(item.VersionConstraint),
-		})
+func (s *PluginService) validateReleaseVersion(ctx context.Context, pluginID, releaseID uint, requestType int8, rawVersion string) (string, error) {
+	if requestType != model.ReleaseRequestTypeVersion {
+		return strings.TrimSpace(rawVersion), nil
 	}
-	return result, nil
+	version, ok := normalizeSemver(strings.TrimSpace(rawVersion))
+	if !ok {
+		return "", errcode.PluginVersionInvalid
+	}
+
+	dup, err := s.repo.FindReleaseByPluginVersion(ctx, pluginID, version)
+	if err == nil && dup.ID != releaseID {
+		return "", errcode.PluginVersionDuplicate
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", err
+	}
+
+	highest, err := s.repo.FindHighestVersionReleaseByPluginID(ctx, pluginID, releaseID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		if version != "1.0.0" {
+			return "", errcode.PluginVersionInvalid
+		}
+		return version, nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if compareSemver(version, highest.Version) <= 0 {
+		return "", errcode.PluginVersionInvalid
+	}
+	return version, nil
+}
+
+func (s *PluginService) buildCompatibles(ctx context.Context, compatibility dto.ReleaseCompatibilityReq) ([]model.PluginCompatibleProduct, bool, error) {
+	if !compatibility.Universal && len(compatibility.ProductItems) == 0 && len(compatibility.AcliItems) == 0 {
+		return nil, false, errcode.PluginCompatibilityRequired
+	}
+
+	result := make([]model.PluginCompatibleProduct, 0, len(compatibility.ProductItems)+len(compatibility.AcliItems))
+	seen := map[uint]struct{}{}
+
+	appendItems := func(items []dto.UpsertCompatibleProductReq, wantType string) error {
+		for _, item := range items {
+			if item.ProductID == 0 {
+				return errcode.PluginProductInvalid
+			}
+			product, err := s.repo.FindProductByID(ctx, item.ProductID)
+			if err != nil {
+				return errcode.PluginProductInvalid
+			}
+			if product.Type != wantType {
+				return errcode.PluginProductInvalid
+			}
+			if _, ok := seen[item.ProductID]; ok {
+				continue
+			}
+			seen[item.ProductID] = struct{}{}
+			result = append(result, model.PluginCompatibleProduct{
+				ProductID:         item.ProductID,
+				VersionConstraint: strings.TrimSpace(item.VersionConstraint),
+			})
+		}
+		return nil
+	}
+
+	if err := appendItems(compatibility.ProductItems, model.CompatibleTargetTypeProduct); err != nil {
+		return nil, false, err
+	}
+	if err := appendItems(compatibility.AcliItems, model.CompatibleTargetTypeAcli); err != nil {
+		return nil, false, err
+	}
+	return result, compatibility.Universal, nil
 }
 
 func (s *PluginService) newEvent(releaseID uint, fromStatus, toStatus, fromProcess, toProcess int8, action string, operatorID uint, comment string) *model.PluginReleaseEvent {
@@ -573,8 +709,19 @@ func canEditPlugin(authorityID, userID uint, item *model.Plugin) bool {
 	return isAdmin(authorityID) || (isProvider(authorityID) && (item.OwnerID == userID || item.CreatedBy == userID))
 }
 
+func ownsRelease(userID uint, release *model.PluginRelease) bool {
+	return release.CreatedBy == userID || release.Plugin.OwnerID == userID || release.Plugin.CreatedBy == userID
+}
+
+func canOperateOwnRelease(authorityID, userID uint, release *model.PluginRelease) bool {
+	return isProvider(authorityID) && ownsRelease(userID, release)
+}
+
 func canEditRelease(authorityID, userID uint, release *model.PluginRelease) bool {
-	return isAdmin(authorityID) || (isProvider(authorityID) && release.CreatedBy == userID)
+	if !canOperateOwnRelease(authorityID, userID, release) {
+		return false
+	}
+	return release.Status == model.ReleaseStatusReady || release.Status == model.ReleaseStatusRejected
 }
 
 func canReviewRelease(authorityID, userID uint, release *model.PluginRelease) bool {
@@ -587,7 +734,7 @@ func canReviewRelease(authorityID, userID uint, release *model.PluginRelease) bo
 func toPluginItem(item *model.Plugin) dto.PluginItem {
 	department := ""
 	if item.Department.ID != 0 {
-		department = item.Department.Name
+		department = firstNonEmpty(item.Department.NameZh, item.Department.Name)
 	}
 	return dto.PluginItem{
 		ID:            item.ID,
@@ -606,6 +753,7 @@ func toPluginItem(item *model.Plugin) dto.PluginItem {
 }
 
 func toReleaseItem(item *model.PluginRelease) dto.PluginReleaseItem {
+	compatibility := toReleaseCompatibility(item)
 	resp := dto.PluginReleaseItem{
 		ID:              item.ID,
 		PluginID:        item.PluginID,
@@ -616,6 +764,8 @@ func toReleaseItem(item *model.PluginRelease) dto.PluginReleaseItem {
 		ProcessStatus:   item.ProcessStatus,
 		Version:         item.Version,
 		ClaimerID:       item.ClaimerID,
+		ClaimerName:     strings.TrimSpace(item.Claimer.NickName),
+		ClaimerUsername: strings.TrimSpace(item.Claimer.Username),
 		ReviewComment:   item.ReviewComment,
 		TestReportURL:   item.TestReportURL,
 		PackageX86URL:   item.PackageX86URL,
@@ -625,7 +775,8 @@ func toReleaseItem(item *model.PluginRelease) dto.PluginReleaseItem {
 		OfflineReasonZh: item.OfflineReasonZh,
 		OfflineReasonEn: item.OfflineReasonEn,
 		TDID:            item.TDID,
-		CompatibleItems: toCompatibleItems(item.CompatibleItems),
+		Compatibility:   compatibility,
+		CompatibleItems: append(append([]dto.CompatibleProductItem{}, compatibility.ProductItems...), compatibility.AcliItems...),
 		CreatedBy:       item.CreatedBy,
 		CreatedAt:       item.CreatedAt.Format(time.RFC3339),
 	}
@@ -652,6 +803,31 @@ func toReleaseItem(item *model.PluginRelease) dto.PluginReleaseItem {
 	return resp
 }
 
+func toReleaseCompatibility(item *model.PluginRelease) dto.ReleaseCompatibility {
+	result := dto.ReleaseCompatibility{
+		ProductItems: make([]dto.CompatibleProductItem, 0),
+		AcliItems:    make([]dto.CompatibleProductItem, 0),
+		Universal:    item.Universal,
+	}
+	for _, compatible := range item.CompatibleItems {
+		mapped := dto.CompatibleProductItem{
+			ID:                compatible.ID,
+			ProductID:         compatible.ProductID,
+			ProductCode:       compatible.Product.Code,
+			ProductName:       compatible.Product.Name,
+			Type:              compatible.Product.Type,
+			VersionConstraint: compatible.VersionConstraint,
+		}
+		switch compatible.Product.Type {
+		case model.CompatibleTargetTypeAcli:
+			result.AcliItems = append(result.AcliItems, mapped)
+		default:
+			result.ProductItems = append(result.ProductItems, mapped)
+		}
+	}
+	return result
+}
+
 func toCompatibleItems(items []model.PluginCompatibleProduct) []dto.CompatibleProductItem {
 	resp := make([]dto.CompatibleProductItem, 0, len(items))
 	for _, item := range items {
@@ -660,6 +836,7 @@ func toCompatibleItems(items []model.PluginCompatibleProduct) []dto.CompatiblePr
 			ProductID:         item.ProductID,
 			ProductCode:       item.Product.Code,
 			ProductName:       item.Product.Name,
+			Type:              item.Product.Type,
 			VersionConstraint: item.VersionConstraint,
 		})
 	}
@@ -702,4 +879,60 @@ func toPublishedReleaseItem(item *model.PluginRelease) dto.PublishedReleaseItem 
 	return resp
 }
 
-var _ = gorm.ErrRecordNotFound
+func normalizeSemver(version string) (string, bool) {
+	parts := strings.Split(version, ".")
+	if len(parts) != 3 {
+		return "", false
+	}
+	normalized := make([]string, 0, 3)
+	for _, part := range parts {
+		if part == "" {
+			return "", false
+		}
+		n, err := strconv.Atoi(part)
+		if err != nil || n < 0 {
+			return "", false
+		}
+		normalized = append(normalized, strconv.Itoa(n))
+	}
+	return strings.Join(normalized, "."), true
+}
+
+func compareSemver(left, right string) int {
+	lv, lok := normalizeSemver(left)
+	rv, rok := normalizeSemver(right)
+	if !lok || !rok {
+		return strings.Compare(left, right)
+	}
+	lparts := strings.Split(lv, ".")
+	rparts := strings.Split(rv, ".")
+	for i := 0; i < 3; i++ {
+		li, _ := strconv.Atoi(lparts[i])
+		ri, _ := strconv.Atoi(rparts[i])
+		if li < ri {
+			return -1
+		}
+		if li > ri {
+			return 1
+		}
+	}
+	return 0
+}
+
+func isCompatibleType(value string) bool {
+	switch strings.TrimSpace(value) {
+	case model.CompatibleTargetTypeProduct, model.CompatibleTargetTypeAcli:
+		return true
+	default:
+		return false
+	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}
