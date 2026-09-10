@@ -5,9 +5,10 @@ import (
 )
 
 type BaseClaims struct {
-	UUID        uuid.UUID `json:"uuid"`
-	UserID      uint      `json:"userId"`
-	Username    string    `json:"username"`
-	NickName    string    `json:"nickName"`
-	AuthorityId uint      `json:"authorityId"`
+	TokenVersion uint64    `json:"tokenVersion"`
+	UUID         uuid.UUID `json:"uuid"`
+	UserID       uint      `json:"userId"`
+	Username     string    `json:"username"`
+	NickName     string    `json:"nickName"`
+	AuthorityId  uint      `json:"authorityId"`
 }

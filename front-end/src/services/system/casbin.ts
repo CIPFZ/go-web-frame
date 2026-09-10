@@ -1,3 +1,4 @@
+import type { API } from '@/services/system/types';
 // src/services/api/casbin.ts
 import { request } from '@umijs/max';
 

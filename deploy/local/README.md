@@ -59,8 +59,26 @@ MySQL 的表删除隐式提交，迁移按可重试步骤执行，完成标记�
 
 迁移 `20260910_cms_menu_order` 调整基础菜单顺序，和创建菜单时共用 `seed.MenuOrder`：
 
-- 一级菜单：工作台（10）、系统管理（20）、服务器状态（90）、关于（100）；个人设置保持隐藏（999）。
+- 一级菜单：工作台（10）、系统管理（20）、系统状态（90）、关于（100）；个人设置保持隐藏（999）。
 - 系统管理：用户管理（10）、角色管理（20）、菜单管理（30）、API 管理（40）、API Token（50）、通知公告（60）、操作日志（70）。
 
 数字越小越靠前，相同排序值按菜单 ID 稳定排列。升级后在菜单管理中调整的排序与图标会保留，重启不会重置。
 左侧导航通过布局组件的渲染接口展示所有层级的后端图标，路由、权限和菜单数据仍由后端下发。
+
+
+## 独立迁移、备份与恢复
+
+启动顺序是 MySQL → 一次性 migrator → backend → frontend。migrator 使用同连接数据库锁，完成版本迁移后退出；HTTP 只校验 schema，不执行 DDL 或补回授权。已有账号、密码、菜单和撤销的授权不会被 seed 覆盖。升级到服务端会话后旧 JWT 会失效，需要重新登录。
+
+```bash
+python3 deploy/local/backup.py create --retain 14
+python3 deploy/local/backup.py verify deploy/local/runtime/backups/<时间戳>
+python3 deploy/local/backup.py rehearse deploy/local/runtime/backups/<时间戳> --mysql-image mysql:8.4
+python3 deploy/local/db-matrix.py
+```
+
+备份会短暂停止后端写入，保存 SQL、上传文件、配置和 SHA-256 manifest。成功后恢复之前运行的后端；失败不清理旧备份。备份包含密钥，只存于权限受限的 runtime 目录，不可提交 Git。保留最近 14 份成功备份。恢复演练始终使用随机项目和新卷，核对文件哈希、迁移、就绪状态、登录和动态菜单，结束只删除自身资源。
+
+`systemd/nexus-cms-backup.{service,timer}` 提供每天北京时间 03:15（最多延后 5 分钟）的计划，部署路径改变时先修改 service。安装后用 `systemctl list-timers nexus-cms-backup.timer` 查看时间，`journalctl -u nexus-cms-backup.service` 查看结果。当前主机只保留本地副本；要覆盖整机磁盘损坏，需要再配置异机备份目标。
+
+可观测部署、数据范围和 8080 入口见 [观测说明](../observability/README.md)。配置静态加载，变更 JWT、注册开关或代理信任范围后重启。Nginx 覆盖转发 IP 头，后端仅信任部署指定的代理网段；其他环境应缩小为实际代理地址。

@@ -80,7 +80,7 @@ test('sidebar shows ordered backend menus with icons when expanded and collapsed
   await page.goto('/#/sys/menu');
   const sidebar = page.locator('.ant-layout-sider .ant-menu-root').first();
   const roots = sidebar.locator(':scope > .ant-menu-item > .ant-menu-title-content, :scope > .ant-menu-submenu > .ant-menu-submenu-title');
-  await expect(roots).toHaveText(['工作台', '系统管理', '服务器状态', '关于']);
+  await expect(roots).toHaveText(['工作台', '系统管理', '系统状态', '关于']);
   const system = sidebar.locator(':scope > .ant-menu-submenu').filter({ hasText: '系统管理' });
   const children = system.locator('.ant-menu-item');
   await expect(children).toHaveText(['用户管理', '角色管理', '菜单管理', 'API 管理', 'API Token', '通知公告', '操作日志']);

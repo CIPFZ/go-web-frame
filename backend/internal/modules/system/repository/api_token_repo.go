@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"github.com/CIPFZ/gowebframe/internal/core/claims"
 	"time"
 
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
@@ -30,7 +32,12 @@ func NewApiTokenRepository(db *gorm.DB) IApiTokenRepository {
 }
 
 func (r *ApiTokenRepository) Create(ctx context.Context, token *model.SysApiToken) error {
-	return r.db.WithContext(ctx).Create(token).Error
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
+		if err := validateTokenAPIs(tx, token.Apis); err != nil {
+			return err
+		}
+		return tx.Omit("Apis.*").Create(token).Error
+	})
 }
 
 func (r *ApiTokenRepository) GetList(ctx context.Context, req dto.SearchApiTokenReq) ([]model.SysApiToken, int64, error) {
@@ -78,13 +85,16 @@ func (r *ApiTokenRepository) LoadApisByIDs(ctx context.Context, ids []uint) ([]m
 }
 
 func (r *ApiTokenRepository) UpdateWithAPIs(ctx context.Context, token *model.SysApiToken, updates map[string]interface{}, apis []model.SysApi) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
+		if err := validateTokenAPIs(tx, apis); err != nil {
+			return err
+		}
 		if len(updates) > 0 {
 			if err := tx.Model(token).Updates(updates).Error; err != nil {
 				return err
 			}
 		}
-		return tx.Model(token).Association("Apis").Replace(apis)
+		return tx.Model(token).Omit("Apis.*").Association("Apis").Replace(apis)
 	})
 }
 
@@ -107,4 +117,17 @@ func (r *ApiTokenRepository) TouchLastUsedAt(ctx context.Context, id uint, usedA
 		Where("id = ?", id).
 		Update("last_used_at", usedAt).
 		Error
+}
+
+func validateTokenAPIs(tx *gorm.DB, apis []model.SysApi) error {
+	for _, api := range apis {
+		var count int64
+		if err := tx.Model(&model.SysApi{}).Where("id = ?", api.ID).Count(&count).Error; err != nil {
+			return err
+		}
+		if count != 1 {
+			return errors.New("API 不存在")
+		}
+	}
+	return nil
 }

@@ -3,7 +3,7 @@ package seed
 // MenuNames separates the editable display name from its translation key.
 var MenuNames = map[string]string{
 	"menu.dashboard.workplace": "工作台",
-	"menu.state":               "服务器状态",
+	"menu.state":               "系统状态",
 	"menu.about":               "关于",
 	"menu.system":              "系统管理",
 	"menu.system.user":         "用户管理",

@@ -12,7 +12,8 @@ import (
 	"github.com/CIPFZ/gowebframe/internal/core/jwt"
 	coretoken "github.com/CIPFZ/gowebframe/internal/core/token"
 
-	"github.com/casbin/casbin/v3"
+	"github.com/CIPFZ/gowebframe/internal/core/claims"
+	"github.com/CIPFZ/gowebframe/internal/core/session"
 	"github.com/gin-gonic/gin"
 	"github.com/qiniu/qmgo"
 	"github.com/redis/go-redis/v9"
@@ -35,7 +36,8 @@ type ServiceContext struct {
 	Routers            gin.RoutesInfo
 	Timer              time.Timer
 	ConcurrencyControl *singleflight.Group
-	CasbinEnforcer     *casbin.SyncedCachedEnforcer
+	Policy             *claims.PolicyManager
+	Sessions           *session.Store
 	APITokenLimiter    *coretoken.InMemoryLimiter
 	lock               sync.RWMutex
 	AuditRecorder      *audit.AuditRecorder

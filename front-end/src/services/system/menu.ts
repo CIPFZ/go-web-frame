@@ -1,3 +1,4 @@
+import type { API } from '@/services/system/types';
 import { request } from '@umijs/max';
 
 /** 获取菜单接口 GET /api/v1/menu/getMenu */

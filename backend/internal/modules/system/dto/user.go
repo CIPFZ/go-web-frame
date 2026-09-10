@@ -3,8 +3,8 @@ package dto
 import "github.com/CIPFZ/gowebframe/internal/modules/common"
 
 type RegisterReq struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Username string `json:"username" binding:"required,min=3,max=64"`
+	Password string `json:"password" binding:"required,min=8,max=72"`
 	NickName string `json:"nickName"`
 	Phone    string `json:"phone"`
 	Email    string `json:"email"`
@@ -34,7 +34,7 @@ type AddUserReq struct {
 	AuthorityIds []uint `json:"authorityIds"` // 选择的角色
 	Phone        string `json:"phone"`
 	Email        string `json:"email"`
-	Status       int    `json:"status"` // 1正常 2冻结
+	Status       *int   `json:"status"` // nil默认正常, 1正常 0禁用
 }
 
 // UpdateUserReq 更新用户 (不包含密码)

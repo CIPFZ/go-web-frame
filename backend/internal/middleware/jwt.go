@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/CIPFZ/gowebframe/internal/core/session"
 	"github.com/CIPFZ/gowebframe/internal/svc"
 	"github.com/CIPFZ/gowebframe/pkg/errcode"
 	"github.com/CIPFZ/gowebframe/pkg/response"
@@ -52,10 +53,21 @@ func JWTAuth(svcCtx *svc.ServiceContext) gin.HandlerFunc {
 			return
 		}
 
+		identity := session.Identity{ID: claims.ID, UserID: claims.UserID, Version: claims.TokenVersion, AuthorityID: claims.AuthorityId}
+		if svcCtx.Sessions == nil || svcCtx.Sessions.Validate(c.Request.Context(), identity) != nil {
+			response.FailWithCode(errcode.Unauthorized.WithDetails("会话已失效，请重新登录"), c)
+			c.Abort()
+			return
+		}
 		if claims.ExpiresAt.Unix()-time.Now().Unix() < claims.BufferTime {
 			dr, _ := utils.ParseDuration(svcCtx.Config.JWT.ExpiresTime)
-			newToken, _, err := j.ResolveToken(c.Request.Context(), token, claims)
+			newToken, renewed, err := j.ResolveToken(c.Request.Context(), token, claims)
 			if err == nil && newToken != "" {
+				if err := svcCtx.Sessions.Renew(c.Request.Context(), identity, renewed.ExpiresAt.Time); err != nil {
+					response.FailWithCode(errcode.Unauthorized, c)
+					c.Abort()
+					return
+				}
 				c.Header("new-token", newToken)
 				c.Header("x-token", newToken)
 				c.SetSameSite(http.SameSiteLaxMode)

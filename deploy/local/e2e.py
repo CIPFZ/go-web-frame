@@ -22,7 +22,9 @@ def main():
     initializer.main()
 
     override = run_dir / 'compose.yaml'
-    override.write_text('services:\n  backend:\n    ports: !reset []\n'
+    override.write_text('services:\n  migrator:\n    volumes: !override\n'
+                        f'      - {json.dumps(str(run_dir / "runtime/backend.yaml") + ":/app/configs/local.yaml:ro")}\n'
+                        '  backend:\n    ports: !reset []\n'
                         '    volumes: !override\n'
                         f'      - {json.dumps(str(run_dir / "runtime/backend.yaml") + ":/app/configs/local.yaml:ro")}\n'
                         '      - uploads:/app/uploads\n'

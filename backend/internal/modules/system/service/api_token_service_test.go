@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"github.com/CIPFZ/gowebframe/internal/core/claims"
 	"path/filepath"
 	"testing"
 	"time"
@@ -12,7 +13,6 @@ import (
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/repository"
-	"github.com/CIPFZ/gowebframe/internal/svc"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -34,7 +34,6 @@ func TestApiTokenServiceCreatePersistsHashAndApis(t *testing.T) {
 	}
 
 	service := NewApiTokenService(
-		&svc.ServiceContext{DB: gormDB, Logger: zap.NewNop()},
 		repository.NewApiTokenRepository(gormDB),
 	)
 
@@ -89,7 +88,6 @@ func TestApiTokenServiceResetReplacesStoredHash(t *testing.T) {
 	}
 
 	service := NewApiTokenService(
-		&svc.ServiceContext{DB: gormDB, Logger: zap.NewNop()},
 		repository.NewApiTokenRepository(gormDB),
 	)
 
@@ -149,7 +147,7 @@ func newApiTokenTestDB(t *testing.T) *gorm.DB {
 	}
 
 	if err := gormDB.AutoMigrate(
-		&model.SysApi{},
+		&model.SysApi{}, &claims.PolicyRevision{},
 		&model.SysApiToken{},
 		&model.SysApiTokenApi{},
 	); err != nil {
@@ -164,13 +162,15 @@ func newApiTokenTestDB(t *testing.T) *gorm.DB {
 		_ = sqlDB.Close()
 	})
 
+	if err := gormDB.Create(&claims.PolicyRevision{ID: 1, Version: 1}).Error; err != nil {
+		t.Fatal(err)
+	}
 	return gormDB
 }
 
 func TestApiTokenServiceCreateRejectsExpiredTimeInPast(t *testing.T) {
 	gormDB := newApiTokenTestDB(t)
 	service := NewApiTokenService(
-		&svc.ServiceContext{DB: gormDB, Logger: zap.NewNop()},
 		repository.NewApiTokenRepository(gormDB),
 	)
 

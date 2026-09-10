@@ -8,7 +8,6 @@ import (
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/repository"
-	"github.com/CIPFZ/gowebframe/internal/svc"
 )
 
 // IApiService 定义了 API 管理的服务层接口
@@ -25,14 +24,12 @@ type IApiService interface {
 
 // ApiService 是 IApiService 的实现
 type ApiService struct {
-	svcCtx  *svc.ServiceContext
 	apiRepo repository.IApiRepository // 依赖注入 ApiRepository
 }
 
 // NewApiService 创建一个新的 ApiService 实例
-func NewApiService(svcCtx *svc.ServiceContext, apiRepo repository.IApiRepository) IApiService {
+func NewApiService(apiRepo repository.IApiRepository) IApiService {
 	return &ApiService{
-		svcCtx:  svcCtx,
 		apiRepo: apiRepo,
 	}
 }

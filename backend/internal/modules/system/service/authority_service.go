@@ -8,7 +8,6 @@ import (
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/repository"
-	"github.com/CIPFZ/gowebframe/internal/svc"
 
 	"gorm.io/gorm"
 )
@@ -29,14 +28,12 @@ type IAuthorityService interface {
 
 // AuthorityService 是 IAuthorityService 的实现
 type AuthorityService struct {
-	svcCtx   *svc.ServiceContext
 	authRepo repository.IAuthorityRepository // 依赖注入 AuthorityRepository
 }
 
 // NewAuthorityService 创建一个新的 AuthorityService 实例
-func NewAuthorityService(svcCtx *svc.ServiceContext, authRepo repository.IAuthorityRepository) IAuthorityService {
+func NewAuthorityService(authRepo repository.IAuthorityRepository) IAuthorityService {
 	return &AuthorityService{
-		svcCtx:   svcCtx,
 		authRepo: authRepo,
 	}
 }

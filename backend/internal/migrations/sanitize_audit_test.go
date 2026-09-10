@@ -1,4 +1,4 @@
-package main
+package migrations
 
 import (
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"

@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"github.com/CIPFZ/gowebframe/internal/core/claims"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"gorm.io/gorm"
@@ -66,13 +68,24 @@ func (r *ApiRepository) FindByPathMethod(ctx context.Context, path, method strin
 }
 
 func (r *ApiRepository) Create(ctx context.Context, api *model.SysApi) error {
-	return r.db.WithContext(ctx).Create(api).Error
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
+		if err := validateAPIIdentity(tx, api.ID, api.Path, api.Method); err != nil {
+			return err
+		}
+		return tx.Create(api).Error
+	})
 }
 
 // UpdateWithSyncCasbin 更新API并同步更新Casbin规则
 func (r *ApiRepository) UpdateWithSyncCasbin(ctx context.Context, oldApi *model.SysApi, newApi model.SysApi) error {
-	oldPath, oldMethod := oldApi.Path, oldApi.Method
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
+		if err := tx.First(oldApi, oldApi.ID).Error; err != nil {
+			return err
+		}
+		oldPath, oldMethod := oldApi.Path, oldApi.Method
+		if err := validateAPIIdentity(tx, oldApi.ID, newApi.Path, newApi.Method); err != nil {
+			return err
+		}
 		// 1. 更新 API 表
 		if err := tx.Model(oldApi).Updates(newApi).Error; err != nil {
 			return err
@@ -95,13 +108,18 @@ func (r *ApiRepository) UpdateWithSyncCasbin(ctx context.Context, oldApi *model.
 
 // DeleteWithSyncCasbin 删除API并同步删除Casbin规则
 func (r *ApiRepository) DeleteWithSyncCasbin(ctx context.Context, ids []uint) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
 		// 1. 查询要删除的 API (为了拿 Path/Method 去删 Casbin)
 		var apis []model.SysApi
 		if err := tx.Find(&apis, ids).Error; err != nil {
 			return err
 		}
 
+		for _, entity := range []any{&model.SysAuthorityApi{}, &model.SysApiTokenApi{}} {
+			if err := tx.Where("api_id IN ?", ids).Delete(entity).Error; err != nil {
+				return err
+			}
+		}
 		// 2. 删除 API
 		if err := tx.Delete(&model.SysApi{}, ids).Error; err != nil {
 			return err
@@ -117,4 +135,15 @@ func (r *ApiRepository) DeleteWithSyncCasbin(ctx context.Context, ids []uint) er
 		}
 		return nil
 	})
+}
+
+func validateAPIIdentity(tx *gorm.DB, id uint, path, method string) error {
+	var count int64
+	if err := tx.Model(&model.SysApi{}).Where("id <> ? AND path = ? AND method = ?", id, path, method).Count(&count).Error; err != nil {
+		return err
+	}
+	if count != 0 {
+		return errors.New("API 路径和方法已存在")
+	}
+	return nil
 }

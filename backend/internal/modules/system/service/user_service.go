@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"gorm.io/datatypes"
-	"time"
 
 	"github.com/CIPFZ/gowebframe/internal/core/claims"
 	logger "github.com/CIPFZ/gowebframe/internal/core/log"
+	"github.com/CIPFZ/gowebframe/internal/core/session"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/repository"
@@ -25,7 +25,7 @@ type IUserService interface {
 	Register(ctx context.Context, req dto.RegisterReq) (*model.SysUser, error)
 	Login(ctx context.Context, req dto.LoginReq) (*dto.LoginResponse, error)
 	GetUserInfo(ctx context.Context, userUUID uuid.UUID) (*model.SysUser, error)
-	generateJwtToken(user *model.SysUser) (string, claims.CustomClaims, error)
+	generateJwtToken(ctx context.Context, user *model.SysUser) (string, claims.CustomClaims, error)
 	Logout(ctx context.Context, token string) error
 	GetUserList(ctx context.Context, req dto.SearchUserReq) (list []model.SysUser, total int64, err error)
 	AddUser(ctx context.Context, req dto.AddUserReq) error
@@ -54,6 +54,9 @@ func NewUserService(svcCtx *svc.ServiceContext, userRepo repository.IUserReposit
 
 // Register 用户注册实现
 func (s *UserService) Register(ctx context.Context, req dto.RegisterReq) (*model.SysUser, error) {
+	if !s.svcCtx.Config.System.AllowRegistration {
+		return nil, errors.New("公开注册未开启，请联系管理员")
+	}
 	log := logger.GetLogger(ctx)
 	_, searchErr := s.userRepo.FindByUsername(ctx, req.Username)
 
@@ -81,6 +84,7 @@ func (s *UserService) Register(ctx context.Context, req dto.RegisterReq) (*model
 		Avatar:      model.DefaultUserAvatar,
 		Status:      model.UserActive, // 默认正常
 		AuthorityID: model.DefaultUserAuthorityID,
+		Authorities: []model.SysAuthority{{AuthorityId: model.DefaultUserAuthorityID}},
 		UUID:        uuid.New(),
 	}
 
@@ -108,12 +112,12 @@ func (s *UserService) Login(ctx context.Context, req dto.LoginReq) (*dto.LoginRe
 		return nil, errors.New("用户名或密码错误")
 	}
 
-	if user.Status == model.UserInactive {
+	if user.Status != model.UserActive {
 		return nil, errors.New("此用户已经被禁用")
 	}
 
 	// 2. 签发 Token
-	token, c, err := s.generateJwtToken(user)
+	token, c, err := s.generateJwtToken(ctx, user)
 	if err != nil {
 		log.Error("generate_token_failed", zap.Error(err))
 		return nil, errors.New("获取Token失败")
@@ -127,17 +131,22 @@ func (s *UserService) Login(ctx context.Context, req dto.LoginReq) (*dto.LoginRe
 }
 
 // generateJwtToken 内部辅助函数
-func (s *UserService) generateJwtToken(user *model.SysUser) (string, claims.CustomClaims, error) {
+func (s *UserService) generateJwtToken(ctx context.Context, user *model.SysUser) (string, claims.CustomClaims, error) {
 	// 构造 Claims
 	customClaims := s.svcCtx.JWT.CreateClaims(dto.BaseClaims{
-		UUID:        user.UUID,
-		UserID:      user.ID,
-		NickName:    user.NickName,
-		Username:    user.Username,
-		AuthorityId: user.AuthorityID,
+		UUID:         user.UUID,
+		UserID:       user.ID,
+		NickName:     user.NickName,
+		Username:     user.Username,
+		AuthorityId:  user.AuthorityID,
+		TokenVersion: user.TokenVersion,
 	})
 
 	token, err := s.svcCtx.JWT.CreateToken(customClaims)
+	if err != nil {
+		return "", customClaims, err
+	}
+	err = s.svcCtx.Sessions.Create(ctx, session.Record{ID: customClaims.ID, UserID: user.ID, TokenVersion: user.TokenVersion, ExpiresAt: customClaims.ExpiresAt.Time})
 	return token, customClaims, err
 }
 
@@ -158,31 +167,11 @@ func (s *UserService) GetUserInfo(ctx context.Context, userUUID uuid.UUID) (*mod
 
 // Logout 用户登出实现
 func (s *UserService) Logout(ctx context.Context, token string) error {
-	log := logger.GetLogger(ctx)
-	j := s.svcCtx.JWT
-
-	// 1. 解析 Token 以获取过期时间
-	// 我们不关心 ParseToken 是否报错（例如过期），因为如果它无效，登出目的已经达到了
-	c, err := j.ParseToken(token)
+	c, err := s.svcCtx.JWT.ParseToken(token)
 	if err != nil {
-		// 如果 Token 已经无效（格式错误或已过期），直接返回成功即可
 		return nil
 	}
-
-	// 2. 计算剩余有效期
-	duration := c.ExpiresAt.Sub(time.Now())
-	if duration <= 0 {
-		return nil // 已经过期，不需要加入黑名单
-	}
-
-	// 3. 加入 Redis 黑名单
-	// 调用我们在 pkg/utils/jwt.go 中实现的 SetBlacklist
-	if insertErr := j.SetBlacklist(ctx, token, duration); insertErr != nil {
-		log.Error("logout_blacklist_failed", zap.Error(err))
-		return insertErr
-	}
-
-	return nil
+	return s.svcCtx.Sessions.Revoke(ctx, c.ID)
 }
 
 // GetUserList 分页获取用户列表
@@ -222,6 +211,9 @@ func (s *UserService) AddUser(ctx context.Context, req dto.AddUserReq) error {
 		Status:      model.UserActive,
 	}
 
+	if req.Status != nil {
+		newUser.Status = *req.Status
+	}
 	// 4. 处理多角色
 	var auths []model.SysAuthority
 	for _, id := range req.AuthorityIds {
@@ -266,15 +258,18 @@ func (s *UserService) SwitchAuthority(ctx context.Context, uuid uuid.UUID, autho
 	}
 
 	// 3. 更新数据库中的 "当前角色"
-	if err := s.userRepo.Update(ctx, user, map[string]interface{}{"authority_id": authorityId}); err != nil {
+	if err := s.userRepo.Update(ctx, user, map[string]interface{}{"authority_id": authorityId, "token_version": gorm.Expr("token_version + 1")}); err != nil {
 		return nil, err
 	}
 
 	// 4. 更新内存对象以便签发 Token
-	user.AuthorityID = authorityId
+	user, searchErr = s.userRepo.FindByUuid(ctx, uuid)
+	if searchErr != nil {
+		return nil, searchErr
+	}
 
 	// 5. 签发新 Token (因为 Token 里包含 AuthorityId，切换角色必须换 Token)
-	token, c, err := s.generateJwtToken(user)
+	token, c, err := s.generateJwtToken(ctx, user)
 	if err != nil {
 		return nil, err
 	}

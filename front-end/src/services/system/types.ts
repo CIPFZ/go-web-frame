@@ -1,6 +1,6 @@
-declare namespace API {
+export namespace API {
   // API 项类型 (基于你的响应)
-  type ApiItem = {
+  export type ApiItem = {
     ID: number;
     path: string;
     description: string;
@@ -8,57 +8,15 @@ declare namespace API {
     method: string;
   };
 
-  interface OsInfo {
-    goos: string;
-    numCpu: number;
-    compiler: string;
-    goVersion: string;
-    numGoroutine: number;
-  }
-
-  interface CpuInfo {
-    cpus: number[];
-    cores: number;
-    load1?: number;
-    load5?: number;
-    load15?: number;
-  }
-
-  interface RamInfo {
-    used: number;
-    total: number;
-    usedPercent?: number;
-  }
-
-  interface DiskInfo {
-    mountPoint: string;
-    used: number;
-    total: number;
-    usedPercent?: number;
-    readBytes?: number;
-    writeBytes?: number;
-  }
-
-  interface ServerInfo {
-    os: OsInfo;
-    cpu: CpuInfo;
-    ram: RamInfo;
-    disk: DiskInfo[];
-    io?: {
-      readBytes: number;
-      writeBytes: number;
-    };
-  }
-
   // 公共响应结构
-  type CommonResponse = {
+  export type CommonResponse = {
     code: number;
     msg: string;
     data: any;
   }
 
   // 用户权限信息
-  type Authority = {
+  export type Authority = {
     authorityId: number;
     authorityName: string;
     parentId: number;
@@ -69,14 +27,14 @@ declare namespace API {
   };
 
   // -------- 用户登录 ------------------
-  type LoginParams = {
+  export type LoginParams = {
     username?: string;
     password?: string;
     autoLogin?: boolean;
     type?: string;
   };
   // 用户信息
-  type UserInfo = {
+  export type UserInfo = {
     ID?: number;
     uuid?: string;
     username?: string;
@@ -91,10 +49,10 @@ declare namespace API {
     settings?: any;
   };
 
-  type CurrentUser = UserInfo;
+  export type CurrentUser = UserInfo;
 
   // 记录前端登录的状态
-  type LoginResult = {
+  export type LoginResult = {
     // -1 还没有操作 0：失败  1：成功
     code: number;
     msg: string;

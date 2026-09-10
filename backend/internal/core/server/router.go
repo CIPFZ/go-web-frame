@@ -20,6 +20,9 @@ import (
 
 func InitRouters(svcCtx *svc.ServiceContext) *gin.Engine {
 	r := gin.New()
+	if err := r.SetTrustedProxies(svcCtx.Config.System.TrustedProxies); err != nil {
+		panic(err)
+	}
 	r.Use(gin.Recovery())
 
 	registerHealthRoutes(r, svcCtx)
@@ -28,6 +31,10 @@ func InitRouters(svcCtx *svc.ServiceContext) *gin.Engine {
 
 	routerPrefix := svcCtx.Config.System.RouterPrefix
 	publicGroup := r.Group(routerPrefix)
+	publicGroup.GET("/public/config", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"registrationEnabled": svcCtx.Config.System.AllowRegistration}})
+	})
+	publicGroup.Use(middleware.LoginRateLimit(svcCtx.Redis))
 	privateGroup := r.Group(routerPrefix)
 	privateGroup.Use(middleware.JWTAuth(svcCtx), middleware.CasbinHandler(svcCtx))
 
@@ -55,7 +62,6 @@ func registerGlobalMiddleware(r *gin.Engine, svcCtx *svc.ServiceContext) {
 	}
 
 	r.Use(middleware.RateLimitMiddleware(cfg.RateLimit))
-	r.Use(middleware.BreakerMiddleware(svcCtx.Logger))
 	r.Use(middleware.GinLoggerMiddleware(svcCtx.Logger))
 	r.Use(middleware.CorsByRules(svcCtx.Config.Cors))
 }
@@ -107,18 +113,18 @@ func wireSystemModule(svcCtx *svc.ServiceContext) *systemRouter.SystemRouter {
 	authRepo := systemRepo.NewAuthorityRepository(svcCtx.DB)
 	apiRepo := systemRepo.NewApiRepository(svcCtx.DB)
 	apiTokenRepo := systemRepo.NewApiTokenRepository(svcCtx.DB)
-	casbinRepo := systemRepo.NewCasbinRepository(svcCtx.CasbinEnforcer)
+	casbinRepo := systemRepo.NewCasbinRepository(svcCtx.DB)
 	opLogRepo := systemRepo.NewOperationLogRepository(svcCtx.DB)
 	noticeRepo := systemRepo.NewNoticeRepository(svcCtx.DB)
 
-	opLogService := systemService.NewOperationLogService(svcCtx, opLogRepo)
+	opLogService := systemService.NewOperationLogService(opLogRepo)
 	userService := systemService.NewUserService(svcCtx, userRepo)
 	menuService := systemService.NewMenuService(svcCtx, menuRepo)
-	authService := systemService.NewAuthorityService(svcCtx, authRepo)
-	apiService := systemService.NewApiService(svcCtx, apiRepo)
-	apiTokenService := systemService.NewApiTokenService(svcCtx, apiTokenRepo)
-	casbinService := systemService.NewCasbinService(svcCtx, casbinRepo)
-	noticeService := systemService.NewNoticeService(svcCtx, noticeRepo)
+	authService := systemService.NewAuthorityService(authRepo)
+	apiService := systemService.NewApiService(apiRepo)
+	apiTokenService := systemService.NewApiTokenService(apiTokenRepo)
+	casbinService := systemService.NewCasbinService(casbinRepo)
+	noticeService := systemService.NewNoticeService(noticeRepo)
 
 	apis := &systemRouter.SystemApis{
 		UserApi:      systemApi.NewUserApi(svcCtx, userService),

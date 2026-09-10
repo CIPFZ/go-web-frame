@@ -61,3 +61,16 @@ func TestParseTokenRequiresExpirationIssuerAndAlgorithm(t *testing.T) {
 	_, err = j.ParseToken(token)
 	require.Error(t, err)
 }
+
+func TestRefreshRetainsLoginFamily(t *testing.T) {
+	j := NewJWT(config.JWT{SigningKey: "test", Issuer: "test", ExpiresTime: "1h", BufferTime: "2h"}, zap.NewNop(), nil)
+	c := j.CreateClaims(dto.BaseClaims{UserID: 1})
+	raw, err := j.CreateToken(c)
+	require.NoError(t, err)
+	_, fresh, err := j.ResolveToken(context.Background(), raw, &c)
+	require.NoError(t, err)
+	require.NotEmpty(t, c.ID)
+	require.Equal(t, c.ID, fresh.ID)
+	another := j.CreateClaims(dto.BaseClaims{UserID: 1})
+	require.NotEqual(t, c.ID, another.ID)
+}

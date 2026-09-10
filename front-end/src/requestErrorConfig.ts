@@ -1,4 +1,5 @@
 import type { RequestOptions } from '@@/plugin-request/request';
+import { clearMenuCache } from './routing/menuDataStore';
 import type { RequestConfig } from '@umijs/max';
 
 import { isBackendRequest, renewedToken } from './utils/authHeaders';
@@ -33,6 +34,12 @@ export const errorConfig: RequestConfig = {
   ],
   responseInterceptors: [
     (response) => {
+      if (isBackendRequest(response.config?.url, response.config?.baseURL) && (response.data as {code?: number} | undefined)?.code === 1003) {
+        localStorage.removeItem(TOKEN_KEY);
+        clearMenuCache();
+        if (!window.location.hash.startsWith('#/user/')) { window.location.hash = '/user/login'; window.location.reload(); }
+        return response;
+      }
       const newToken = isBackendRequest(response.config?.url, response.config?.baseURL)
         ? renewedToken(response.headers) : undefined;
       if (newToken) {

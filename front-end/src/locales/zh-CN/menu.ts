@@ -49,7 +49,7 @@
   'menu.editor.flow': '流程编辑器',
   'menu.editor.mind': '脑图编辑器',
   'menu.editor.koni': '拓扑编辑器',
-  'menu.state': '服务器状态',
+  'menu.state': '系统状态',
   'menu.about': '关于',
   'menu.system': '系统管理',
   'menu.system.user': '用户管理',

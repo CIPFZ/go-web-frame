@@ -10,7 +10,6 @@ import (
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/repository"
-	"github.com/CIPFZ/gowebframe/internal/svc"
 	"gorm.io/gorm"
 )
 
@@ -26,13 +25,11 @@ type IApiTokenService interface {
 }
 
 type ApiTokenService struct {
-	svcCtx    *svc.ServiceContext
 	tokenRepo repository.IApiTokenRepository
 }
 
-func NewApiTokenService(svcCtx *svc.ServiceContext, tokenRepo repository.IApiTokenRepository) IApiTokenService {
+func NewApiTokenService(tokenRepo repository.IApiTokenRepository) IApiTokenService {
 	return &ApiTokenService{
-		svcCtx:    svcCtx,
 		tokenRepo: tokenRepo,
 	}
 }

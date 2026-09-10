@@ -9,7 +9,6 @@ import (
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/repository"
-	"github.com/CIPFZ/gowebframe/internal/svc"
 )
 
 type INoticeService interface {
@@ -20,12 +19,11 @@ type INoticeService interface {
 }
 
 type NoticeService struct {
-	svcCtx     *svc.ServiceContext
 	noticeRepo repository.INoticeRepository
 }
 
-func NewNoticeService(svcCtx *svc.ServiceContext, noticeRepo repository.INoticeRepository) INoticeService {
-	return &NoticeService{svcCtx: svcCtx, noticeRepo: noticeRepo}
+func NewNoticeService(noticeRepo repository.INoticeRepository) INoticeService {
+	return &NoticeService{noticeRepo: noticeRepo}
 }
 
 func (s *NoticeService) CreateNotice(ctx context.Context, req dto.CreateNoticeReq, creatorID uint) error {

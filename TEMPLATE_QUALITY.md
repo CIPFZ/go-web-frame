@@ -11,7 +11,7 @@ cd backend
 go test -p 2 ./...
 go vet ./...
 # 需要 C 编译器，用于 Go race detector。
-go test -race -p 2 ./internal/core/audit ./internal/middleware
+go test -race -p 2 ./internal/core/audit ./internal/middleware ./internal/migrations ./internal/core/token
 go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 ```
 
@@ -55,3 +55,14 @@ python3 deploy/local/smoke.py
 - 就绪检查失败返回 503 且不暴露连接错误。
 - OTLP HTTP 三种信号可导出，W3C trace 延续，Zap 浮点字段与 trace ID 正确。
 - 动态菜单决定页面路径；展开、折叠悬浮、嵌套菜单图标及排序；悬浮图标与文字垂直中心差小于 2px。
+
+
+第二轮修复新增：会话/刷新家族撤销、改密/禁用/删除/角色变更失效、管理员保护；双权限管理实例即时撤权、失败事务回滚；多数据库并发迁移及重复执行保留编辑；非法角色/API/菜单和菜单循环校验；共享 Redis token 租约；注册开关 UI/API 一致；状态页概览。执行证据与部署结果见 [闭环记录](docs/REMEDIATION.md)。
+
+```bash
+cd backend && go run ./cmd/openapi
+# 回到仓库根目录后
+python3 scripts/check-api-contract.py
+python3 deploy/local/db-matrix.py
+python3 deploy/observability/verify.py
+```

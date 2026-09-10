@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"github.com/CIPFZ/gowebframe/internal/core/claims"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"gorm.io/gorm"
 )
@@ -92,17 +94,45 @@ func (r *MenuRepository) CountByParentId(ctx context.Context, parentId uint) (in
 
 // Create 在数据库中创建一个新的菜单记录
 func (r *MenuRepository) Create(ctx context.Context, menu *model.SysMenu) error {
-	return r.db.WithContext(ctx).Create(menu).Error
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
+		if err := validateMenu(tx, menu.ID, menu.ParentId, menu.Path); err != nil {
+			return err
+		}
+		return tx.Create(menu).Error
+	})
 }
 
 // Update 使用给定的列更新数据库中的菜单记录
 func (r *MenuRepository) Update(ctx context.Context, menu *model.SysMenu, cols map[string]interface{}) error {
-	return r.db.WithContext(ctx).Model(menu).Updates(cols).Error
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
+		if err := tx.First(menu, menu.ID).Error; err != nil {
+			return err
+		}
+		parent := menu.ParentId
+		path := menu.Path
+		if value, ok := cols["parent_id"].(uint); ok {
+			parent = value
+		}
+		if value, ok := cols["path"].(string); ok {
+			path = value
+		}
+		if err := validateMenu(tx, menu.ID, parent, path); err != nil {
+			return err
+		}
+		return tx.Model(menu).Updates(cols).Error
+	})
 }
 
 // DeleteWithAssociations 在事务中删除菜单及其关联数据
 func (r *MenuRepository) DeleteWithAssociations(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
+		var children int64
+		if err := tx.Model(&model.SysMenu{}).Where("parent_id = ?", id).Count(&children).Error; err != nil {
+			return err
+		}
+		if children > 0 {
+			return errors.New("请先删除子菜单")
+		}
 		// 1. 硬删除 sys_authority_menus 关联表中的相关记录
 		if err := tx.Table("sys_authority_menus").
 			Where("menu_id = ?", id).
@@ -115,4 +145,30 @@ func (r *MenuRepository) DeleteWithAssociations(ctx context.Context, id uint) er
 		}
 		return nil
 	})
+}
+
+func validateMenu(tx *gorm.DB, id, parent uint, path string) error {
+	var count int64
+	if err := tx.Model(&model.SysMenu{}).Where("id <> ? AND path = ?", id, path).Count(&count).Error; err != nil {
+		return err
+	}
+	if count != 0 {
+		return errors.New("菜单路径已存在")
+	}
+	seen := map[uint]bool{}
+	if id != 0 {
+		seen[id] = true
+	}
+	for parent != 0 {
+		if seen[parent] {
+			return errors.New("菜单不能形成循环")
+		}
+		seen[parent] = true
+		var item model.SysMenu
+		if err := tx.First(&item, parent).Error; err != nil {
+			return errors.New("父菜单不存在")
+		}
+		parent = item.ParentId
+	}
+	return nil
 }

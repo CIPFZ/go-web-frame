@@ -1,7 +1,7 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { PageContainer, ProCard } from '@ant-design/pro-components';
 import { Link, useRequest } from '@umijs/max';
-import { Alert, Button, List, Progress, Space, Tag, Typography, message } from 'antd';
+import { Alert, Button, List, Space, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import { getServerState } from '@/services/system/state';
 import { getMyNotices, markNoticeRead } from '@/services/system/notice';
@@ -9,7 +9,7 @@ import { getMyNotices, markNoticeRead } from '@/services/system/notice';
 const { Text, Paragraph } = Typography;
 
 const quickLinks = [
-  { title: '服务器状态', path: '/state' },
+  { title: '系统状态', path: '/state' },
   { title: '用户管理', path: '/sys/user' },
   { title: '角色管理', path: '/sys/authority' },
   { title: '菜单管理', path: '/sys/menu' },
@@ -22,11 +22,6 @@ const levelColor: Record<string, string> = {
   info: 'blue',
   warning: 'orange',
   error: 'red',
-};
-
-const toPercent = (used = 0, total = 0) => {
-  if (!total) return 0;
-  return Number(((used / total) * 100).toFixed(2));
 };
 
 const Workplace: React.FC = () => {
@@ -63,16 +58,8 @@ const Workplace: React.FC = () => {
     loadNotices();
   }, []);
 
-  const server = serverQuery.data?.data?.server;
+  const server = serverQuery.data?.server;
   const unreadCount = notices.filter((n: any) => !n.readAt).length;
-
-  const cpuAvg = useMemo(() => {
-    const cpus: number[] = server?.cpu?.cpus || [];
-    if (!cpus.length) return 0;
-    return Number((cpus.reduce((sum, n) => sum + n, 0) / cpus.length).toFixed(2));
-  }, [server]);
-
-  const ramPercent = toPercent(server?.ram?.used || 0, server?.ram?.total || 0);
 
   return (
     <PageContainer title="工作台" subTitle="系统入口与个人待办">
@@ -88,21 +75,12 @@ const Workplace: React.FC = () => {
         </ProCard>
 
         <ProCard title="系统健康" colSpan={{ xs: 24, lg: 10 }} loading={serverQuery.loading}>
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <div>
-              <Text>CPU 平均占用: {cpuAvg}%</Text>
-              <Progress percent={cpuAvg} size="small" />
-            </div>
-            <div>
-              <Text>内存占用: {ramPercent}%</Text>
-              <Progress percent={ramPercent} size="small" />
-            </div>
-            <div>
-              <Text>负载 (1/5/15): </Text>
-              <Tag>{Number(server?.cpu?.load1 || 0).toFixed(2)}</Tag>
-              <Tag>{Number(server?.cpu?.load5 || 0).toFixed(2)}</Tag>
-              <Tag>{Number(server?.cpu?.load15 || 0).toFixed(2)}</Tag>
-            </div>
+          <Space direction="vertical" style={{width: '100%'}}>
+            {serverQuery.error ? <Alert type="warning" message="暂时无法获取系统状态" /> : Object.entries(server?.checks || {}).map(([key, value]) => <div key={key}>
+              <Text>{{backend:'后端服务',database:'数据库',redis:'Redis',mongo:'MongoDB'}[key] || key}：</Text>
+              <Tag color={value === 'ok' ? 'success' : value === 'disabled' ? 'default' : 'error'}>{value === 'ok' ? '正常' : value === 'disabled' ? '未启用' : '不可用'}</Tag>
+            </div>)}
+            <Link to="/state">查看完整状态</Link>
           </Space>
         </ProCard>
 

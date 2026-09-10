@@ -1,3 +1,4 @@
+import type { API } from '@/services/system/types';
 import { request } from '@umijs/max';
 
 // 获取 API 列表 (分页)

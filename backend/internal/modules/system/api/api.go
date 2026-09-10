@@ -96,14 +96,6 @@ func (a *SysApiApi) UpdateApi(c *gin.Context) {
 		return
 	}
 
-	// 关键步骤: Service 层更新了数据库中的 Casbin 规则后，
-	// 需要调用 LoadPolicy() 将最新的策略从数据库加载到 Casbin Enforcer 的内存中，
-	// 使权限变更即时生效。
-	if err := a.svcCtx.CasbinEnforcer.LoadPolicy(); err != nil {
-		log.Error("reload_casbin_policy_error", zap.Error(err))
-		// 注意：即使重载失败，也应提示前端更新成功，但后端必须记录此严重错误。
-	}
-
 	response.OkWithMessage("更新成功", c)
 }
 
@@ -126,11 +118,6 @@ func (a *SysApiApi) DeleteApi(c *gin.Context) {
 		log.Error("delete_api_error", zap.Error(err))
 		response.FailWithMessage("删除失败: "+err.Error(), c)
 		return
-	}
-
-	// 关键步骤: 与更新操作类似，删除 API 后也需要重载 Casbin 策略以使变更生效。
-	if err := a.svcCtx.CasbinEnforcer.LoadPolicy(); err != nil {
-		log.Error("reload_casbin_policy_error_after_delete", zap.Error(err))
 	}
 
 	response.OkWithMessage("删除成功", c)

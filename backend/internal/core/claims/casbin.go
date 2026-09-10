@@ -2,7 +2,6 @@ package claims
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/casbin/casbin/v3"
 	"github.com/casbin/casbin/v3/model"
@@ -15,6 +14,7 @@ import (
 func InitCasbin(db *gorm.DB) (*casbin.SyncedCachedEnforcer, error) {
 	// ✨ 2. 适配自定义表名 "sys_casbin_rules"
 	// 如果不这样做，它会去读 casbin_rule 表，导致权限丢失
+	gormadapter.TurnOffAutoMigrate(db)
 	a, err := gormadapter.NewAdapterByDBUseTableName(db, "sys_", "casbin_rules")
 	if err != nil {
 		// Return startup errors so the caller can close initialized resources.
@@ -54,16 +54,7 @@ func InitCasbin(db *gorm.DB) (*casbin.SyncedCachedEnforcer, error) {
 		return nil, fmt.Errorf("casbin enforcer: %w", err)
 	}
 
-	cachedEnforcer.EnableAutoSave(true)
-
-	// 设置缓存过期时间 (防止权限修改后长时间不生效)
-	// 生产环境建议 10-30 分钟，或者在修改权限时手动调用 LoadPolicy
-	cachedEnforcer.SetExpireTime(60 * time.Minute)
-
-	// 初始加载
-	if err := cachedEnforcer.LoadPolicy(); err != nil {
-		return nil, fmt.Errorf("casbin policy: %w", err)
-	}
-	cachedEnforcer.StartAutoLoadPolicy(5 * time.Second)
+	cachedEnforcer.EnableAutoSave(false)
+	cachedEnforcer.EnableCache(false)
 	return cachedEnforcer, nil
 }

@@ -1,64 +1,40 @@
 package main
 
 import (
+	"context"
 	"flag"
-	"fmt"
-	"log"
-
 	"github.com/CIPFZ/gowebframe/internal/core/config"
 	"github.com/CIPFZ/gowebframe/internal/core/db"
-	sysModel "github.com/CIPFZ/gowebframe/internal/modules/system/model"
+	"github.com/CIPFZ/gowebframe/internal/migrations"
 	"go.uber.org/zap"
+	"log"
+	"time"
 )
 
-func main() {
-	configPath := flag.String("f", defaultConfigPath, "config file path")
-	flag.Parse()
-
-	cfg, _, err := config.Load(*configPath)
-	if err != nil {
-		log.Fatalf("config load failed: %v", err)
-	}
-
-	logger, _ := zap.NewDevelopment()
-	gormDB, err := db.InitDatabase(cfg.Database, logger)
-	if err != nil {
-		log.Fatalf("database init failed: %v", err)
-	}
-
-	fmt.Println("Start AutoMigrate...")
-	err = gormDB.AutoMigrate(
-		&sysModel.SysApi{},
-		&sysModel.SysAuthorityApi{},
-		&sysModel.SysAuthority{},
-		&sysModel.SysCasbinRule{},
-		&sysModel.SysMenu{},
-		&sysModel.SysAuthorityMenu{},
-		&sysModel.SysApiToken{},
-		&sysModel.SysApiTokenApi{},
-		&sysModel.JwtBlacklist{},
-		&sysModel.SysOperationLog{},
-		&sysModel.SysUser{},
-		&sysModel.SysUserAuthority{},
-		&sysModel.SysNotice{},
-		&sysModel.SysNoticeReceiver{},
-	)
-	if err != nil {
-		log.Fatalf("AutoMigrate failed: %v", err)
-	}
-	if err := cleanupLegacyModules(gormDB, cfg.System.RouterPrefix); err != nil {
-		log.Fatalf("legacy module cleanup failed: %v", err)
-	}
-	if err := normalizeCMSBaseline(gormDB); err != nil {
-		log.Fatalf("CMS baseline migration failed: %v", err)
-	}
-	if err := reorderCMSMenus(gormDB); err != nil {
-		log.Fatalf("CMS menu order migration failed: %v", err)
-	}
-	if err := sanitizeAuditHistory(gormDB); err != nil {
-		log.Fatalf("audit redaction migration failed: %v", err)
-	}
-	fmt.Println("AutoMigrate finished successfully!")
-}
-
 const defaultConfigPath = "./configs/config.yaml"
+
+func main() {
+	path := flag.String("f", defaultConfigPath, "config file path")
+	flag.Parse()
+	cfg, _, err := config.Load(*path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	logger, _ := zap.NewDevelopment()
+	defer logger.Sync()
+	database, err := db.InitDatabase(cfg.Database, logger)
+	if err != nil {
+		log.Fatal(err)
+	}
+	pool, err := database.DB()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer pool.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	if err := migrations.Run(ctx, database, cfg, logger); err != nil {
+		log.Fatal(err)
+	}
+	log.Print("Migrations complete: ", migrations.Latest)
+}

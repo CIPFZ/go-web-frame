@@ -1,3 +1,4 @@
+import type { API } from '@/services/system/types';
 /**
  * @see https://umijs.org/docs/max/access#access
  * 权限控制

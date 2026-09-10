@@ -15,8 +15,8 @@
 ```text
 backend/
 ├── cmd/
-│   ├── server/                 # HTTP 进程入口、组装
-│   ├── migrate/                # 现有迁移命令和版本脚本
+│   ├── server/                 # 参数、HTTP 进程、信号与关停
+│   ├── migrate/                # 独立迁移命令，退出码表示执行结果
 │   └── worker/                 # Nexus 分支新增，独立执行进程
 ├── internal/
 │   ├── modules/
@@ -31,6 +31,8 @@ backend/
 │   │   ├── bench/             # 下列为业务分支建议新增
 │   │   ├── run/               # 轮次/case 结果先内聚于 run
 │   │   └── agent/             # agent 配置、阶段执行记录
+│   ├── bootstrap/             # 连接池、鉴权、遥测、后台清理组装
+│   ├── migrations/            # 版本脚本、并发锁、schema 校验
 │   ├── core/                  # config/db/file/auth/audit/observability
 │   ├── middleware/            # Gin 横切行为
 │   ├── svc/                   # 现有依赖组装上下文
@@ -43,7 +45,7 @@ backend/
 
 随业务增长逐步处理：
 
-1. 将 `cmd/server` 中的组装逻辑提取为 `internal/bootstrap`，使 main 只处理参数和进程信号；迁移实现移入 `internal/migrations`，`cmd/migrate` 只负责运行。当前命令仍能正常工作，不为目录名称进行整体搬家。
+1. 已将启动组装提取为 `internal/bootstrap`，迁移实现移入 `internal/migrations`，基础数据放在 `system/seed`。新的入口沿用这些边界。
 2. 给新模块显式注入最小依赖。当前 ServiceContext 暂时兼容；不要让新的 run service 随意访问所有数据库、HTTP 服务和其他模块状态。
 3. `core` 保持基础设施语义。如果某项需要导入业务 model（例如目前的审计），后续通过接口/独立事件 DTO 收窄依赖。可使用 `platform` 命名，但改目录名称本身不会改变依赖方向。
 4. 只有复杂领域才把业务实体与 GORM model 分开；简单 CRUD 没必要增加转换层。事务涉及同一业务操作时，在明确边界内一次提交。
@@ -83,7 +85,7 @@ front-end/
 
 动态路由由 **后端路径/组件标识 → routing/componentMap → pages** 组成。移动源文件时更新 componentMap 的 import，不必改变已有后端菜单记录；因此本轮目录调整不需要菜单数据库迁移。
 
-接口类型下一步改为在 `services/<domain>/types.ts` 显式导出，逐渐替代全局 API namespace；类型生成以本仓库 Swagger 为来源。单元测试紧邻被测文件，E2E 按业务场景组织。
+接口类型已在 `services/system/types.ts` 显式导出，引用方必须 import，不再污染全局 API namespace。系统状态使用独立的精确响应类型。`cmd/openapi` 从实际路由和请求 DTO 生成本地契约，CI 对照前端调用检查路径和方法；响应业务类型仍由模块维护。单元测试紧邻被测文件，E2E 按业务场景组织。
 
 ## 仓库与部署
 
@@ -91,6 +93,7 @@ front-end/
 
 - `docs/`：架构、数据模型、运行与维护说明。
 - `deploy/local/`：当前可运行且已验证的 Compose 入口。
+- `deploy/observability/`：可选 Collector/Grafana/Prometheus/Loki/Tempo、仪表盘、规则和验证。
 - `deploy/k3s/`：已有备用示例，尚未按本轮变更验收；不把它当成当前生产支持承诺。
 - `scripts/`：跨应用维护脚本；浏览器测试由 `deploy/local/e2e.py` 管理隔离环境。
 - 不提交 `node_modules`、构建产物、数据库文件、配置密钥、备份或测试运行目录。

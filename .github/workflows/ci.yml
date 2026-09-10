@@ -17,7 +17,11 @@ jobs:
           cache-dependency-path: backend/go.sum
       - run: go test -p 2 ./... && go vet ./...
         working-directory: backend
-      - run: go test -race -p 2 ./internal/core/audit ./internal/middleware
+      - run: go run ./cmd/openapi && git diff --exit-code -- internal/docs/swagger.json
+        working-directory: backend
+      - run: python3 scripts/check-api-contract.py
+      - run: python3 deploy/local/db-matrix.py
+      - run: go test -race -p 2 ./internal/core/audit ./internal/middleware ./internal/migrations ./internal/core/token
         working-directory: backend
       - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
         working-directory: backend

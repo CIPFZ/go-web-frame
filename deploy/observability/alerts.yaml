@@ -1,0 +1,17 @@
+groups:
+  - name: base-frame
+    rules:
+      - alert: CMSCollectorUnavailable
+        expr: up{job="cms"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: 'CMS telemetry collector is unreachable'}
+      - alert: CMSNotReady
+        expr: sum(httpcheck_status{http_status_code="200"}) == 0 or absent(httpcheck_status)
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: 'CMS dependency readiness check failed'}
+      - alert: CMSAuditDropped
+        expr: sum(increase(cms_audit_dropped_total[5m])) > 0
+        labels: {severity: warning}
+        annotations: {summary: 'CMS audit queue dropped records'}

@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 )
 
@@ -25,10 +24,7 @@ func Load(path string) (*Config, *viper.Viper, error) {
 		return nil, nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	v.WatchConfig()
-	v.OnConfigChange(func(e fsnotify.Event) {
-		fmt.Println("config file changed:", e.Name)
-	})
+	// Configuration is an immutable startup snapshot; restart to apply changes.
 
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {

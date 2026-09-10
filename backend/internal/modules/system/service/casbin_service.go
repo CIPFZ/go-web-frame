@@ -5,7 +5,6 @@ import (
 
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/repository"
-	"github.com/CIPFZ/gowebframe/internal/svc"
 )
 
 // ICasbinService 定义了 Casbin 权限管理的服务层接口
@@ -18,38 +17,23 @@ type ICasbinService interface {
 
 // CasbinService 是 ICasbinService 的实现
 type CasbinService struct {
-	svcCtx     *svc.ServiceContext
 	casbinRepo repository.ICasbinRepository // 依赖注入 CasbinRepository
 }
 
 // NewCasbinService 创建一个新的 CasbinService 实例
-func NewCasbinService(svcCtx *svc.ServiceContext, casbinRepo repository.ICasbinRepository) ICasbinService {
+func NewCasbinService(casbinRepo repository.ICasbinRepository) ICasbinService {
 	return &CasbinService{
-		svcCtx:     svcCtx,
 		casbinRepo: casbinRepo,
 	}
 }
 
 // UpdateCasbin 更新角色的 API 权限。此操作是覆盖性的，会先删除该角色的所有旧 API 策略，然后添加新的策略。
 func (s *CasbinService) UpdateCasbin(ctx context.Context, authorityId string, casbinInfos []dto.CasbinInfo) error {
-	// 1. 调用仓库层，清除该角色所有旧的 API 权限策略
-	if err := s.casbinRepo.ClearPolicy(ctx, authorityId); err != nil {
-		return err
-	}
-
-	// 2. 组装新的规则列表
-	// Casbin 规则的格式为: [subject, object, action] -> [角色ID, API路径, 请求方法]
 	var rules [][]string
 	for _, info := range casbinInfos {
 		rules = append(rules, []string{authorityId, info.Path, info.Method})
 	}
-
-	// 3. 如果有新规则，则调用仓库层批量添加
-	if len(rules) > 0 {
-		return s.casbinRepo.AddPolicies(ctx, rules)
-	}
-
-	return nil
+	return s.casbinRepo.ReplacePolicy(ctx, authorityId, rules)
 }
 
 // GetPolicyPathByAuthorityId 获取指定角色当前拥有的所有 API 权限

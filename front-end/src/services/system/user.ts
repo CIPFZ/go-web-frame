@@ -1,3 +1,4 @@
+import type { API } from '@/services/system/types';
 import { request } from '@umijs/max';
 
 /** 登录接口 POST /api/v1/user/login */
@@ -86,4 +87,8 @@ export async function updateUiConfig(body: API.UpdateUiConfigParams) {
     method: 'PUT',
     data: body,
   });
+}
+
+export function getPublicConfig() {
+ return request<{code: number; data: {registrationEnabled: boolean}}>('/api/v1/public/config');
 }

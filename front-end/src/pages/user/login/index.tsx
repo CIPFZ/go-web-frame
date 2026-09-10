@@ -1,3 +1,4 @@
+import type { API } from '@/services/system/types';
 import {LockOutlined, UserOutlined} from '@ant-design/icons';
 import {
   LoginForm,
@@ -13,10 +14,10 @@ import {
 } from '@umijs/max';
 import { Alert, App, Tabs } from 'antd';
 import { createStyles } from 'antd-style';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { flushSync } from 'react-dom';
 import { Footer } from '@/components';
-import { login } from '@/services/system/user';
+import { login, getPublicConfig } from '@/services/system/user';
 import Settings from '../../../../config/defaultSettings';
 
 const useStyles = createStyles(({ token }) => {
@@ -82,6 +83,8 @@ const LoginMessage: React.FC<{
 };
 
 const Login: React.FC = () => {
+ const [registrationEnabled, setRegistrationEnabled] = useState(false);
+ useEffect(() => { getPublicConfig().then(r => setRegistrationEnabled(r.data.registrationEnabled)).catch(() => setRegistrationEnabled(false)); }, []);
   const [userLoginState, setUserLoginState] = useState<API.LoginResult>({msg: "", code: -1});
   const [type, setType] = useState<string>('account');
   const { initialState, setInitialState } = useModel('@@initialState');
@@ -124,7 +127,8 @@ const Login: React.FC = () => {
         await fetchUserInfo();
         // 路由跳转
         const urlParams = new URL(window.location.href).searchParams;
-        window.location.href = urlParams.get('redirect') || '/';
+        const redirect = urlParams.get('redirect');
+        window.location.href = redirect?.startsWith('/') && !redirect.startsWith('//') && !redirect.includes('\\') ? redirect : '/';
         return;
       }
       console.log(response);
@@ -255,16 +259,7 @@ const Login: React.FC = () => {
                 defaultMessage="记住我"
               />
             </ProFormCheckbox>
-            <a
-              style={{
-                float: 'right',
-              }}
-            >
-              <FormattedMessage
-                id="pages.login.forgotPassword"
-                defaultMessage="忘记密码"
-              />
-            </a>
+            {registrationEnabled && <a href="#/user/register" style={{float: 'right'}}>注册账号</a>}
           </div>
         </LoginForm>
       </div>

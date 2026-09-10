@@ -101,6 +101,9 @@ func (u *UserApi) GetSelfInfo(c *gin.Context) {
 func (u *UserApi) Logout(c *gin.Context) {
 	token := c.GetHeader("x-token")
 	if token == "" {
+		token, _ = c.Cookie("x-token")
+	}
+	if token == "" {
 		response.OkWithMessage("注销成功", c)
 		return
 	}
@@ -112,6 +115,7 @@ func (u *UserApi) Logout(c *gin.Context) {
 		return
 	}
 
+	c.SetCookie("x-token", "", -1, "/", "", false, true)
 	response.OkWithMessage("注销成功", c)
 }
 

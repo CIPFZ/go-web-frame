@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"github.com/CIPFZ/gowebframe/internal/svc"
 
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
@@ -21,15 +20,13 @@ type IOperationLogService interface {
 // 它使用一个带缓冲的 channel 和一个后台 goroutine 来实现操作日志的异步、批量写入，
 // 从而避免阻塞 HTTP 请求的正常流程。
 type OperationLogService struct {
-	svcCtx    *svc.ServiceContext
 	opLogRepo repository.IOperationLogRepository // 数据仓库依赖
 }
 
 // NewOperationLogService 创建并启动一个新的 OperationLogService 实例。
 // 它会立即启动一个后台 worker goroutine 来消费日志。
-func NewOperationLogService(svcCtx *svc.ServiceContext, opLogRepo repository.IOperationLogRepository) IOperationLogService {
+func NewOperationLogService(opLogRepo repository.IOperationLogRepository) IOperationLogService {
 	s := &OperationLogService{
-		svcCtx:    svcCtx,
 		opLogRepo: opLogRepo,
 	}
 	return s

@@ -69,12 +69,25 @@ func ApiTokenAuth(svcCtx *svc.ServiceContext) gin.HandlerFunc {
 			return
 		}
 
-		if !svcCtx.APITokenLimiter.Acquire(token.ID, token.MaxConcurrency) {
-			response.FailWithCode(errcode.AssessDenied.WithDetails("token 并发已达上限"), c)
-			c.Abort()
-			return
+		if svcCtx.Redis != nil {
+			ctx, release, err := tokenCore.AcquireRedisLease(c.Request.Context(), svcCtx.Redis, token.ID, token.MaxConcurrency)
+			if err != nil {
+				if errors.Is(err, tokenCore.ErrQuota) {
+					c.AbortWithStatus(429)
+				} else {
+					c.AbortWithStatus(503)
+				}
+				return
+			}
+			defer release()
+			c.Request = c.Request.WithContext(ctx)
+		} else {
+			if !svcCtx.APITokenLimiter.Acquire(token.ID, token.MaxConcurrency) {
+				c.AbortWithStatus(429)
+				return
+			}
+			defer svcCtx.APITokenLimiter.Release(token.ID)
 		}
-		defer svcCtx.APITokenLimiter.Release(token.ID)
 
 		c.Set(CtxKeyAPITokenID, token.ID)
 		c.Next()

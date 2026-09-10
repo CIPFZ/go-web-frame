@@ -1,4 +1,4 @@
-﻿package i18n
+package i18n
 
 import (
 	"github.com/CIPFZ/gowebframe/internal/core/config"

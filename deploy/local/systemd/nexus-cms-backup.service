@@ -1,0 +1,10 @@
+[Unit]
+Description=Consistent CMS database and uploads backup
+Requires=docker.service
+After=docker.service
+[Service]
+Type=oneshot
+WorkingDirectory=/data/workspace/go-web-frame
+ExecStart=/usr/bin/python3 /data/workspace/go-web-frame/deploy/local/backup.py create --retain 14
+UMask=0077
+TimeoutStartSec=15min

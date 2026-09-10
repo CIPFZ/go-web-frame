@@ -2,6 +2,9 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"github.com/CIPFZ/gowebframe/internal/core/claims"
+	"strconv"
 
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 
@@ -69,7 +72,18 @@ func (r *AuthorityRepository) CountUserUsage(ctx context.Context, authorityId ui
 }
 
 func (r *AuthorityRepository) Create(ctx context.Context, auth *model.SysAuthority) error {
-	return r.db.WithContext(ctx).Create(auth).Error
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
+		if auth.ParentId != 0 {
+			if auth.ParentId == auth.AuthorityId {
+				return errors.New("角色不能是自身的父角色")
+			}
+			var parent model.SysAuthority
+			if err := tx.Where("authority_id = ? AND deleted_at IS NULL", auth.ParentId).First(&parent).Error; err != nil {
+				return errors.New("父角色不存在")
+			}
+		}
+		return tx.Create(auth).Error
+	})
 }
 
 func (r *AuthorityRepository) Update(ctx context.Context, auth *model.SysAuthority, cols map[string]interface{}) error {
@@ -77,13 +91,66 @@ func (r *AuthorityRepository) Update(ctx context.Context, auth *model.SysAuthori
 }
 
 func (r *AuthorityRepository) Delete(ctx context.Context, authorityId uint) error {
-	// 这里的 Delete 会根据 GORM 配置执行软删除
-	return r.db.WithContext(ctx).Where("authority_id = ?", authorityId).Delete(&model.SysAuthority{}).Error
+	if authorityId == 1 {
+		return errors.New("管理员角色不可删除")
+	}
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
+		var children int64
+		if err := tx.Model(&model.SysAuthority{}).Where("parent_id = ?", authorityId).Count(&children).Error; err != nil {
+			return err
+		}
+		if children > 0 {
+			return errors.New("请先删除子角色")
+		}
+		var used int64
+		if err := tx.Model(&model.SysUser{}).Where("authority_id = ?", authorityId).Count(&used).Error; err != nil {
+			return err
+		}
+		if used > 0 {
+			return errors.New("角色仍被使用")
+		}
+		if err := tx.Model(&model.SysUserAuthority{}).Where("authority_id = ?", authorityId).Count(&used).Error; err != nil {
+			return err
+		}
+		if used > 0 {
+			return errors.New("角色仍被使用")
+		}
+		for _, entity := range []any{&model.SysAuthorityMenu{}, &model.SysAuthorityApi{}} {
+			if err := tx.Where("authority_id = ?", authorityId).Delete(entity).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Where("v0 = ?", strconv.FormatUint(uint64(authorityId), 10)).Delete(&model.SysCasbinRule{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("authority_id = ?", authorityId).Delete(&model.SysAuthority{}).Error
+	})
 }
 
 // SetMenuAuthority 设置角色菜单权限 (事务)
 func (r *AuthorityRepository) SetMenuAuthority(ctx context.Context, authorityId uint, menuIds []uint) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
+		var role model.SysAuthority
+		if err := tx.Where("authority_id = ? AND deleted_at IS NULL", authorityId).First(&role).Error; err != nil {
+			return err
+		}
+		unique := make(map[uint]bool)
+		for _, id := range menuIds {
+			unique[id] = true
+		}
+		menuIds = menuIds[:0]
+		for id := range unique {
+			menuIds = append(menuIds, id)
+		}
+		if len(menuIds) > 0 {
+			var count int64
+			if err := tx.Model(&model.SysMenu{}).Where("id IN ?", menuIds).Count(&count).Error; err != nil {
+				return err
+			}
+			if count != int64(len(menuIds)) {
+				return errors.New("菜单不存在")
+			}
+		}
 		// 1. 硬删除旧关联
 		if err := tx.Table("sys_authority_menus").
 			Where("authority_id = ?", authorityId).

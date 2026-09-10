@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"github.com/CIPFZ/gowebframe/internal/core/claims"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
@@ -15,7 +16,8 @@ func TestUpdateAPIPreservesOldIdentityForPolicySync(t *testing.T) {
 	pool, _ := db.DB()
 	pool.SetMaxOpenConns(1)
 	defer pool.Close()
-	require.NoError(t, db.AutoMigrate(&model.SysApi{}, &model.SysCasbinRule{}))
+	require.NoError(t, db.AutoMigrate(&model.SysApi{}, &model.SysCasbinRule{}, &claims.PolicyRevision{}))
+	require.NoError(t, db.Create(&claims.PolicyRevision{ID: 1, Version: 1}).Error)
 	old := model.SysApi{Path: "/old", Method: "GET"}
 	require.NoError(t, db.Create(&old).Error)
 	rule := model.SysCasbinRule{Ptype: "p", V0: "2", V1: "/old", V2: "GET"}

@@ -14,8 +14,8 @@ Nexus 跑批、阶段 Agent 和多轮进展等功能可在独立业务分支上�
 
 | 目录 | 用途 |
 | --- | --- |
-| `backend/cmd/server` | Go / Gin 服务与基础数据初始化 |
-| `backend/cmd/migrate` | GORM 表结构初始化与版本化数据迁移 |
+| `backend/cmd/server` | Go / Gin 进程入口（组装在 internal/bootstrap） |
+| `backend/cmd/migrate` | 独立、带锁的版本迁移（含空库初始化） |
 | `backend/internal/modules/system` | CMS 接口、服务、仓储与模型 |
 | `backend/internal/core` | 配置、数据库、缓存、文件与可观测性 |
 | `front-end/src/pages` | React / Umi / Ant Design Pro 页面 |
@@ -75,3 +75,5 @@ git switch -c nexus-platform
 - [质量检查与独立测试环境](TEMPLATE_QUALITY.md)
 
 后端使用 Go 1.27.1，前端构建使用 Node 24.21.0 LTS。业务菜单和路由仍由后端下发。
+
+基础框架第二轮问题闭环、数据恢复与观测说明见 [闭环记录](docs/REMEDIATION.md)。系统状态页展示服务可用性；历史指标、日志与调用链在可选 [观测平台](deploy/observability/README.md) 查看。

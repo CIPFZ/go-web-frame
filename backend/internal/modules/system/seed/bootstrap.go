@@ -1,4 +1,4 @@
-package main
+package seed
 
 import (
 	"context"
@@ -7,9 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/CIPFZ/gowebframe/internal/core/config"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
-	"github.com/CIPFZ/gowebframe/internal/modules/system/seed"
-	"github.com/CIPFZ/gowebframe/internal/svc"
 	"github.com/CIPFZ/gowebframe/pkg/utils"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -68,14 +67,22 @@ func (casbinRuleSeed) TableName() string {
 	return "sys_casbin_rules"
 }
 
-func seedAdminIfNeeded(ctx context.Context, serviceCtx *svc.ServiceContext) error {
-	opts := loadSeedAdminOptions(serviceCtx)
+func Bootstrap(ctx context.Context, database *gorm.DB, cfg *config.Config, logger *zap.Logger) error {
+	var count int64
+	if err := database.Unscoped().Model(&model.SysUser{}).Count(&count).Error; err != nil {
+		return err
+	}
+	// Existing installations own their users, menus and grants. Never reseed them.
+	if count != 0 {
+		return nil
+	}
+	opts := loadSeedAdminOptions(cfg)
 	if !opts.Enabled {
-		serviceCtx.Logger.Info("seed admin disabled")
+		logger.Info("seed admin disabled")
 		return nil
 	}
 
-	return serviceCtx.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := ensureAuthorities(tx, opts); err != nil {
 			return err
 		}
@@ -104,7 +111,7 @@ func seedAdminIfNeeded(ctx context.Context, serviceCtx *svc.ServiceContext) erro
 			return err
 		}
 
-		serviceCtx.Logger.Info("seed base system data finished",
+		logger.Info("seed base system data finished",
 			zap.String("username", opts.Username),
 			zap.Uint("authorityId", opts.AuthorityID),
 		)
@@ -112,8 +119,8 @@ func seedAdminIfNeeded(ctx context.Context, serviceCtx *svc.ServiceContext) erro
 	})
 }
 
-func loadSeedAdminOptions(serviceCtx *svc.ServiceContext) seedAdminOptions {
-	env := strings.ToLower(strings.TrimSpace(serviceCtx.Config.System.Environment))
+func loadSeedAdminOptions(cfg *config.Config) seedAdminOptions {
+	env := strings.ToLower(strings.TrimSpace(cfg.System.Environment))
 	isDevLike := env == "dev" || env == "development" || env == "local"
 
 	opts := seedAdminOptions{
@@ -185,10 +192,10 @@ func ensureBaseMenus(tx *gorm.DB) (map[string]uint, error) {
 
 	menuIDs := make(map[string]uint, len(menus))
 	for _, item := range menus {
-		if name, ok := seed.MenuNames[item.Locale]; ok {
+		if name, ok := MenuNames[item.Locale]; ok {
 			item.Name = name
 		}
-		item.Sort = seed.MenuOrder[item.Path]
+		item.Sort = MenuOrder[item.Path]
 		parentID := uint(0)
 		if item.ParentKey != "" {
 			pid, ok := menuIDs[item.ParentKey]
@@ -218,23 +225,6 @@ func ensureBaseMenus(tx *gorm.DB) (map[string]uint, error) {
 			}
 		} else if err != nil {
 			return nil, err
-		} else {
-			updates := map[string]interface{}{
-				"parent_id":    parentID,
-				"component":    item.Component,
-				"access":       item.Access,
-				"target":       item.Target,
-				"locale":       item.Locale,
-				"hide_in_menu": item.HideInMenu,
-			}
-			// Display names, sort order and icons edited in CMS survive restarts.
-			// Existing defaults are upgraded by versioned migrations.
-			if menu.Name == "" || menu.Name == item.Locale {
-				updates["name"] = item.Name
-			}
-			if err := tx.Model(&menu).Updates(updates).Error; err != nil {
-				return nil, err
-			}
 		}
 		menuIDs[item.Key] = menu.ID
 	}

@@ -22,11 +22,16 @@ func CasbinHandler(svcCtx *svc.ServiceContext) gin.HandlerFunc {
 		// 获取用户的角色ID (Casbin 中通常存为字符串)
 		sub := strconv.Itoa(int(waitUseClaims.AuthorityId))
 
-		e := svcCtx.CasbinEnforcer
+		e := svcCtx.Policy
 
 		// 2. 判断权限
 		// 格式: Enforce(sub, obj, act) -> (角色ID, 路径, 方法)
-		success, _ := e.Enforce(sub, obj, act)
+		success, err := e.Enforce(c.Request.Context(), sub, obj, act)
+		if err != nil {
+			response.FailWithCode(errcode.ServerError, c)
+			c.Abort()
+			return
+		}
 
 		// 如果是超级管理员，直接放行
 		if waitUseClaims.AuthorityId == 1 {

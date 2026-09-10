@@ -1,3 +1,4 @@
+import type { API } from '@/services/system/types';
 import React, { useRef, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-layout';
 import {
@@ -77,8 +78,8 @@ const UserTableList: React.FC = () => {
     const reqData = {
       ...values,
       id: currentRow?.ID,
-      // switch true -> 1 (正常), false -> 2 (冻结)
-      status: values.status ? 1 : 2,
+      // switch true -> 1 (正常), false -> 0 (禁用)
+      status: values.status ? 1 : 0,
       // 确保 authorityIds 是数组
       authorityIds: values.authorityIds || [],
     };
@@ -183,14 +184,14 @@ const UserTableList: React.FC = () => {
       // valueEnum 用于搜索栏的下拉筛选，必须保留
       valueEnum: {
         1: { text: '正常', status: 'Success' },
-        2: { text: '冻结', status: 'Error' },
+        0: { text: '禁用', status: 'Error' },
       },
       // ✨ 关键修改：使用 render 自定义渲染为 Tag
       render: (_, record) => {
         // 定义状态映射
         const statusMap: Record<number, { color: string; text: string }> = {
           1: { color: 'success', text: '正常' }, // 绿色胶囊
-          2: { color: 'error', text: '冻结' },   // 红色胶囊
+          0: { color: 'error', text: '禁用' },   // 红色胶囊
         };
 
         const current = statusMap[record.status] || { color: 'default', text: '未知' };
@@ -361,7 +362,7 @@ const UserTableList: React.FC = () => {
           name="status"
           label="用户状态"
           checkedChildren="正常"
-          unCheckedChildren="冻结"
+          unCheckedChildren="禁用"
         />
       </ModalForm>
 

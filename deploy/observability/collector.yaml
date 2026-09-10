@@ -1,0 +1,38 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+  http_check:
+    collection_interval: 15s
+    targets:
+      - endpoint: http://backend:8080/ready
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 384
+  batch:
+    timeout: 5s
+exporters:
+  otlp_http/loki:
+    endpoint: http://loki:3100/otlp
+  otlp_http/tempo:
+    endpoint: http://tempo:4318
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: true
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_http/tempo]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_http/loki]
+    metrics:
+      receivers: [otlp, http_check]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]

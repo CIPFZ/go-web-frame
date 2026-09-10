@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"github.com/CIPFZ/gowebframe/internal/core/claims"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/google/uuid"
@@ -92,18 +94,80 @@ func (r *UserRepository) GetList(ctx context.Context, req dto.SearchUserReq) ([]
 
 // Create 创建用户
 func (r *UserRepository) Create(ctx context.Context, user *model.SysUser) error {
-	return r.db.WithContext(ctx).Create(user).Error
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
+		if user.Status != 0 && user.Status != 1 {
+			return errors.New("无效的用户状态")
+		}
+		if len(user.Authorities) == 0 {
+			return errors.New("请至少选择一个角色")
+		}
+		for _, role := range user.Authorities {
+			var count int64
+			if err := tx.Model(&model.SysAuthority{}).Where("authority_id = ? AND deleted_at IS NULL", role.AuthorityId).Count(&count).Error; err != nil {
+				return err
+			}
+			if count != 1 {
+				return errors.New("角色不存在")
+			}
+		}
+		status := user.Status
+		if err := tx.Omit("Authorities.*").Create(user).Error; err != nil {
+			return err
+		}
+		if status == 0 {
+			return tx.Model(user).Update("status", 0).Error
+		}
+		return nil
+	})
 }
 
 // Update 更新指定字段
 func (r *UserRepository) Update(ctx context.Context, user *model.SysUser, columns map[string]interface{}) error {
-	return r.db.WithContext(ctx).Model(user).Updates(columns).Error
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
+		if role, ok := columns["authority_id"].(uint); ok {
+			var count int64
+			if err := tx.Model(&model.SysUserAuthority{}).Where("user_id = ? AND authority_id = ?", user.ID, role).Count(&count).Error; err != nil {
+				return err
+			}
+			if count != 1 {
+				return errors.New("您未拥有该角色权限")
+			}
+		}
+		return tx.Model(user).Updates(columns).Error
+	})
 }
 
 // UpdateWithRoles 事务更新用户及其角色关联
 func (r *UserRepository) UpdateWithRoles(ctx context.Context, user *model.SysUser, req dto.UpdateUserReq) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
 
+		if req.Status != 0 && req.Status != 1 {
+			return errors.New("无效的用户状态")
+		}
+		if err := tx.First(user, user.ID).Error; err != nil {
+			return err
+		}
+		if user.Username == "admin" {
+			hasAdmin := false
+			for _, id := range req.AuthorityIds {
+				hasAdmin = hasAdmin || id == 1
+			}
+			if req.Status != 1 || !hasAdmin {
+				return errors.New("基础管理员必须保持启用及管理员角色")
+			}
+		}
+		if len(req.AuthorityIds) == 0 {
+			return errors.New("请至少选择一个角色")
+		}
+		for _, id := range req.AuthorityIds {
+			var count int64
+			if err := tx.Model(&model.SysAuthority{}).Where("authority_id = ? AND deleted_at IS NULL", id).Count(&count).Error; err != nil {
+				return err
+			}
+			if count != 1 {
+				return errors.New("角色不存在")
+			}
+		}
 		// 1. 检查 "当前角色" 是否还在新分配的列表中
 		// 如果不在，强制重置为新列表的第一个
 		isOldAuthValid := false
@@ -120,11 +184,12 @@ func (r *UserRepository) UpdateWithRoles(ctx context.Context, user *model.SysUse
 		}
 		// 2. 更新基础信息
 		updMap := map[string]interface{}{
-			"nick_name":    req.NickName,
-			"authority_id": authorityId,
-			"phone":        req.Phone,
-			"email":        req.Email,
-			"status":       req.Status,
+			"nick_name":     req.NickName,
+			"authority_id":  authorityId,
+			"phone":         req.Phone,
+			"email":         req.Email,
+			"status":        req.Status,
+			"token_version": gorm.Expr("token_version + 1"),
 		}
 
 		// 2. 更新主表
@@ -136,7 +201,7 @@ func (r *UserRepository) UpdateWithRoles(ctx context.Context, user *model.SysUse
 		for _, id := range req.AuthorityIds {
 			auths = append(auths, model.SysAuthority{AuthorityId: id})
 		}
-		if err := tx.Model(&user).Association("Authorities").Replace(auths); err != nil {
+		if err := tx.Model(&user).Omit("Authorities.*").Association("Authorities").Replace(auths); err != nil {
 			return err
 		}
 
@@ -146,7 +211,14 @@ func (r *UserRepository) UpdateWithRoles(ctx context.Context, user *model.SysUse
 
 // DeleteWithAssociations 级联删除
 func (r *UserRepository) DeleteWithAssociations(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
+		var user model.SysUser
+		if err := tx.First(&user, id).Error; err != nil {
+			return err
+		}
+		if user.Username == "admin" {
+			return errors.New("不能删除基础管理员")
+		}
 		// 1. 硬删除关联表
 		if err := tx.Table("sys_user_authorities").Where("user_id = ?", id).Delete(nil).Error; err != nil {
 			return err
@@ -161,7 +233,7 @@ func (r *UserRepository) DeleteWithAssociations(ctx context.Context, id uint) er
 
 // ResetPassword 重置密码
 func (r *UserRepository) ResetPassword(ctx context.Context, id uint, password string) error {
-	return r.db.WithContext(ctx).Model(&model.SysUser{}).Where("id = ?", id).Update("password", password).Error
+	return r.db.WithContext(ctx).Model(&model.SysUser{}).Where("id = ?", id).Updates(map[string]any{"password": password, "token_version": gorm.Expr("token_version + 1")}).Error
 }
 
 // UpdateColumn 实现

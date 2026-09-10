@@ -11,6 +11,7 @@ import (
 	"github.com/CIPFZ/gowebframe/internal/core/config"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
@@ -57,6 +58,7 @@ func (j *JWT) CreateClaims(baseClaims dto.BaseClaims) claims.CustomClaims {
 		BaseClaims: baseClaims,
 		BufferTime: bfSeconds,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.NewString(),
 			Audience:  jwt.ClaimStrings{j.cfg.Issuer},
 			NotBefore: jwt.NewNumericDate(time.Now().Add(-1 * time.Second)),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.expiresTime)),
@@ -110,6 +112,7 @@ func (j *JWT) createTokenByOldToken(ctx context.Context, oldToken string, c clai
 	}
 
 	newClaims := j.CreateClaims(c.BaseClaims)
+	newClaims.ID = c.ID
 	newToken, err := j.CreateToken(newClaims)
 	if err != nil {
 		return "", err
