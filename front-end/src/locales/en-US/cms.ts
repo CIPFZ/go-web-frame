@@ -1,6 +1,64 @@
 import type zh from '../zh-CN/cms';
 
 export default {
+  'cms.about.foundation': 'A foundation for your platform',
+  'cms.about.tagline': 'An extensible admin framework for teams',
+  'cms.about.description':
+    'Manage accounts, permissions, navigation, APIs and notices in one shared foundation for different business applications.',
+  'cms.about.baseBranch': 'Foundation branch',
+  'cms.about.architecture': 'From foundation to application',
+  'cms.about.businessLayer': 'Your application',
+  'cms.about.extensible': 'Extend as needed',
+  'cms.about.businessLayerDescription':
+    'Build domain modules and workflows in a dedicated branch.',
+  'cms.about.sharedLayer': 'Shared admin capabilities',
+  'cms.about.foundationLayer': 'API services · Data storage · Observability',
+  'cms.about.architectureCaption':
+    'Reuse the foundation. Build your application.',
+  'cms.about.capabilities': 'Framework capabilities',
+  'cms.about.capabilitiesDescription':
+    'Shared capabilities for team administration and everyday maintenance.',
+  'cms.about.capabilitiesNote': 'Feature access follows role permissions',
+  'cms.about.accounts': 'Accounts & access',
+  'cms.about.accountsDescription':
+    'Manage team members and roles, with access controls for features and APIs.',
+  'cms.about.navigation': 'Dynamic navigation',
+  'cms.about.navigationDescription':
+    'Configure menu names, hierarchy, icons and page routes from the backend.',
+  'cms.about.integration': 'APIs & tokens',
+  'cms.about.integrationDescription':
+    'Maintain the API catalog and grant scripts and services access to explicitly exposed endpoints.',
+  'cms.about.notices': 'Notices',
+  'cms.about.noticesDescription':
+    'Deliver notices to everyone, selected roles or users, with popups and read acknowledgements.',
+  'cms.about.audit': 'Activity audit',
+  'cms.about.auditDescription':
+    'Record administrative actions and request results to investigate changes and issues.',
+  'cms.about.operations': 'Deployment & observability',
+  'cms.about.operationsDescription':
+    'Deploy with containers, migrate and back up data, and optionally connect metrics, logs and traces.',
+  'cms.about.frontendDescription': 'Pages and interaction',
+  'cms.about.backendDescription': 'Services and authorization',
+  'cms.about.data': 'Data storage',
+  'cms.about.dataDescription': 'Choose your database',
+  'cms.about.delivery': 'Delivery & operations',
+  'cms.about.deliveryDescription': 'Containers and telemetry',
+  'cms.about.technologyDescription':
+    'Separate frontend and backend, with a clear role for each technology.',
+  'cms.about.resources': 'Documentation & resources',
+  'cms.about.resourcesDescription':
+    'Guidance for deployment, API integration and maintenance.',
+  'cms.about.deploymentGuide': 'Deployment guide',
+  'cms.about.deploymentGuideDescription':
+    'Environment setup, containers and data backups.',
+  'cms.about.apiReference': 'API reference',
+  'cms.about.apiReferenceDescription':
+    'Explore the current service endpoints and authentication schemes.',
+  'cms.about.maintenanceGuide': 'Maintenance & improvements',
+  'cms.about.maintenanceGuideDescription':
+    'Review changes, validation coverage and operational boundaries.',
+  'cms.about.repositoryNote':
+    'Deployment and maintenance guides are hosted in the project repository and require repository access.',
   'cms.tokenUnexposedApi': 'API {id} is not exposed; remove this grant',
   'cms.tokenScopeHelp':
     'Only explicitly exposed external APIs can be granted. CMS login and administration use separate user permissions.',

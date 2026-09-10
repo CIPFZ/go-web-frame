@@ -1,4 +1,55 @@
 export default {
+  'cms.about.foundation': '通用管理框架',
+  'cms.about.tagline': '面向团队的可扩展管理框架',
+  'cms.about.description':
+    '集中维护账号权限、动态菜单、接口和通知等通用能力，让不同业务分支从同一套基础开始。',
+  'cms.about.baseBranch': '基础分支',
+  'cms.about.architecture': '从基础到业务',
+  'cms.about.businessLayer': '你的业务应用',
+  'cms.about.extensible': '按需扩展',
+  'cms.about.businessLayerDescription': '在独立分支中构建业务模块与工作流程。',
+  'cms.about.sharedLayer': '通用管理能力',
+  'cms.about.foundationLayer': '接口服务 · 数据存储 · 可观测能力',
+  'cms.about.architectureCaption': '复用基础能力，持续构建业务。',
+  'cms.about.capabilities': '框架能力',
+  'cms.about.capabilitiesDescription':
+    '从团队管理到日常维护，常用能力已集中就绪。',
+  'cms.about.capabilitiesNote': '具体功能按角色授权开放',
+  'cms.about.accounts': '账号与权限',
+  'cms.about.accountsDescription':
+    '管理团队成员和角色，控制功能与接口的访问权限。',
+  'cms.about.navigation': '动态菜单',
+  'cms.about.navigationDescription':
+    '菜单名称、层级、图标和页面入口，统一由后端配置。',
+  'cms.about.integration': '接口与 Token',
+  'cms.about.integrationDescription':
+    '维护接口目录，为脚本和外部服务授权已开放的接口。',
+  'cms.about.notices': '通知公告',
+  'cms.about.noticesDescription':
+    '面向全部用户、角色或指定用户投递，支持弹窗与已读确认。',
+  'cms.about.audit': '操作审计',
+  'cms.about.auditDescription':
+    '记录管理操作与请求结果，帮助追踪变更和排查问题。',
+  'cms.about.operations': '部署与观测',
+  'cms.about.operationsDescription':
+    '支持容器部署、数据库迁移与备份，可按需接入指标、日志和链路追踪。',
+  'cms.about.frontendDescription': '页面与交互',
+  'cms.about.backendDescription': '服务与权限',
+  'cms.about.data': '数据存储',
+  'cms.about.dataDescription': '数据库按需选择',
+  'cms.about.delivery': '部署与运维',
+  'cms.about.deliveryDescription': '容器化与观测接入',
+  'cms.about.technologyDescription': '前后端分离，按职责组织技术选型。',
+  'cms.about.resources': '文档与支持',
+  'cms.about.resourcesDescription': '从部署、接口使用到后续维护。',
+  'cms.about.deploymentGuide': '部署指南',
+  'cms.about.deploymentGuideDescription': '环境准备、容器启动与数据备份。',
+  'cms.about.apiReference': 'API 参考',
+  'cms.about.apiReferenceDescription': '查看当前服务的接口与鉴权约定。',
+  'cms.about.maintenanceGuide': '维护与改进记录',
+  'cms.about.maintenanceGuideDescription': '了解框架改进、验证范围和运行边界。',
+  'cms.about.repositoryNote':
+    '部署和维护文档托管于项目仓库，访问需具备对应仓库权限。',
   'cms.tokenUnexposedApi': '未开放的 API（ID：{id}），请移除',
   'cms.tokenScopeHelp':
     '仅可授权已开放的外部接口。CMS 登录和管理接口使用独立的用户权限。',
