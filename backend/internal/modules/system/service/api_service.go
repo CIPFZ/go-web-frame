@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	logger "github.com/CIPFZ/gowebframe/internal/core/log"
 	"gorm.io/gorm"
 
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
@@ -40,7 +39,6 @@ func NewApiService(svcCtx *svc.ServiceContext, apiRepo repository.IApiRepository
 
 // GetApiList 根据查询条件分页获取 API 列表
 func (s *ApiService) GetApiList(ctx context.Context, req dto.SearchApiReq) ([]model.SysApi, int64, error) {
-	logger.GetLogger(ctx).Info("BBBBBBB --->")
 	return s.apiRepo.GetList(ctx, req)
 }
 

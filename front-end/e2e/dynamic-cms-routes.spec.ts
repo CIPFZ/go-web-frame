@@ -96,6 +96,19 @@ test('sidebar shows ordered backend menus with icons when expanded and collapsed
   const popup = page.locator('.ant-menu-submenu-popup:visible');
   const userLink = popup.getByRole('link', { name: '用户管理', exact: true });
   await expect(userLink.locator('svg[data-icon="user"]')).toBeVisible();
+  // Wait for the popup animation and verify geometry, not just visibility.
+  for (const icon of icons) {
+    const svg = popup.locator(`svg[data-icon="${icon}"]`);
+    await expect(svg).toBeVisible();
+    await expect.poll(async () => svg.evaluate(node => {
+      const title = node.closest('[role="menuitem"]')!;
+      const text = title.querySelector('[class*="-item-text"]')!;
+      const a = node.getBoundingClientRect();
+      const b = text.getBoundingClientRect();
+      return Math.abs(a.y + a.height / 2 - (b.y + b.height / 2));
+    })).toBeLessThan(2);
+  }
+
   await userLink.click();
   await expect(page).toHaveURL(/#\/sys\/user$/);
 });

@@ -1,9 +1,11 @@
-FROM node:22-bookworm-slim AS build-stage
+FROM node:24.21.0-bookworm-slim AS build-stage
 
 WORKDIR /app
 ENV HUSKY=0
+COPY package.json package-lock.json ./
+RUN npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
 COPY . .
-RUN npm ci --legacy-peer-deps --no-audit --no-fund && npm run build
+RUN npm run postinstall && npm run build
 
 FROM nginx:stable-alpine AS production-stage
 

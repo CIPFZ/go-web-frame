@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
 
-import type { ApiTokenItem } from '@/services/api/apiToken';
-import type { ApiTokenFormPayload } from '@/services/api/apiToken';
+import type { ApiTokenItem } from '@/services/system/apiToken';
+import type { ApiTokenFormPayload } from '@/services/system/apiToken';
 
 export type ApiPermissionRecord = NonNullable<ApiTokenItem['apis']>[number];
 

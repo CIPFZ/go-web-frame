@@ -120,6 +120,7 @@ func (u *UserApi) GetUserList(c *gin.Context) {
 	_ = c.ShouldBindJSON(&req)
 
 	log := logger.GetLogger(c)
+	req.Normalize()
 	list, total, err := u.userService.GetUserList(c.Request.Context(), req)
 	if err != nil {
 		log.Error("get_user_list_error", zap.Error(err))

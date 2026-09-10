@@ -13,8 +13,8 @@ import { Button, Space, message, Popconfirm, Tag, Avatar, Divider } from 'antd';
 import { PlusOutlined, UserOutlined, KeyOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 
 // 导入 API
-import { getUserList, addUser, updateUser, deleteUser, resetPassword } from '@/services/api/user';
-import { getAuthorityList } from '@/services/api/authority';
+import { getUserList, addUser, updateUser, deleteUser, resetPassword } from '@/services/system/user';
+import { getAuthorityList } from '@/services/system/authority';
 
 type AuthorityTreeNode = {
   title: string;

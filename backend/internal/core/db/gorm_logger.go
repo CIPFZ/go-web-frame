@@ -86,3 +86,8 @@ func (l *ZapGormLogger) Trace(ctx context.Context, begin time.Time, fc func() (s
 		log.Info("sql_exec", zap.String("sql", sql))
 	}
 }
+
+// ParamsFilter keeps SQL placeholders in logs, including slow/error queries.
+func (l *ZapGormLogger) ParamsFilter(_ context.Context, sql string, _ ...interface{}) (string, []interface{}) {
+	return sql, nil
+}

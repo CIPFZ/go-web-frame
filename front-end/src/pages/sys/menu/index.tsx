@@ -20,11 +20,11 @@ import {
 // ✨ 导入全局 Model
 import { useModel } from '@umijs/max';
 
-import { getMenuList, addBaseMenu, updateBaseMenu, deleteBaseMenu } from '@/services/api/menu';
+import { getMenuList, addBaseMenu, updateBaseMenu, deleteBaseMenu } from '@/services/system/menu';
 import { getIcon } from '@/utils/iconMap';
 // ✨ 导入我们刚写的组件
 import IconPicker from '@/components/IconPicker';
-import { clearMenuCache } from '@/utils/menuDataStore';
+import { clearMenuCache } from '@/routing/menuDataStore';
 
 type MenuItem = {
   ID: number;

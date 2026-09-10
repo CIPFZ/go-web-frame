@@ -1,4 +1,4 @@
-FROM golang:1.25.2-alpine AS builder
+FROM golang:1.27.1-alpine AS builder
 
 WORKDIR /app
 ENV GOPROXY=https://proxy.golang.org,direct GOMAXPROCS=2 CGO_ENABLED=0
@@ -26,6 +26,6 @@ RUN sed -i 's/\r$//' start.sh && chmod +x start.sh
 EXPOSE 8080
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=5 \
-    CMD wget -q -O /dev/null http://127.0.0.1:8080/health || exit 1
+    CMD wget -q -O /dev/null http://127.0.0.1:8080/ready || exit 1
 
 CMD ["./start.sh"]

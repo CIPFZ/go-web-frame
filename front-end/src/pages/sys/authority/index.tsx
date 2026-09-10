@@ -10,7 +10,7 @@ import type { ProColumns, ActionType } from '@ant-design/pro-components';
 import { Button, Space, message, Popconfirm } from 'antd';
 import { PlusOutlined, SettingOutlined, CopyOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 
-import { getAuthorityList, createAuthority, updateAuthority, deleteAuthority } from '@/services/api/authority';
+import { getAuthorityList, createAuthority, updateAuthority, deleteAuthority } from '@/services/system/authority';
 // ✨ 导入尚未创建的 PermissionDrawer
 import PermissionDrawer from './components/PermissionDrawer';
 

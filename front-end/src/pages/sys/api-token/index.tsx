@@ -1,3 +1,4 @@
+import { loadPagedOptions } from '@/utils/pagedOptions';
 import React, { useMemo, useRef, useState } from 'react';
 import {
   DrawerForm,
@@ -34,7 +35,7 @@ import {
   resetApiToken,
   updateApiToken,
   type ApiTokenItem,
-} from '@/services/api/apiToken';
+} from '@/services/system/apiToken';
 import { ApiPermissionSummary } from './components/ApiPermissionSummary';
 import {
   ApiPermissionTransfer,
@@ -119,7 +120,7 @@ const ApiTokenPage: React.FC = () => {
   const loadApiOptions = async () => {
     setApiOptionsLoading(true);
     try {
-      const res = await getApiOptions({ page: 1, pageSize: 9999 });
+      const res = await loadPagedOptions(getApiOptions);
       if (res.code !== 0) {
         message.error(res.msg || '加载 API 列表失败');
         return;

@@ -49,7 +49,7 @@ func InitMysql(m config.MySQL, logger *zap.Logger) (*gorm.DB, error) {
 	}
 
 	// 2. 注册 Otel 插件 (用于生成 Trace Span)
-	if err = db.Use(otelgorm.NewPlugin(
+	if err = db.Use(otelgorm.NewPlugin(otelgorm.WithoutQueryVariables(),
 		otelgorm.WithDBName(m.Dbname),
 	)); err != nil {
 		return nil, fmt.Errorf("failed to use otelgorm plugin: %w", err)

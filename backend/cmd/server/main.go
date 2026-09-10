@@ -68,7 +68,7 @@ func main() {
 
 	select {
 	case err := <-serverErr:
-		serviceCtx.Logger.Fatal("❌ HTTP服务启动失败", zap.Error(err))
+		serviceCtx.Logger.Error("HTTP service stopped", zap.Error(err))
 	case s := <-quit:
 		serviceCtx.Logger.Info("🛑 收到退出信号，准备关闭服务...", zap.String("signal", s.String()))
 	}
@@ -83,9 +83,9 @@ func main() {
 	}
 
 	// 2. 执行组件关停 (DB, Mongo, Redis, Otel Traces/Metrics, Audit)
-	// 按照 append 的顺序执行
-	for _, shutdown := range allShutdowns {
-		if err := shutdown(shutdownCtx); err != nil {
+	// Close in reverse initialization order: producers before their dependencies.
+	for i := len(allShutdowns) - 1; i >= 0; i-- {
+		if err := allShutdowns[i](shutdownCtx); err != nil {
 			serviceCtx.Logger.Warn("组件关停异常", zap.Error(err))
 		}
 	}
@@ -97,8 +97,16 @@ func main() {
 const defaultConfigPath = "./configs/config.yaml"
 
 // initializeSystem 初始化核心组件并组装
-func initializeSystem(path string, serviceCtx *svc.ServiceContext) ([]utils.ShutdownFunc, error) {
-	var shutdowns []utils.ShutdownFunc
+func initializeSystem(path string, serviceCtx *svc.ServiceContext) (shutdowns []utils.ShutdownFunc, initErr error) {
+	defer func() {
+		if initErr != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			for i := len(shutdowns) - 1; i >= 0; i-- {
+				_ = shutdowns[i](ctx)
+			}
+		}
+	}()
 	var lp *sdklog.LoggerProvider
 	var logShutdown utils.ShutdownFunc
 	var err error
@@ -107,7 +115,7 @@ func initializeSystem(path string, serviceCtx *svc.ServiceContext) ([]utils.Shut
 	var v *viper.Viper
 	cfg, v, err := config.Load(path)
 	if err != nil {
-		return nil, fmt.Errorf("config load failed: %w", err)
+		return shutdowns, fmt.Errorf("config load failed: %w", err)
 	}
 	serviceCtx.Config = cfg
 	serviceCtx.Viper = v
@@ -117,20 +125,22 @@ func initializeSystem(path string, serviceCtx *svc.ServiceContext) ([]utils.Shut
 		// Logs
 		lp, logShutdown, err = observability.InitLogs(cfg.Observable)
 		if err != nil {
-			return nil, fmt.Errorf("otel logs init failed: %w", err)
+			return shutdowns, fmt.Errorf("otel logs init failed: %w", err)
 		}
+
+		shutdowns = append(shutdowns, logShutdown)
 
 		// Traces
 		traceShutdown, err := observability.InitTraces(cfg.Observable)
 		if err != nil {
-			return nil, fmt.Errorf("otel traces init failed: %w", err)
+			return shutdowns, fmt.Errorf("otel traces init failed: %w", err)
 		}
 		shutdowns = append(shutdowns, traceShutdown)
 
 		// Metrics
 		metricShutdown, err := observability.InitMetrics(cfg.Observable)
 		if err != nil {
-			return nil, fmt.Errorf("otel metrics init failed: %w", err)
+			return shutdowns, fmt.Errorf("otel metrics init failed: %w", err)
 		}
 		shutdowns = append(shutdowns, metricShutdown)
 
@@ -140,7 +150,7 @@ func initializeSystem(path string, serviceCtx *svc.ServiceContext) ([]utils.Shut
 			runtime.WithMeterProvider(otel.GetMeterProvider()),
 			runtime.WithMinimumReadMemStatsInterval(15*time.Second),
 		); err != nil {
-			return nil, fmt.Errorf("runtime metrics start failed: %w", err)
+			return shutdowns, fmt.Errorf("runtime metrics start failed: %w", err)
 		}
 	}
 
@@ -149,7 +159,7 @@ func initializeSystem(path string, serviceCtx *svc.ServiceContext) ([]utils.Shut
 		LogProvider: lp, // 传入 SDK Provider
 	})
 	if err != nil {
-		return nil, fmt.Errorf("logger init failed: %w", err)
+		return shutdowns, fmt.Errorf("logger init failed: %w", err)
 	}
 	// 替换全局 Logger，方便 middleware 使用 zap.L()
 	zap.ReplaceGlobals(serviceCtx.Logger)
@@ -160,24 +170,29 @@ func initializeSystem(path string, serviceCtx *svc.ServiceContext) ([]utils.Shut
 	// Step 4: 国际化 (core/i18n)
 	serviceCtx.I18n, err = i18n.NewI18n(cfg.I18n, serviceCtx.Logger)
 	if err != nil {
-		return nil, fmt.Errorf("i18n init failed: %w", err)
+		return shutdowns, fmt.Errorf("i18n init failed: %w", err)
 	}
 
 	// Step 5: 数据库连接 (core/db)
 	// MySQL (GORM)
 	serviceCtx.DB, err = db.InitDatabase(cfg.Database, serviceCtx.Logger)
 	if err != nil {
-		return nil, fmt.Errorf("database init failed: %w", err)
+		return shutdowns, fmt.Errorf("database init failed: %w", err)
 	}
+	sqlDB, err := serviceCtx.DB.DB()
+	if err != nil {
+		return shutdowns, fmt.Errorf("SQL pool: %w", err)
+	}
+	shutdowns = append(shutdowns, func(context.Context) error { return sqlDB.Close() })
 	if err := seedAdminIfNeeded(context.Background(), serviceCtx); err != nil {
-		return nil, fmt.Errorf("seed admin failed: %w", err)
+		return shutdowns, fmt.Errorf("seed admin failed: %w", err)
 	}
 
 	// Redis
 	if cfg.System.UseRedis {
 		serviceCtx.Redis, err = db.InitRedis(cfg.Redis)
 		if err != nil {
-			return nil, fmt.Errorf("redis init failed: %w", err)
+			return shutdowns, fmt.Errorf("redis init failed: %w", err)
 		}
 		shutdowns = append(shutdowns, func(ctx context.Context) error {
 			if serviceCtx.Redis == nil {
@@ -193,7 +208,7 @@ func initializeSystem(path string, serviceCtx *svc.ServiceContext) ([]utils.Shut
 	if cfg.System.UseMongo {
 		serviceCtx.Mongo, err = db.InitMongo(cfg.Mongo)
 		if err != nil {
-			return nil, fmt.Errorf("mongo init failed: %w", err)
+			return shutdowns, fmt.Errorf("mongo init failed: %w", err)
 		}
 		// 注册 Mongo 关停
 		shutdowns = append(shutdowns, func(ctx context.Context) error {
@@ -203,7 +218,11 @@ func initializeSystem(path string, serviceCtx *svc.ServiceContext) ([]utils.Shut
 	}
 
 	// Step 6: 权限 Casbin
-	serviceCtx.CasbinEnforcer = claims.InitCasbin(serviceCtx.DB)
+	serviceCtx.CasbinEnforcer, err = claims.InitCasbin(serviceCtx.DB)
+	if err != nil {
+		return shutdowns, fmt.Errorf("casbin init failed: %w", err)
+	}
+	shutdowns = append(shutdowns, func(context.Context) error { serviceCtx.CasbinEnforcer.StopAutoLoadPolicy(); return nil })
 	serviceCtx.Logger.Info("Casbin 初始化完成")
 
 	// Step 7: JWT (pkg/utils)
@@ -218,9 +237,6 @@ func initializeSystem(path string, serviceCtx *svc.ServiceContext) ([]utils.Shut
 
 	// Step 9: 初始化 OSS
 	serviceCtx.OSS = file.NewFileService(serviceCtx.Config.File, serviceCtx.Logger)
-
-	// Step 10: 最后添加 Otel Log Flush (确保它最后执行)
-	shutdowns = append(shutdowns, logShutdown)
 
 	serviceCtx.Logger.Info("✅ 系统核心组件组装完成")
 	return shutdowns, nil

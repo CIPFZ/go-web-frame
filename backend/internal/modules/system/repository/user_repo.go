@@ -81,7 +81,7 @@ func (r *UserRepository) GetList(ctx context.Context, req dto.SearchUserReq) ([]
 		return nil, 0, err
 	}
 
-	err := db.Limit(req.PageSize).Offset(req.PageSize * (req.Page - 1)).
+	err := db.Scopes(req.Paginate()).
 		Preload("Authority").
 		Preload("Authorities").
 		Order("id desc").

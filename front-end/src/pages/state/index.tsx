@@ -2,7 +2,7 @@
 import { PageContainer } from '@ant-design/pro-layout';
 import { ProCard } from '@ant-design/pro-components';
 import { Alert, Descriptions, Progress, Space, Statistic, Tag } from 'antd';
-import { getServerState } from '@/services/api/state';
+import { getServerState } from '@/services/system/state';
 
 function formatBytes(bytes: number, decimals = 2): string {
   if (!bytes) return '0 Bytes';

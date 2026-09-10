@@ -55,6 +55,9 @@ func main() {
 	if err := reorderCMSMenus(gormDB); err != nil {
 		log.Fatalf("CMS menu order migration failed: %v", err)
 	}
+	if err := sanitizeAuditHistory(gormDB); err != nil {
+		log.Fatalf("audit redaction migration failed: %v", err)
+	}
 	fmt.Println("AutoMigrate finished successfully!")
 }
 

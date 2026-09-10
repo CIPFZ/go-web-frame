@@ -67,3 +67,11 @@ git switch -c nexus-platform
 业务对象与页面放在各自模块中，基础能力的修复优先回到 `base-frame`，再同步到业务分支。
 全新数据库只初始化一个管理员；普通用户由团队按需创建。菜单 `name` 保存可编辑的展示名称，
 `locale` 单独保存国际化 Key，重启会保留已经修改的展示名称。
+
+## 架构与维护
+
+- [架构评审与技术栈升级记录](docs/BASE_FRAME_REVIEW.md)
+- [目录结构与模块边界](docs/DIRECTORY_STRUCTURE.md)
+- [质量检查与独立测试环境](TEMPLATE_QUALITY.md)
+
+后端使用 Go 1.27.1，前端构建使用 Node 24.21.0 LTS。业务菜单和路由仍由后端下发。

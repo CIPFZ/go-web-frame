@@ -1,3 +1,4 @@
+import { loadPagedOptions } from '@/utils/pagedOptions';
 import React, {useEffect, useState} from 'react';
 import { HomeOutlined, HomeFilled } from '@ant-design/icons';
 import {Drawer, Tree, Spin, Button, message, Space, Tabs, Checkbox, Tooltip} from 'antd';
@@ -5,11 +6,11 @@ import type {CheckboxChangeEvent} from 'antd/es/checkbox';
 import {useRequest} from '@umijs/max';
 
 // --- 导入 API ---
-import {getMenuAuthority, getMenuList} from '@/services/api/menu';
+import {getMenuAuthority, getMenuList} from '@/services/system/menu';
 // ✨ 修正：确保引用路径精确到文件 (除非你有 api.ts 导出)
-import {getApiList} from '@/services/api/api';
-import {getPolicyPathByAuthorityId, updateCasbin} from '@/services/api/casbin';
-import {setAuthorityMenus, updateAuthority} from '@/services/api/authority';
+import {getApiList} from '@/services/system/api';
+import {getPolicyPathByAuthorityId, updateCasbin} from '@/services/system/casbin';
+import {setAuthorityMenus, updateAuthority} from '@/services/system/authority';
 
 import type {AuthorityItem} from '../index';
 
@@ -99,7 +100,7 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({ open, role, onClose
 
   // --- 2. 加载所有 API 数据 ---
   const { loading: apiLoading } = useRequest(
-    async () => getApiList({ page: 1, pageSize: 9999 }),
+    async () => loadPagedOptions(getApiList),
     {
       onSuccess: (res: any) => {
         console.log('Raw Menu Response:', res);

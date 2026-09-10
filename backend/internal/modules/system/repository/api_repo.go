@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	logger "github.com/CIPFZ/gowebframe/internal/core/log"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"gorm.io/gorm"
@@ -26,7 +25,6 @@ func NewApiRepository(db *gorm.DB) IApiRepository {
 }
 
 func (r *ApiRepository) GetList(ctx context.Context, req dto.SearchApiReq) ([]model.SysApi, int64, error) {
-	logger.GetLogger(ctx).Info("CCCCCCC ->")
 	var list []model.SysApi
 	var total int64
 	db := r.db.WithContext(ctx).Model(&model.SysApi{})
@@ -49,7 +47,7 @@ func (r *ApiRepository) GetList(ctx context.Context, req dto.SearchApiReq) ([]mo
 	}
 
 	err := db.Order("id desc").
-		Limit(req.PageSize).Offset((req.Page - 1) * req.PageSize).
+		Scopes(req.Paginate()).
 		Find(&list).Error
 
 	return list, total, err
@@ -73,6 +71,7 @@ func (r *ApiRepository) Create(ctx context.Context, api *model.SysApi) error {
 
 // UpdateWithSyncCasbin 更新API并同步更新Casbin规则
 func (r *ApiRepository) UpdateWithSyncCasbin(ctx context.Context, oldApi *model.SysApi, newApi model.SysApi) error {
+	oldPath, oldMethod := oldApi.Path, oldApi.Method
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 1. 更新 API 表
 		if err := tx.Model(oldApi).Updates(newApi).Error; err != nil {
@@ -80,9 +79,9 @@ func (r *ApiRepository) UpdateWithSyncCasbin(ctx context.Context, oldApi *model.
 		}
 
 		// 2. 如果路径或方法变了，更新 Casbin 规则表
-		if oldApi.Path != newApi.Path || oldApi.Method != newApi.Method {
+		if oldPath != newApi.Path || oldMethod != newApi.Method {
 			if err := tx.Table("sys_casbin_rules").
-				Where("v1 = ? AND v2 = ?", oldApi.Path, oldApi.Method).
+				Where("v1 = ? AND v2 = ?", oldPath, oldMethod).
 				Updates(map[string]interface{}{
 					"v1": newApi.Path,
 					"v2": newApi.Method,

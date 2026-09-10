@@ -70,8 +70,7 @@ func (r *OperationLogRepository) GetList(ctx context.Context, req dto.SearchOper
 	}
 
 	// 2. 然后执行分页查询获取当前页的数据
-	err := db.Limit(req.PageSize).
-		Offset(req.PageSize * (req.Page - 1)).
+	err := db.Scopes(req.Paginate()).
 		Preload("User").  // 使用 Preload 预加载关联的 User 信息
 		Order("id desc"). // 按 ID 降序排序，最新的日志在前面
 		Find(&list).Error

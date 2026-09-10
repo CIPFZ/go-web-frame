@@ -73,7 +73,7 @@ func (j *JWT) CreateToken(claims claims.CustomClaims) (string, error) {
 func (j *JWT) ParseToken(tokenString string) (*claims.CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &claims.CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return j.signingKey, nil
-	})
+	}, jwt.WithValidMethods([]string{"HS256"}), jwt.WithIssuer(j.issuer), jwt.WithExpirationRequired())
 	if err != nil {
 		return nil, err
 	}

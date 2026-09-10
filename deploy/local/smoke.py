@@ -27,6 +27,10 @@ def main():
     with opener.open(base, timeout=20) as response:
         assert response.status == 200 and '<html' in response.read().decode().lower()
     assert request('/health')['status'] == 'ok'
+    readiness = request('/ready')
+    assert readiness['status'] == 'ok'
+    assert readiness['checks'].get('database') == 'ok'
+    assert readiness['checks'].get('redis') == 'ok'
     print('Frontend and proxied backend health: OK')
 
     login = request('/api/v1/user/login', {'username': 'admin', 'password': env['ADMIN_PASSWORD']})

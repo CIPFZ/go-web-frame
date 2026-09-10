@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-	"github.com/casbin/casbin/v2"
+	"github.com/casbin/casbin/v3"
 )
 
 // ICasbinRepository 定义了与 Casbin 存储交互的接口

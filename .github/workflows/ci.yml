@@ -1,0 +1,63 @@
+name: Base Frame quality
+on:
+  push:
+    branches: [base-frame]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - run: go test -p 2 ./... && go vet ./...
+        working-directory: backend
+      - run: go test -race -p 2 ./internal/core/audit ./internal/middleware
+        working-directory: backend
+      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+        working-directory: backend
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: front-end/.nvmrc
+          cache: npm
+          cache-dependency-path: front-end/package-lock.json
+      - run: npm ci --legacy-peer-deps --ignore-scripts && npm run postinstall
+        working-directory: front-end
+        env:
+          HUSKY: '0'
+      - run: npm run tsc && npm test -- --runInBand && npm run build
+        working-directory: front-end
+      - name: Dependency audit report (includes upstream build-tool advisories)
+        run: npm audit --json > npm-audit.json
+        working-directory: front-end
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: npm-audit
+          path: front-end/npm-audit.json
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: front-end/.nvmrc
+          cache: npm
+          cache-dependency-path: front-end/package-lock.json
+      - run: npm ci --legacy-peer-deps --ignore-scripts && npm run postinstall && npx playwright install --with-deps chromium
+        working-directory: front-end
+        env:
+          HUSKY: '0'
+      - run: python3 deploy/local/init.py
+      - run: docker compose --env-file deploy/local/.env -f deploy/local/compose.yaml build
+      - run: python3 deploy/local/e2e.py

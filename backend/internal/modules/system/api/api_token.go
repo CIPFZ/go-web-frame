@@ -30,6 +30,7 @@ func (a *ApiTokenApi) GetApiTokenList(c *gin.Context) {
 		return
 	}
 
+	req.Normalize()
 	list, total, err := a.apiTokenService.GetApiTokenList(c.Request.Context(), req)
 	if err != nil {
 		logger.GetLogger(c).Error("get_api_token_list_error", zap.Error(err))

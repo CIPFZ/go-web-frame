@@ -4,7 +4,7 @@ import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 import { Button, Tag, Space, message, Popconfirm, Modal, Typography } from 'antd';
 import { DeleteOutlined, EyeOutlined } from '@ant-design/icons';
-import { getOperationLogList, deleteOperationLogByIds } from '@/services/api/operationLog';
+import { getOperationLogList, deleteOperationLogByIds } from '@/services/system/operationLog';
 
 const { Text } = Typography;
 

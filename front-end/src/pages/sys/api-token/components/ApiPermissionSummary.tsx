@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button, Popover, Space, Tag, Typography } from 'antd';
 
-import type { ApiTokenItem } from '@/services/api/apiToken';
+import type { ApiTokenItem } from '@/services/system/apiToken';
 import { buildPermissionSummary } from '../helpers';
 
 type ApiPermissionSummaryProps = {

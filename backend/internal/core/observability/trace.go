@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
@@ -26,6 +27,7 @@ import (
 
 // InitTraces 初始化 Tracer Provider
 func InitTraces(cfg config.Observability) (utils.ShutdownFunc, error) {
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	if cfg.Exporter == "none" {
 		return func(context.Context) error { return nil }, nil
 	}

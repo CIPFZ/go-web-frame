@@ -40,6 +40,7 @@ func (a *NoticeApi) GetNoticeList(c *gin.Context) {
 		response.FailWithMessage("invalid request: "+err.Error(), c)
 		return
 	}
+	req.Normalize()
 	list, total, err := a.noticeService.GetNoticeList(c.Request.Context(), req)
 	if err != nil {
 		logger.GetLogger(c).Error("get_notice_list_failed", zap.Error(err))

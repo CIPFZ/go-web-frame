@@ -23,9 +23,10 @@ func GinLoggerMiddleware(base *zap.Logger) gin.HandlerFunc {
 				zap.String("trace_id", spanCtx.TraceID().String()),
 				zap.String("span_id", spanCtx.SpanID().String()),
 				zap.String("http.method", c.Request.Method),
-				zap.String("http.url", c.Request.URL.String()),
+				zap.String("http.path", c.Request.URL.Path),
 			)
 		}
+		loggerWithTrace = loggerWithTrace.With(zap.Any("context", c.Request.Context()))
 		// 存入 gin.Context，后续 handler 可以用
 		c.Set(utils.LoggerKey, loggerWithTrace)
 

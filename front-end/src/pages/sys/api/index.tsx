@@ -13,7 +13,7 @@ import { Button, Space, message, Popconfirm, Tag } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 
 // 导入 API
-import { getApiList, createApi, updateApi, deleteApi } from '@/services/api/api';
+import { getApiList, createApi, updateApi, deleteApi } from '@/services/system/api';
 
 // 定义数据类型
 type ApiItem = {

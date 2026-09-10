@@ -12,7 +12,7 @@ import { createStyles } from 'antd-style';
 import { MobileOutlined, MailOutlined } from '@ant-design/icons';
 import UploadImage from '@/components/Upload/UploadImage';
 // ✨ 引入 API
-import { updateSelfInfo } from '@/services/api/user';
+import { updateSelfInfo } from '@/services/system/user';
 
 const { Title } = Typography;
 

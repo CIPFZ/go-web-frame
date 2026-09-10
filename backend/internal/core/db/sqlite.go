@@ -33,7 +33,7 @@ func InitSQLite(s config.SQLite, logger *zap.Logger) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to open sqlite3: %w", err)
 	}
 
-	if err = gormDB.Use(otelgorm.NewPlugin(otelgorm.WithDBName(s.DBName()))); err != nil {
+	if err = gormDB.Use(otelgorm.NewPlugin(otelgorm.WithoutQueryVariables(), otelgorm.WithDBName(s.DBName()))); err != nil {
 		return nil, fmt.Errorf("failed to use otelgorm plugin: %w", err)
 	}
 

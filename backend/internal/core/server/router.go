@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/CIPFZ/gowebframe/internal/docs"
 	"github.com/CIPFZ/gowebframe/internal/middleware"
@@ -23,6 +22,7 @@ func InitRouters(svcCtx *svc.ServiceContext) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
 
+	registerHealthRoutes(r, svcCtx)
 	registerGlobalMiddleware(r, svcCtx)
 	registerBaseRoutes(r, svcCtx)
 
@@ -75,9 +75,6 @@ func registerBaseRoutes(r *gin.Engine, svcCtx *svc.ServiceContext) {
 		c.Data(http.StatusOK, "application/json; charset=utf-8", []byte(docs.SwaggerInfo.ReadDoc()))
 	})
 
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok", "time": time.Now().Unix()})
-	})
 }
 
 func swaggerIndexHTML(docURL string) string {

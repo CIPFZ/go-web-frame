@@ -11,14 +11,14 @@ import {
   Question,
   SelectLang,
 } from '@/components';
-import { getCurrentUserInfo } from '@/services/api/user';
+import { getCurrentUserInfo } from '@/services/system/user';
 import defaultSettings from '../config/defaultSettings';
 import { errorConfig } from './requestErrorConfig';
 import '@ant-design/v5-patch-for-react-19';
-import { processMenuData, buildRoutes } from '@/utils/menuHelpers';
-import { fetchMenuData } from '@/utils/menuDataStore';
-import { withMenuIcon } from '@/utils/menuIcon';
-import { updateUiConfig } from '@/services/api/user';
+import { processMenuData, buildRoutes } from '@/routing/menuHelpers';
+import { fetchMenuData } from '@/routing/menuDataStore';
+import { withMenuIcon } from '@/routing/menuIcon';
+import { updateUiConfig } from '@/services/system/user';
 
 const isDev = process.env.NODE_ENV === 'development' || process.env.CI;
 const loginPath = '/user/login';

@@ -12,7 +12,7 @@ import { createStyles } from 'antd-style';
 import React from 'react';
 import { flushSync } from 'react-dom';
 // 修正导入路径，确保你的 api 定义正确
-import { outLogin, switchAuthority } from '@/services/api/user';
+import { outLogin, switchAuthority } from '@/services/system/user';
 import HeaderDropdown from '../HeaderDropdown';
 
 export type GlobalHeaderRightProps = {

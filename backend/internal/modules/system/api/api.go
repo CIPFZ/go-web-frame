@@ -42,6 +42,7 @@ func (a *SysApiApi) GetApiList(c *gin.Context) {
 	}
 
 	log := logger.GetLogger(c)
+	req.Normalize()
 	list, total, err := a.apiService.GetApiList(c.Request.Context(), req)
 	if err != nil {
 		log.Error("get_api_list_error", zap.Error(err))

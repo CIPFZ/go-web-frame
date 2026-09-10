@@ -1,12 +1,12 @@
 import { render, screen, waitFor } from '@testing-library/react';
 
 import ApiTokenPage from './index';
-import { getApiTokenList } from '@/services/api/apiToken';
+import { getApiTokenList } from '@/services/system/apiToken';
 
 const mockProFormDateTimePicker = jest.fn((_: any) => null);
 let capturedColumns: any[] = [];
 
-jest.mock('@/services/api/apiToken', () => ({
+jest.mock('@/services/system/apiToken', () => ({
   getApiTokenList: jest.fn(),
   createApiToken: jest.fn(),
   getApiTokenDetail: jest.fn(),

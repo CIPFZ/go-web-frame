@@ -12,7 +12,7 @@ import (
 	"github.com/CIPFZ/gowebframe/internal/core/jwt"
 	coretoken "github.com/CIPFZ/gowebframe/internal/core/token"
 
-	"github.com/casbin/casbin/v2"
+	"github.com/casbin/casbin/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/qiniu/qmgo"
 	"github.com/redis/go-redis/v9"

@@ -29,7 +29,7 @@ func InitPostgres(p config.Postgres, logger *zap.Logger) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to open postgres: %w", err)
 	}
 
-	if err = gormDB.Use(otelgorm.NewPlugin(otelgorm.WithDBName(p.Dbname))); err != nil {
+	if err = gormDB.Use(otelgorm.NewPlugin(otelgorm.WithoutQueryVariables(), otelgorm.WithDBName(p.Dbname))); err != nil {
 		return nil, fmt.Errorf("failed to use otelgorm plugin: %w", err)
 	}
 

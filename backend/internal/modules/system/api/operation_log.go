@@ -40,6 +40,7 @@ func (a *OperationLogApi) GetOperationLogList(c *gin.Context) {
 	// 允许空参数，绑定失败也继续执行，使用默认值
 	_ = c.ShouldBindJSON(&req)
 
+	req.Normalize()
 	list, total, err := a.opLogService.GetOperationLogList(c.Request.Context(), req)
 	if err != nil {
 		log.Error("get_operation_log_list_error", zap.Error(err))

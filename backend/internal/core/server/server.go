@@ -18,11 +18,13 @@ func NewServer(serviceCtx *svc.ServiceContext) *http.Server {
 	address := fmt.Sprintf(":%d", serviceCtx.Config.System.Port)
 
 	return &http.Server{
-		Addr:           address,
-		Handler:        engine,
-		ReadTimeout:    10 * time.Minute,
-		WriteTimeout:   10 * time.Minute,
-		MaxHeaderBytes: 1 << 20,
+		Addr:              address,
+		Handler:           engine,
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		ReadTimeout:       10 * time.Minute,
+		WriteTimeout:      10 * time.Minute,
+		MaxHeaderBytes:    1 << 20,
 	}
 }
 

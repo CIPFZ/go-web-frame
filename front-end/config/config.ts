@@ -4,7 +4,7 @@ import defaultSettings from './defaultSettings';
 
 import routes from './routes';
 
-const { REACT_APP_ENV = 'dev', NODE_ENV } = process.env;
+const { NODE_ENV } = process.env;
 
 /**
  * @name 使用公共路径
@@ -15,7 +15,7 @@ const PUBLIC_PATH: string = '/';
 
 export default defineConfig({
   // 浏览器 兼容性设置
-  targets: {ie: 11},
+  targets: { chrome: 109, edge: 109, firefox: 115, safari: '16.4' },
   // 配置网站的标题
   title: defaultSettings.title,
   layout: {
@@ -125,30 +125,8 @@ export default defineConfig({
     { src: join(PUBLIC_PATH, 'scripts/loading.js'), async: true },
   ],
 
-  //================ pro 插件配置 =================
-  presets: ['umi-presets-pro'],
-  /**
-   * @name openAPI 插件的配置
-   * @description 基于 openapi 的规范生成serve 和mock，能减少很多样板代码
-   * @doc https://pro.ant.design/zh-cn/docs/openapi/
-   */
-  openAPI: [
-    {
-      requestLibPath: "import { request } from '@umijs/max'",
-      // 或者使用在线的版本
-      // schemaPath: "https://gw.alipayobjects.com/os/antfincdn/M%24jrzTTYJN/oneapi.json"
-      schemaPath: join(__dirname, 'oneapi.json'),
-      mock: false,
-    },
-    {
-      requestLibPath: "import { request } from '@umijs/max'",
-      schemaPath: 'https://gw.alipayobjects.com/os/antfincdn/CA1dOm%2631B/openapi.json',
-      projectName: 'swagger',
-    },
-  ],
-  mock: {
-    include: ['mock/**/*', 'src/pages/**/_mock.ts'],
-  },
+  // All business data comes from the backend.
+  mock: false,
   /**
    * @name 是否开启 mako
    * @description 使用 mako 极速研发
@@ -156,7 +134,6 @@ export default defineConfig({
    */
   mako: {},
   esbuildMinifyIIFE: true,
-  requestRecord: {},
   exportStatic: {},
   define: {
     'process.env.CI': process.env.CI,

@@ -88,14 +88,13 @@ func createOtlpMetricExporter(ctx context.Context, cfg config.OtelExporterConfig
 
 	switch cfg.Protocol {
 	case "grpc":
-		opts := []otlpmetricgrpc.Option{otlpmetricgrpc.WithEndpoint(StandardizedEndpoint(cfg))}
+		opts := []otlpmetricgrpc.Option{otlpmetricgrpc.WithEndpoint(cfg.Endpoint)}
 		if cfg.Insecure {
-			fmt.Printf("insecure: %t, coming--->\n", cfg.Insecure)
 			opts = append(opts, otlpmetricgrpc.WithTLSCredentials(insecure.NewCredentials()))
 		}
 		exp, err = otlpmetricgrpc.New(ctx, opts...)
 	case "http":
-		opts := []otlpmetrichttp.Option{otlpmetrichttp.WithEndpoint(StandardizedEndpoint(cfg))}
+		opts := []otlpmetrichttp.Option{otlpmetrichttp.WithEndpoint(cfg.Endpoint)}
 		if cfg.Insecure {
 			opts = append(opts, otlpmetrichttp.WithInsecure())
 		}

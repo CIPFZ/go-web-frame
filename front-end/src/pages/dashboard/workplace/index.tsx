@@ -3,8 +3,8 @@ import { PageContainer, ProCard } from '@ant-design/pro-components';
 import { Link, useRequest } from '@umijs/max';
 import { Alert, Button, List, Progress, Space, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
-import { getServerState } from '@/services/api/state';
-import { getMyNotices, markNoticeRead } from '@/services/api/notice';
+import { getServerState } from '@/services/system/state';
+import { getMyNotices, markNoticeRead } from '@/services/system/notice';
 
 const { Text, Paragraph } = Typography;
 

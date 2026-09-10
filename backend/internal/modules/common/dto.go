@@ -9,19 +9,28 @@ type PageInfo struct {
 	Keyword  string `json:"keyword" form:"keyword"`   // 关键字
 }
 
+// Normalize is shared by API responses and repository queries.
+func (r *PageInfo) Normalize() {
+	if r.Page <= 0 {
+		r.Page = 1
+	}
+	if r.PageSize <= 0 {
+		r.PageSize = 10
+	}
+	if r.PageSize > 100 {
+		r.PageSize = 100
+	}
+	// Keep offset multiplication in range even for untrusted page numbers.
+	maxPage := int(^uint(0)>>1) / r.PageSize
+	if r.Page > maxPage {
+		r.Page = maxPage
+	}
+}
+
 func (r *PageInfo) Paginate() func(db *gorm.DB) *gorm.DB {
+	r.Normalize()
 	return func(db *gorm.DB) *gorm.DB {
-		if r.Page <= 0 {
-			r.Page = 1
-		}
-		switch {
-		case r.PageSize > 100:
-			r.PageSize = 100
-		case r.PageSize <= 0:
-			r.PageSize = 10
-		}
-		offset := (r.Page - 1) * r.PageSize
-		return db.Offset(offset).Limit(r.PageSize)
+		return db.Offset((r.Page - 1) * r.PageSize).Limit(r.PageSize)
 	}
 }
 

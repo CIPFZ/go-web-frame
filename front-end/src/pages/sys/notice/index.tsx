@@ -1,3 +1,4 @@
+import { loadPagedOptions } from '@/utils/pagedOptions';
 ﻿import React, { useMemo, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-layout';
 import {
@@ -12,9 +13,9 @@ import {
 import type { ProColumns } from '@ant-design/pro-components';
 import { Button, Tag, message } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { createNotice, getNoticeList } from '@/services/api/notice';
-import { getAuthorityList } from '@/services/api/authority';
-import { getUserList } from '@/services/api/user';
+import { createNotice, getNoticeList } from '@/services/system/notice';
+import { getAuthorityList } from '@/services/system/authority';
+import { getUserList } from '@/services/system/user';
 
 type NoticeItem = {
   ID: number;
@@ -107,7 +108,7 @@ const NoticeAdminPage: React.FC = () => {
   };
 
   const loadUsers = async () => {
-    const res = await getUserList({ page: 1, pageSize: 200 });
+    const res = await loadPagedOptions(getUserList);
     if (res.code === 0) {
       const options = (res.data?.list || []).map((u: any) => ({
         label: `${u.nickName || u.username} (${u.username})`,
