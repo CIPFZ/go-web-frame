@@ -104,7 +104,8 @@ test('admin notice list and user workplace visibility', async ({ page }) => {
   await page.waitForURL(/#\//, { timeout: 20_000 });
 
   await expect(page.getByText('我的通知')).toBeVisible();
-  await expect(page.getByText(noticeTitle)).toBeVisible();
+  await expect(page.getByRole('dialog', { name: noticeTitle })).toBeVisible();
+  await expect(page.getByRole('heading', { name: noticeTitle })).toBeVisible();
 
   await adminApi.dispose();
   await bootstrapApi.dispose();

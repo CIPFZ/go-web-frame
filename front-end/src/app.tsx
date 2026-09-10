@@ -1,3 +1,4 @@
+import NoticePopup from '@/components/NoticePopup';
 import { t } from '@/i18n';
 import { localizeMenus } from '@/i18n/menus';
 import type { API } from '@/services/system/types';
@@ -228,6 +229,7 @@ export const layout: RunTimeLayoutConfig = ({
       return (
         <>
           {children}
+          <NoticePopup userId={initialState?.currentUser?.ID} />
           <SettingDrawer
             disableUrlParams
             enableDarkTheme

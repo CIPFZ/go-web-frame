@@ -53,7 +53,7 @@ func ApiTokenAuth(svcCtx *svc.ServiceContext) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		if token.ExpiresAt != nil && token.ExpiresAt.Before(time.Now()) {
+		if token.ExpiresAt != nil && !token.ExpiresAt.After(time.Now()) {
 			response.FailWithCode(errcode.Unauthorized.WithDetails("token 已过期"), c)
 			c.Abort()
 			return
@@ -73,9 +73,9 @@ func ApiTokenAuth(svcCtx *svc.ServiceContext) gin.HandlerFunc {
 			ctx, release, err := tokenCore.AcquireRedisLease(c.Request.Context(), svcCtx.Redis, token.ID, token.MaxConcurrency)
 			if err != nil {
 				if errors.Is(err, tokenCore.ErrQuota) {
-					c.AbortWithStatus(429)
+					c.AbortWithStatusJSON(429, response.Response{Code: 429, Msg: response.LocalizeMessage(c, "token.quota")})
 				} else {
-					c.AbortWithStatus(503)
+					c.AbortWithStatusJSON(503, response.Response{Code: 503, Msg: response.LocalizeMessage(c, "token.limiterUnavailable")})
 				}
 				return
 			}
@@ -83,7 +83,7 @@ func ApiTokenAuth(svcCtx *svc.ServiceContext) gin.HandlerFunc {
 			c.Request = c.Request.WithContext(ctx)
 		} else {
 			if !svcCtx.APITokenLimiter.Acquire(token.ID, token.MaxConcurrency) {
-				c.AbortWithStatus(429)
+				c.AbortWithStatusJSON(429, response.Response{Code: 429, Msg: response.LocalizeMessage(c, "token.quota")})
 				return
 			}
 			defer svcCtx.APITokenLimiter.Release(token.ID)

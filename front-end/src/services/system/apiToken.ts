@@ -108,7 +108,7 @@ export async function disableApiToken(body: { id: number }, options?: { [key: st
 }
 
 export async function getApiOptions(body: { page?: number; pageSize?: number }, options?: { [key: string]: any }) {
-  return request<API.CommonResponse>('/api/v1/sys/api/getApiList', {
+  return request<API.CommonResponse>('/api/v1/sys/api-token/options', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     data: body,

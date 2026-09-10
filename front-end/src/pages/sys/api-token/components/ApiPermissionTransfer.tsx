@@ -35,6 +35,18 @@ export const ApiPermissionTransfer: React.FC<ApiPermissionTransferProps> = ({
     description: option.description || option.apiGroup || t('cms.ungrouped'),
     searchText: `${option.label} ${option.method || ''} ${option.path || ''} ${option.apiGroup || ''}`,
   }));
+  // Keep legacy, no-longer-exposed grants visible and removable in edit mode.
+  for (const id of value || []) {
+    if (!options.some((option) => option.value === id)) {
+      const label = t('cms.tokenUnexposedApi', { id });
+      dataSource.push({
+        key: String(id),
+        title: label,
+        description: '',
+        searchText: label,
+      });
+    }
+  }
   return (
     <Space
       direction="vertical"

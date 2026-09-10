@@ -166,3 +166,17 @@ common.no: "否"
 "field.IDs": "ID 列表"
 "validation.minLength": "{{.Field}}至少需要 {{.Param}} 个字符"
 "validation.maxLength": "{{.Field}}不能超过 {{.Param}} 个字符"
+
+token.apiNotExposed: "所选 API 未开放 API Token 访问"
+
+token.expiryRequired: "必须设置 Token 过期时间，不允许永久有效"
+
+token.quota: "Token 并发请求数已达上限"
+
+token.limiterUnavailable: "Token 并发控制暂不可用，请稍后重试"
+
+notice.unavailable: "通知不存在或当前不可访问"
+
+notice.invalidTargets: "接收对象无效，请重新选择有效的角色或启用用户"
+
+notice.expiredEnd: "结束时间必须晚于当前时间"

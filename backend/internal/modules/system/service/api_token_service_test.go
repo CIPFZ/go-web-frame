@@ -20,7 +20,7 @@ import (
 func TestApiTokenServiceCreatePersistsHashAndApis(t *testing.T) {
 	gormDB := newApiTokenTestDB(t)
 	if err := gormDB.Create(&model.SysApi{
-		Path:        "/api/v1/test/resources",
+		Path:        "/api/v1/open/token-info",
 		Method:      "GET",
 		ApiGroup:    "test",
 		Description: "List resources",
@@ -37,8 +37,10 @@ func TestApiTokenServiceCreatePersistsHashAndApis(t *testing.T) {
 		repository.NewApiTokenRepository(gormDB),
 	)
 
+	expires := time.Now().Add(time.Hour).Format(time.RFC3339)
 	resp, err := service.CreateApiToken(context.Background(), 99, dto.CreateApiTokenReq{
 		Name:           "test-reader",
+		ExpiresAt:      &expires,
 		Description:    "read test api",
 		MaxConcurrency: 2,
 		ApiIds:         []uint{api.ID},
@@ -74,7 +76,7 @@ func TestApiTokenServiceCreatePersistsHashAndApis(t *testing.T) {
 func TestApiTokenServiceResetReplacesStoredHash(t *testing.T) {
 	gormDB := newApiTokenTestDB(t)
 	if err := gormDB.Create(&model.SysApi{
-		Path:        "/api/v1/test/records",
+		Path:        "/api/v1/open/token-info",
 		Method:      "GET",
 		ApiGroup:    "test",
 		Description: "List records",
@@ -91,8 +93,10 @@ func TestApiTokenServiceResetReplacesStoredHash(t *testing.T) {
 		repository.NewApiTokenRepository(gormDB),
 	)
 
+	expires := time.Now().Add(time.Hour).Format(time.RFC3339)
 	created, err := service.CreateApiToken(context.Background(), 7, dto.CreateApiTokenReq{
 		Name:           "reset-me",
+		ExpiresAt:      &expires,
 		MaxConcurrency: 1,
 		ApiIds:         []uint{api.ID},
 	})
@@ -183,5 +187,58 @@ func TestApiTokenServiceCreateRejectsExpiredTimeInPast(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("CreateApiToken() error = nil, want validation error")
+	}
+}
+
+func TestApiTokenRejectsCMSPermission(t *testing.T) {
+	database := newApiTokenTestDB(t)
+	api := model.SysApi{Path: "/api/v1/sys/user/getUserList", Method: "POST"}
+	database.Create(&api)
+	expires := time.Now().Add(time.Hour).Format(time.RFC3339)
+	service := NewApiTokenService(repository.NewApiTokenRepository(database))
+	_, err := service.CreateApiToken(context.Background(), 1, dto.CreateApiTokenReq{Name: "bad grant", ExpiresAt: &expires, MaxConcurrency: 1, ApiIds: []uint{api.ID}})
+	if err == nil {
+		t.Fatal("JWT-only CMS API accepted as token permission")
+	}
+}
+
+func TestApiTokenToggleMissingFails(t *testing.T) {
+	service := NewApiTokenService(repository.NewApiTokenRepository(newApiTokenTestDB(t)))
+	if err := service.DisableApiToken(context.Background(), 999); err == nil {
+		t.Fatal("nonexistent token reported success")
+	}
+}
+
+// Deterministically interleave permission removal between reset's read and write.
+type revokeOnReadRepo struct {
+	repository.IApiTokenRepository
+	database *gorm.DB
+}
+
+func (r revokeOnReadRepo) FindByID(ctx context.Context, id uint) (*model.SysApiToken, error) {
+	token, err := r.IApiTokenRepository.FindByID(ctx, id)
+	if err == nil {
+		err = r.database.Where("api_token_id = ?", id).Delete(&model.SysApiTokenApi{}).Error
+	}
+	return token, err
+}
+func TestResetDoesNotRestoreConcurrentlyRevokedPermissions(t *testing.T) {
+	database := newApiTokenTestDB(t)
+	api := model.SysApi{Path: "/api/v1/open/token-info", Method: "GET"}
+	database.Create(&api)
+	expires := time.Now().Add(time.Hour).Format(time.RFC3339)
+	repo := repository.NewApiTokenRepository(database)
+	service := NewApiTokenService(repo)
+	created, err := service.CreateApiToken(context.Background(), 1, dto.CreateApiTokenReq{Name: "rotate", ExpiresAt: &expires, MaxConcurrency: 1, ApiIds: []uint{api.ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	service = NewApiTokenService(revokeOnReadRepo{repo, database})
+	if _, err := service.ResetApiToken(context.Background(), created.ID); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := repo.FindByID(context.Background(), created.ID)
+	if err != nil || len(stored.Apis) != 0 {
+		t.Fatalf("revoked permissions restored: %v %v", stored, err)
 	}
 }

@@ -12,6 +12,11 @@ export function useNotices() {
   const [revision, setRevision] = useState(0);
   const [data, setData] = useState<MyNoticePage & { list: MyNotice[] }>();
   const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const refresh = () => setRevision((n) => n + 1);
+    window.addEventListener('cms:notices-changed', refresh);
+    return () => window.removeEventListener('cms:notices-changed', refresh);
+  }, []);
   const [error, setError] = useState(false);
   useEffect(() => {
     let cancelled = false;

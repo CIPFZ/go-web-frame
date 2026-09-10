@@ -166,3 +166,17 @@ common.no: "No"
 "field.IDs": "IDs"
 "validation.minLength": "{{.Field}} must contain at least {{.Param}} characters"
 "validation.maxLength": "{{.Field}} must not exceed {{.Param}} characters"
+
+token.apiNotExposed: "The selected API does not support API Token authentication"
+
+token.expiryRequired: "A token expiry is required; permanent tokens are not allowed"
+
+token.quota: "The token concurrency limit has been reached"
+
+token.limiterUnavailable: "Token concurrency control is temporarily unavailable"
+
+notice.unavailable: "Notice not found or currently unavailable"
+
+notice.invalidTargets: "Invalid recipients; select existing roles or active users"
+
+notice.expiredEnd: "The end time must be in the future"

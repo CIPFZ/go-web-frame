@@ -9,21 +9,21 @@ type SearchApiTokenReq struct {
 }
 
 type CreateApiTokenReq struct {
-	Name           string  `json:"name" binding:"required"`
-	Description    string  `json:"description"`
+	Name           string  `json:"name" binding:"required,max=100"`
+	Description    string  `json:"description" binding:"max=255"`
 	ExpiresAt      *string `json:"expiresAt"`
 	NeverExpire    bool    `json:"neverExpire"`
-	MaxConcurrency int     `json:"maxConcurrency"`
+	MaxConcurrency int     `json:"maxConcurrency" binding:"required,min=1,max=1000"`
 	ApiIds         []uint  `json:"apiIds" binding:"required"`
 }
 
 type UpdateApiTokenReq struct {
 	ID             uint    `json:"id" binding:"required"`
-	Name           string  `json:"name" binding:"required"`
-	Description    string  `json:"description"`
+	Name           string  `json:"name" binding:"required,max=100"`
+	Description    string  `json:"description" binding:"max=255"`
 	ExpiresAt      *string `json:"expiresAt"`
 	NeverExpire    bool    `json:"neverExpire"`
-	MaxConcurrency int     `json:"maxConcurrency"`
+	MaxConcurrency int     `json:"maxConcurrency" binding:"required,min=1,max=1000"`
 	ApiIds         []uint  `json:"apiIds" binding:"required"`
 }
 

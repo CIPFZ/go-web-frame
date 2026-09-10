@@ -165,3 +165,31 @@ func newAPITokenMiddlewareTestEngine(t *testing.T, registerRoutes func(group *gi
 	registerRoutes(group)
 	return engine, svcCtx
 }
+
+func TestApiTokenConcurrencyReleasedAfterHandler(t *testing.T) {
+	entered := make(chan struct{}, 1)
+	release := make(chan struct{})
+	engine, _ := newAPITokenMiddlewareTestEngine(t, func(group *gin.RouterGroup) {
+		group.GET("test/resources", func(c *gin.Context) { entered <- struct{}{}; <-release; c.JSON(200, gin.H{"code": 0}) })
+	})
+	call := func() int {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/api/v1/test/resources", nil)
+		req.Header.Set("X-API-Token", "cms_allow_token")
+		engine.ServeHTTP(w, req)
+		return w.Code
+	}
+	done := make(chan int, 1)
+	go func() { done <- call() }()
+	<-entered
+	if status := call(); status != 429 {
+		t.Fatalf("concurrent status = %d", status)
+	}
+	close(release)
+	if status := <-done; status != 200 {
+		t.Fatal(status)
+	}
+	if status := call(); status != 200 {
+		t.Fatalf("quota not released: %d", status)
+	}
+}

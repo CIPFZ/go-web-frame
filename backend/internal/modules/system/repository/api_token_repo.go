@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/CIPFZ/gowebframe/internal/core/claims"
+	tokenCore "github.com/CIPFZ/gowebframe/internal/core/token"
 	"time"
 
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
@@ -24,16 +25,21 @@ type IApiTokenRepository interface {
 }
 
 type ApiTokenRepository struct {
-	db *gorm.DB
+	db     *gorm.DB
+	prefix string
 }
 
-func NewApiTokenRepository(db *gorm.DB) IApiTokenRepository {
-	return &ApiTokenRepository{db: db}
+func NewApiTokenRepository(db *gorm.DB, prefix ...string) IApiTokenRepository {
+	p := "/api/v1"
+	if len(prefix) > 0 {
+		p = prefix[0]
+	}
+	return &ApiTokenRepository{db: db, prefix: p}
 }
 
 func (r *ApiTokenRepository) Create(ctx context.Context, token *model.SysApiToken) error {
 	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
-		if err := validateTokenAPIs(tx, token.Apis); err != nil {
+		if err := validateTokenAPIs(tx, token.Apis, r.prefix); err != nil {
 			return err
 		}
 		return tx.Omit("Apis.*").Create(token).Error
@@ -86,9 +92,14 @@ func (r *ApiTokenRepository) LoadApisByIDs(ctx context.Context, ids []uint) ([]m
 
 func (r *ApiTokenRepository) UpdateWithAPIs(ctx context.Context, token *model.SysApiToken, updates map[string]interface{}, apis []model.SysApi) error {
 	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
-		if err := validateTokenAPIs(tx, apis); err != nil {
+		if err := validateTokenAPIs(tx, apis, r.prefix); err != nil {
 			return err
 		}
+		var current model.SysApiToken
+		if err := tx.First(&current, token.ID).Error; err != nil {
+			return err
+		}
+		token = &current
 		if len(updates) > 0 {
 			if err := tx.Model(token).Updates(updates).Error; err != nil {
 				return err
@@ -99,11 +110,17 @@ func (r *ApiTokenRepository) UpdateWithAPIs(ctx context.Context, token *model.Sy
 }
 
 func (r *ApiTokenRepository) UpdateColumns(ctx context.Context, id uint, updates map[string]interface{}) error {
-	return r.db.WithContext(ctx).Model(&model.SysApiToken{}).Where("id = ?", id).Updates(updates).Error
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
+		var current model.SysApiToken
+		if err := tx.First(&current, id).Error; err != nil {
+			return err
+		}
+		return tx.Model(&current).Updates(updates).Error
+	})
 }
 
 func (r *ApiTokenRepository) DeleteByIDs(ctx context.Context, ids []uint) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return claims.PolicyTransaction(ctx, r.db, func(tx *gorm.DB) error {
 		if err := tx.Where("api_token_id IN ?", ids).Delete(&model.SysApiTokenApi{}).Error; err != nil {
 			return err
 		}
@@ -119,14 +136,14 @@ func (r *ApiTokenRepository) TouchLastUsedAt(ctx context.Context, id uint, usedA
 		Error
 }
 
-func validateTokenAPIs(tx *gorm.DB, apis []model.SysApi) error {
+func validateTokenAPIs(tx *gorm.DB, apis []model.SysApi, prefix string) error {
 	for _, api := range apis {
-		var count int64
-		if err := tx.Model(&model.SysApi{}).Where("id = ?", api.ID).Count(&count).Error; err != nil {
+		var current model.SysApi
+		if err := tx.First(&current, api.ID).Error; err != nil {
 			return err
 		}
-		if count != 1 {
-			return errors.New("API 不存在")
+		if !tokenCore.AllowsEndpoint(prefix, current.Method, current.Path) {
+			return errors.New("token.apiNotExposed")
 		}
 	}
 	return nil

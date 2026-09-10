@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	tokenCore "github.com/CIPFZ/gowebframe/internal/core/token"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
@@ -35,6 +36,9 @@ func NewApiTokenService(tokenRepo repository.IApiTokenRepository) IApiTokenServi
 }
 
 func (s *ApiTokenService) CreateApiToken(ctx context.Context, createdBy uint, req dto.CreateApiTokenReq) (*dto.ApiTokenSecretResponse, error) {
+	if strings.TrimSpace(req.Name) == "" || req.MaxConcurrency < 1 || req.MaxConcurrency > 1000 || utf8.RuneCountInString(req.Name) > 100 || utf8.RuneCountInString(req.Description) > 255 {
+		return nil, errors.New("validation.invalid")
+	}
 	expiresAt, err := parseExpiresAt(req.ExpiresAt, req.NeverExpire)
 	if err != nil {
 		return nil, err
@@ -93,6 +97,9 @@ func (s *ApiTokenService) UpdateApiToken(ctx context.Context, req dto.UpdateApiT
 		return err
 	}
 
+	if strings.TrimSpace(req.Name) == "" || req.MaxConcurrency < 1 || req.MaxConcurrency > 1000 || utf8.RuneCountInString(req.Name) > 100 || utf8.RuneCountInString(req.Description) > 255 {
+		return errors.New("validation.invalid")
+	}
 	expiresAt, err := parseExpiresAt(req.ExpiresAt, req.NeverExpire)
 	if err != nil {
 		return err
@@ -135,7 +142,7 @@ func (s *ApiTokenService) ResetApiToken(ctx context.Context, id uint) (*dto.ApiT
 		"token_hash":   tokenCore.HashToken(rawToken),
 		"token_prefix": buildTokenPrefix(rawToken),
 	}
-	if err := s.tokenRepo.UpdateWithAPIs(ctx, token, updates, token.Apis); err != nil {
+	if err := s.tokenRepo.UpdateColumns(ctx, id, updates); err != nil {
 		return nil, err
 	}
 
@@ -156,6 +163,15 @@ func (s *ApiTokenService) resolveApis(ctx context.Context, apiIDs []uint) ([]mod
 	if len(apiIDs) == 0 {
 		return nil, errors.New("请至少选择一个 API")
 	}
+	unique := make([]uint, 0, len(apiIDs))
+	seen := map[uint]bool{}
+	for _, id := range apiIDs {
+		if !seen[id] {
+			unique = append(unique, id)
+			seen[id] = true
+		}
+	}
+	apiIDs = unique
 	apis, err := s.tokenRepo.LoadApisByIDs(ctx, apiIDs)
 	if err != nil {
 		return nil, err
@@ -168,7 +184,7 @@ func (s *ApiTokenService) resolveApis(ctx context.Context, apiIDs []uint) ([]mod
 
 func parseExpiresAt(raw *string, neverExpire bool) (*time.Time, error) {
 	if neverExpire || raw == nil || strings.TrimSpace(*raw) == "" {
-		return nil, nil
+		return nil, errors.New("token.expiryRequired")
 	}
 	parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(*raw))
 	if err != nil {

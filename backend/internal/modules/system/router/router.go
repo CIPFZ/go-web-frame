@@ -164,6 +164,7 @@ func (s *SystemRouter) initApiTokenRoutes(group *gin.RouterGroup) {
 	apiTokenRouter := group.Group("api-token")
 	{
 		apiTokenRouter.POST("getApiTokenList", s.apis.ApiTokenApi.GetApiTokenList)
+		apiTokenRouter.POST("options", s.apis.ApiTokenApi.GetOptions)
 		apiTokenRouter.GET("detail", s.apis.ApiTokenApi.GetApiTokenDetail)
 
 		apiTokenWriteGroup := apiTokenRouter.Group("", middleware.OperationRecord(s.svcCtx))

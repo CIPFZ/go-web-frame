@@ -15,7 +15,8 @@ import (
 	"time"
 )
 
-const Latest = "20260910_cms_i18n_v1"
+const Latest = "20260910_token_notice_v1"
+const i18nVersion = "20260910_cms_i18n_v1"
 const baselineVersion = "20260910_sessions_policy_bootstrap_v1"
 
 func Check(db *gorm.DB) error {
@@ -126,12 +127,12 @@ func applyBaseline(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error {
 	return db.Create(&schemaMigration{Name: baselineVersion, AppliedAt: time.Now()}).Error
 }
 
-func apply(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error {
+func applyI18n(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error {
 	if err := applyBaseline(db, cfg, logger); err != nil {
 		return err
 	}
 	var count int64
-	if err := db.Model(&schemaMigration{}).Where("name = ?", Latest).Count(&count).Error; err != nil {
+	if err := db.Model(&schemaMigration{}).Where("name = ?", i18nVersion).Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
@@ -145,6 +146,26 @@ func apply(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error {
 		if err := db.Model(&sysModel.SysMenu{}).Where("locale = ? AND name = ? AND (name_en = '' OR name_en IS NULL)", key, seed.MenuNames[key]).Update("name_en", nameEn).Error; err != nil {
 			return err
 		}
+	}
+	return db.Create(&schemaMigration{Name: i18nVersion, AppliedAt: time.Now()}).Error
+}
+
+func apply(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error {
+	if err := applyI18n(db, cfg, logger); err != nil {
+		return err
+	}
+	var count int64
+	if err := db.Model(&schemaMigration{}).Where("name = ?", Latest).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	if err := db.AutoMigrate(&sysModel.SysNotice{}); err != nil {
+		return err
+	}
+	if err := seed.EnsureTokenEndpoints(db, cfg.System.RouterPrefix); err != nil {
+		return err
 	}
 	return db.Create(&schemaMigration{Name: Latest, AppliedAt: time.Now()}).Error
 }

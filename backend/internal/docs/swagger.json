@@ -23,6 +23,27 @@
     "version": "1.0"
   },
   "paths": {
+    "/open/token-info": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "CMS response; code 0 means success",
+            "schema": {
+              "$ref": "#/definitions/Response"
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiTokenAuth": []
+          }
+        ],
+        "summary": "GET /open/token-info"
+      }
+    },
     "/public/config": {
       "get": {
         "produces": [
@@ -74,6 +95,7 @@
               },
               "required": [
                 "name",
+                "maxConcurrency",
                 "apiIds"
               ],
               "type": "object"
@@ -296,6 +318,27 @@
         "summary": "POST /sys/api-token/getApiTokenList"
       }
     },
+    "/sys/api-token/options": {
+      "post": {
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "CMS response; code 0 means success",
+            "schema": {
+              "$ref": "#/definitions/Response"
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "POST /sys/api-token/options"
+      }
+    },
     "/sys/api-token/reset": {
       "post": {
         "consumes": [
@@ -376,6 +419,7 @@
               "required": [
                 "id",
                 "name",
+                "maxConcurrency",
                 "apiIds"
               ],
               "type": "object"
@@ -1305,6 +1349,9 @@
                 "pageSize": {
                   "type": "integer"
                 },
+                "targetType": {
+                  "type": "string"
+                },
                 "title": {
                   "type": "string"
                 }
@@ -2021,6 +2068,11 @@
     "ApiKeyAuth": {
       "in": "header",
       "name": "x-token",
+      "type": "apiKey"
+    },
+    "ApiTokenAuth": {
+      "in": "header",
+      "name": "X-API-Token",
       "type": "apiKey"
     }
   },

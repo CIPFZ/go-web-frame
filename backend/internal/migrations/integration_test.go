@@ -64,6 +64,7 @@ func TestSecurityAndMigrationMatrix(t *testing.T) {
 			var users int64
 			require.NoError(t, db.Model(&model.SysUser{}).Count(&users).Error)
 			require.EqualValues(t, 1, users)
+			verifyNoticesAndTokenSchema(t, db, ctx)
 			managerA, err := claims.NewPolicyManager(db)
 			require.NoError(t, err)
 			managerB, err := claims.NewPolicyManager(db)
@@ -160,4 +161,40 @@ func TestSecurityAndMigrationMatrix(t *testing.T) {
 			require.Error(t, usersvc.UpdateUser(ctx, dto.UpdateUserReq{ID: admin.ID, AuthorityIds: []uint{888}, Status: 1}))
 		})
 	}
+}
+
+func verifyNoticesAndTokenSchema(t *testing.T, db *gorm.DB, ctx context.Context) {
+	t.Helper()
+	var admin model.SysUser
+	require.NoError(t, db.Where("username = ?", "admin").First(&admin).Error)
+	notices := service.NewNoticeService(repository.NewNoticeRepository(db))
+	req := dto.CreateNoticeReq{Title: "Matrix notice", Content: "database portability", TargetType: model.NoticeTargetUsers, TargetIDs: []uint{admin.ID, admin.ID}, IsPopup: true}
+	require.NoError(t, notices.CreateNotice(ctx, req, admin.ID))
+	list, _, err := notices.GetNoticeList(ctx, dto.SearchNoticeReq{})
+	require.NoError(t, err)
+	require.Len(t, list, 1)
+	require.Equal(t, []uint{admin.ID}, list[0].TargetIDs)
+	require.EqualValues(t, 1, list[0].ReceiverCount)
+	id := list[0].ID
+	require.Error(t, notices.MarkRead(ctx, id, 999999))
+	require.NoError(t, notices.MarkRead(ctx, id, admin.ID))
+	require.NoError(t, notices.MarkRead(ctx, id, admin.ID))
+	popup, count, err := notices.GetMyNotices(ctx, admin.ID, 1, 100, true)
+	require.NoError(t, err)
+	require.Empty(t, popup)
+	require.Zero(t, count)
+	require.NoError(t, db.Model(&model.SysNotice{}).Where("id = ?", id).Update("end_at", time.Now().Add(-time.Hour)).Error)
+	require.Error(t, notices.MarkRead(ctx, id, admin.ID))
+	var external model.SysApi
+	require.NoError(t, db.Where("path = ?", "/api/v1/open/token-info").First(&external).Error)
+	tokens := service.NewApiTokenService(repository.NewApiTokenRepository(db))
+	expiry := time.Now().Add(time.Hour).Format(time.RFC3339)
+	created, err := tokens.CreateApiToken(ctx, admin.ID, dto.CreateApiTokenReq{Name: "matrix", ExpiresAt: &expiry, MaxConcurrency: 1, ApiIds: []uint{external.ID}})
+	require.NoError(t, err)
+	require.NoError(t, tokens.DisableApiToken(ctx, created.ID))
+	require.NoError(t, tokens.DisableApiToken(ctx, created.ID))
+	_, err = tokens.ResetApiToken(ctx, created.ID)
+	require.NoError(t, err)
+	require.NoError(t, tokens.DeleteApiToken(ctx, dto.DeleteApiTokenReq{ID: created.ID}))
+	require.Error(t, tokens.EnableApiToken(ctx, created.ID))
 }

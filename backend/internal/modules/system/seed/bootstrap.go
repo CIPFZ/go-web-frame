@@ -107,6 +107,10 @@ func Bootstrap(ctx context.Context, database *gorm.DB, cfg *config.Config, logge
 			return err
 		}
 
+		if err := EnsureTokenEndpoints(tx, cfg.System.RouterPrefix); err != nil {
+			return err
+		}
+
 		if err := ensureAdminUser(tx, opts); err != nil {
 			return err
 		}

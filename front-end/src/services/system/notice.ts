@@ -39,7 +39,7 @@ export async function getNoticeList(body: any, options?: { [key: string]: any })
   });
 }
 
-export async function getMyNotices(params?: { page?: number; pageSize?: number }, options?: { [key: string]: any }) {
+export async function getMyNotices(params?: { page?: number; pageSize?: number; popupOnly?: boolean }, options?: { [key: string]: any }) {
   return request<Omit<API.CommonResponse, 'data'> & { data: MyNoticePage }>('/api/v1/sys/notice/getMyNotices', {
     method: 'GET',
     params,

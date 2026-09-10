@@ -1,7 +1,8 @@
 import { useFormLocale } from '@/i18n/useFormLocale';
 import { t, useI18n } from '@/i18n';
 import { loadPagedOptions } from '@/utils/pagedOptions';
-import React, { useMemo, useState } from 'react';
+import dayjs from 'dayjs';
+import React, { useMemo, useRef, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-layout';
 import {
   ModalForm,
@@ -12,8 +13,8 @@ import {
   ProFormTextArea,
   ProTable,
 } from '@ant-design/pro-components';
-import type { ProColumns } from '@ant-design/pro-components';
-import { Button, Tag, message } from 'antd';
+import type { ActionType, ProColumns } from '@ant-design/pro-components';
+import { Alert, Button, Tag, message } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { createNotice, getNoticeList } from '@/services/system/notice';
 import { getAuthorityList } from '@/services/system/authority';
@@ -24,6 +25,7 @@ type NoticeItem = {
   content: string;
   level: 'info' | 'warning' | 'error';
   targetType: 'all' | 'roles' | 'users';
+  targetIds?: number[];
   isPopup: boolean;
   needConfirm: boolean;
   startAt?: string;
@@ -63,6 +65,7 @@ const flattenAuthorities = (
 };
 const NoticeAdminPage: React.FC = () => {
   const localeFormRef1 = useFormLocale();
+  const actionRef = useRef<ActionType | undefined>(undefined);
   const locale = useI18n();
   const targetText: Record<string, string> = {
     all: t('cms.allUsers'),
@@ -140,7 +143,8 @@ const NoticeAdminPage: React.FC = () => {
             text: t('cms.selectedUsers'),
           },
         },
-        render: (_, row) => targetText[row.targetType] || row.targetType,
+        render: (_, row) =>
+          `${targetText[row.targetType] || row.targetType}${row.targetIds?.length ? ` (${row.targetIds.join(', ')})` : ''}`,
       },
       {
         title: t('cms.recipients.1e1bd3'),
@@ -176,16 +180,25 @@ const NoticeAdminPage: React.FC = () => {
   const loadUsers = async () => {
     const res = await loadPagedOptions(getUserList);
     if (res.code === 0) {
-      const options = (res.data?.list || []).map((u: any) => ({
-        label: `${u.nickName || u.username} (${u.username})`,
-        value: u.ID,
-      }));
+      const options = (res.data?.list || [])
+        .filter((u: any) => u.status === 1)
+        .map((u: any) => ({
+          label: `${u.nickName || u.username} (${u.username})`,
+          value: u.ID,
+        }));
       setUserOptions(options);
     }
   };
   return (
     <PageContainer title={false}>
+      <Alert
+        type="info"
+        showIcon
+        message={t('cms.noticeSnapshotHelp')}
+        style={{ marginBottom: 16 }}
+      />
       <ProTable<NoticeItem>
+        actionRef={actionRef}
         rowKey="ID"
         headerTitle={t('cms.notices.e3d7bf')}
         columns={columns}
@@ -195,6 +208,7 @@ const NoticeAdminPage: React.FC = () => {
             pageSize: params.pageSize,
             title: params.title,
             level: params.level,
+            targetType: params.targetType,
           });
           return {
             success: res.code === 0,
@@ -207,7 +221,10 @@ const NoticeAdminPage: React.FC = () => {
             key="new"
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => setCreateVisible(true)}
+            onClick={() => {
+              setTargetType('all');
+              setCreateVisible(true);
+            }}
           >
             {t('cms.publishNotice')}
           </Button>,
@@ -228,11 +245,14 @@ const NoticeAdminPage: React.FC = () => {
             content: values.content,
             level: values.level,
             targetType: values.targetType,
-            targetIds: values.targetIds || [],
+            targetIds:
+              values.targetType === 'all' ? [] : values.targetIds || [],
             isPopup: values.isPopup || false,
             needConfirm: values.needConfirm || false,
-            startAt: values.startAt || undefined,
-            endAt: values.endAt || undefined,
+            startAt: values.startAt
+              ? dayjs(values.startAt).toISOString()
+              : undefined,
+            endAt: values.endAt ? dayjs(values.endAt).toISOString() : undefined,
           };
           const res = await createNotice(payload);
           if (res.code !== 0) {
@@ -240,6 +260,7 @@ const NoticeAdminPage: React.FC = () => {
             return false;
           }
           message.success(t('cms.publishedSuccessfully'));
+          actionRef.current?.reload();
           setCreateVisible(false);
           return true;
         }}
@@ -259,7 +280,9 @@ const NoticeAdminPage: React.FC = () => {
               required: true,
             },
             {
+              min: 2,
               max: 128,
+              whitespace: true,
             },
           ]}
         />
@@ -273,6 +296,8 @@ const NoticeAdminPage: React.FC = () => {
           ]}
           fieldProps={{
             rows: 4,
+            maxLength: 5000,
+            showCount: true,
           }}
         />
         <ProFormSelect
@@ -305,11 +330,12 @@ const NoticeAdminPage: React.FC = () => {
           fieldProps={{
             onChange: async (v) => {
               const nextTargetType = v as 'all' | 'roles' | 'users';
+              localeFormRef1.current?.setFieldsValue({ targetIds: [] });
               setTargetType(nextTargetType);
-              if (nextTargetType === 'roles' && roleOptions.length === 0) {
+              if (nextTargetType === 'roles') {
                 await loadRoles();
               }
-              if (nextTargetType === 'users' && userOptions.length === 0) {
+              if (nextTargetType === 'users') {
                 await loadUsers();
               }
             },

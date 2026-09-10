@@ -506,7 +506,7 @@ const ApiTokenPage: React.FC = () => {
         <div className="drawerTips">
           <div className="drawerTipsTitle">{t('cms.tokenGuidelines')}</div>
           <Typography.Paragraph className="drawerTipsText">
-            {t('cms.anExpirationDateIsRequiredUse')}
+            {t('cms.anExpirationDateIsRequiredUse')} {t('cms.tokenScopeHelp')}
           </Typography.Paragraph>
         </div>
         <ProFormText
@@ -517,6 +517,7 @@ const ApiTokenPage: React.FC = () => {
             {
               required: true,
               message: t('cms.enterATokenName'),
+              whitespace: true, max: 100,
             },
           ]}
         />
@@ -534,6 +535,7 @@ const ApiTokenPage: React.FC = () => {
           name="maxConcurrency"
           label={t('cms.maximumConcurrency')}
           min={1}
+          max={1000}
           fieldProps={{
             precision: 0,
           }}

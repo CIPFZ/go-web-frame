@@ -1,182 +1,46 @@
-# API Token 设计文档
+# API Token 使用和接入
 
-## 目标
+API Token 用于脚本及外部服务，CMS 登录和管理仍使用 JWT + Casbin。
+只有代码明确开放的接口才能授权。`sys_apis` 中新增一个接口不会改变其鉴权方式。
 
-为 `web-cms` 增加一套仅供外部服务端或脚本调用后端 API 的 `API Token` 机制。
+## 当前可调用接口
 
-这套机制必须满足以下约束：
+`GET /api/v1/open/token-info`（随 RouterPrefix 配置改变前缀）
 
-- 不参与浏览器后台登录态
-- 不写 Cookie
-- 不替代现有 `JWT + Casbin` 的后台用户权限体系
-- 由后台管理员在 system 模块中创建和管理
-- 授权范围复用现有 `sys_apis`
+请求头：`X-API-Token: <token>`。成功返回 `{"code":0,"data":{"tokenId":123},"msg":"..."}`。
+此接口用于验证脚本配置和凭据是否有效，不暴露用户、服务器或管理信息。
+Token 必须被明确授予此接口，JWT 登录凭据不能代替 API Token。
 
-## 设计原则
+在后台创建 Token，设置有效期、并发上限和授权接口，复制一次性显示的明文。
+后台的 `POST /sys/api-token/options` 只返回明确开放的 API；接口管理仍列出完整的 CMS API。
+创建、更新都会在数据库事务内重新校验授权目标；拒绝未开放接口、无效 ID、空白名称、
+缺失/过去的过期时间、永久有效，以及 1–1000 以外的并发配置。
 
-- 认证与后台用户体系隔离：`API Token` 只认 `X-API-Token`
-- 授权复用现有 API 资源模型：按 `path + method` 精确授权
-- 明文 token 永不落库：数据库只保存 `token_hash`
-- 默认单实例并发限制：满足当前小规模生产场景
-- 管理入口统一放入 `system` 模块
+## 生命周期和权限边界
 
-## 范围
+- 数据库只保存 SHA256 摘要和展示前缀；列表、详情和操作日志不返回明文。
+- 创建/重置时返回一次明文；重置只更新密钥，不覆盖并发修改的权限。
+- 禁用、删除、重置、过期或撤销授权后，后续请求被拒绝。已通过鉴权的在途请求不强制终止。
+- Token 不继承创建者的角色，不包含用户身份。删除创建者不会自动撤销其创建的服务凭据；管理员应显式禁用/删除凭据。
+- 匹配 HTTP 方法和 Gin 注册路径；没有授权、没有明确开放的接口均不能访问。
+- 为兼容 CMS，认证失败使用 HTTP 200 + `code=1003`，权限不足 `code=1004`。
+  错误请求方法返回 404。并发超限使用 HTTP 429，Redis 限流不可用使用 HTTP 503，均返回 JSON。
+- Redis 启用时跨实例共享并发租约；否则只保证单进程并发。处理器必须遵守请求 context 的取消信号。
+- 老版本永久 Token 和旧授权不会被迁移自动扩大权限；编辑时需改为有效期并删除未开放授权。
 
-本次实现包含：
+## 新接口接入
 
-- `sys_api_tokens` 与 `sys_api_token_apis` 数据模型
-- 后台管理接口与管理页面
-- token 生成、重置、启停、删除、列表、详情、更新
-- `X-API-Token` 认证中间件
-- 基于 `sys_apis` 的接口授权
-- 单实例内存并发限制
-- 至少一组业务路由支持 `API Token` 访问
-- 后端与前端测试
+1. 在 `internal/core/token/endpoints.go` 添加明确的 method/path 白名单。
+2. 在路由层注册业务 handler，并使用 `ApiTokenAuth`；不要接入 CMS 的 JWT/Casbin 组。
+3. 同步 seed 和增量迁移，写入 API 目录；不给既有 Token 自动增加授权。
+4. handler 若操作任务或业务数据，仍须校验该 Token 对具体资源的访问范围；目前的授权粒度是接口，非资源实例。
+5. 增加实际路由测试，覆盖无凭据、错误凭据、无授权、错误方法以及资源越权。
 
-本次不包含：
+OpenAPI 使用独立的 `ApiTokenAuth` 安全定义。管理权限由角色控制，基础普通角色无 Token 管理权限。
 
-- 浏览器端使用 token 登录后台
-- 多实例分布式并发控制
-- token 使用明细审计表
-- token 自助申请流程
+## 验证
 
-## 核心模型
-
-### 1. sys_api_tokens
-
-字段：
-
-- `id`
-- `token_hash`：完整 token 的 SHA256 摘要，唯一索引
-- `token_prefix`：仅用于展示，形如 `cms_ab12`
-- `name`
-- `description`
-- `expires_at`
-- `max_concurrency`
-- `enabled`
-- `last_used_at`
-- `created_by`
-- `created_at`
-- `updated_at`
-- `deleted_at`
-
-### 2. sys_api_token_apis
-
-用于维护 token 与 `sys_apis` 的多对多关系：
-
-- `api_token_id`
-- `api_id`
-
-## 认证与授权设计
-
-### 1. 请求入口
-
-外部调用方通过请求头传递：
-
-`X-API-Token: <raw-token>`
-
-### 2. 中间件职责
-
-新增 `ApiTokenAuth` 中间件，执行顺序如下：
-
-1. 从请求头读取 `X-API-Token`
-2. 对原始 token 做 SHA256
-3. 根据 `token_hash` 查询 token
-4. 校验 `enabled`
-5. 校验 `expires_at`
-6. 校验当前请求 `path + method` 是否在该 token 的授权 API 集合内
-7. 校验并发数
-8. 将 `apiTokenId` 等上下文写入 gin context
-9. 请求结束后释放并发占用
-10. 尝试更新 `last_used_at`
-
-### 3. 授权粒度
-
-授权基于现有 `sys_apis`，按以下维度精确匹配：
-
-- HTTP Method
-- Router 注册路径
-
-不做按菜单、按角色、按模块的粗粒度授权。
-
-## 路由设计
-
-### 1. 后台管理接口
-
-继续放在 `system` 模块，由后台管理员通过 JWT 登录后调用：
-
-- `POST /api/v1/sys/api-token/create`
-- `POST /api/v1/sys/api-token/getApiTokenList`
-- `GET /api/v1/sys/api-token/detail`
-- `PUT /api/v1/sys/api-token/update`
-- `DELETE /api/v1/sys/api-token/delete`
-- `POST /api/v1/sys/api-token/reset`
-- `POST /api/v1/sys/api-token/enable`
-- `POST /api/v1/sys/api-token/disable`
-
-### 2. 外部 token 可访问业务接口
-
-基础 CMS 保留 Token 管理、权限校验和并发控制能力，目前没有注册对外业务接口。
-后续 Nexus 接口接入时，需要显式使用 `ApiTokenAuth` 注册路由，并配置 API 授权；
-在后台勾选某个 API 不会自动改变该接口的鉴权方式，系统管理接口仍使用 JWT 和 Casbin。
-
-## 后台管理页面
-
-前端新增 `sys/api-token` 页面，能力如下：
-
-- token 列表
-- 新建 token
-- 编辑 token 元数据
-- 选择授权 API
-- 启用/禁用
-- 删除
-- 重置 token
-- 创建或重置成功后一次性展示完整 token
-
-页面风格复用当前 `sys/api` 的 `ProTable + ModalForm` 模式。
-
-## 安全策略
-
-- 数据库存 hash，不存明文 token
-- 明文 token 只在创建和重置成功时返回一次
-- 失效 token 不可恢复，只能重置
-- 禁用或删除后立即失效
-- 默认返回统一的 401/403，避免泄露过多内部细节
-
-## 并发限制策略
-
-当前版本采用进程内内存计数：
-
-- 优点：实现简单，满足单实例部署
-- 限制：多实例场景下无法保证全局并发上限
-
-因此文档明确约束：第一阶段的小规模生产仅支持单实例下的严格并发控制。
-
-## 测试策略
-
-后端测试覆盖：
-
-- token 生成与 hash
-- service 创建、重置、更新逻辑
-- repository API 绑定逻辑
-- 中间件授权成功与失败路径
-- 并发限制
-
-前端测试覆盖：
-
-- 路由配置包含 `sys/api-token`
-- 页面关键交互函数
-- 成功创建/重置场景的展示逻辑
-
-## 与现有系统的关系
-
-- 管理 `API Token` 的权限，仍由现有后台管理员体系控制
-- `API Token` 自身不拥有角色，不参与 Casbin
-- `sys_apis` 继续作为唯一接口资源目录
-
-## 结果
-
-实现完成后，项目将同时具备两套互不混淆的访问方式：
-
-- 后台管理员/用户：`JWT + Casbin`
-- 外部脚本/服务：`API Token + sys_apis`
+实际路由测试：`internal/core/server/api_token_test.go`。
+服务回归：`internal/modules/system/service/api_token_service_test.go`，包含模拟重置与撤权交错。
+并发回归：`internal/middleware/api_token_test.go` 和 `internal/core/token`。
+浏览器/真实 HTTP：`front-end/e2e/token-notice-security.spec.ts`，使用隔离数据库运行。

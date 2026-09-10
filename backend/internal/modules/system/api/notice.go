@@ -56,23 +56,20 @@ func (a *NoticeApi) GetNoticeList(c *gin.Context) {
 }
 
 func (a *NoticeApi) GetMyNotices(c *gin.Context) {
-	type query struct {
-		Page     int `form:"page"`
-		PageSize int `form:"pageSize"`
+	var q struct {
+		common.PageInfo
+		PopupOnly bool `form:"popupOnly"`
 	}
-	var q query
-	_ = c.ShouldBindQuery(&q)
-	list, total, err := a.noticeService.GetMyNotices(c.Request.Context(), utils.GetUserID(c), q.Page, q.PageSize)
+	if err := c.ShouldBindQuery(&q); err != nil {
+		response.FailWithValidation(err, c)
+		return
+	}
+	q.Normalize()
+	list, total, err := a.noticeService.GetMyNotices(c.Request.Context(), utils.GetUserID(c), q.Page, q.PageSize, q.PopupOnly)
 	if err != nil {
 		logger.GetLogger(c).Error("get_my_notices_failed", zap.Error(err))
 		response.FailWithMessage("get my notices failed", c)
 		return
-	}
-	if q.Page <= 0 {
-		q.Page = 1
-	}
-	if q.PageSize <= 0 {
-		q.PageSize = 10
 	}
 	response.OkWithDetailed(common.PageResult{
 		List:     list,

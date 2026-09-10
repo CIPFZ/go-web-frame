@@ -1,4 +1,9 @@
 export default {
+  'cms.tokenUnexposedApi': '未开放的 API（ID：{id}），请移除',
+  'cms.tokenScopeHelp':
+    '仅可授权已开放的外部接口。CMS 登录和管理接口使用独立的用户权限。',
+  'cms.noticeSnapshotHelp':
+    '发布时确定收件人，只投递给当时启用的用户；后续角色变更不改变历史投递。关闭弹窗不会确认已读。',
   'cms.loadOptionsFailed': '加载选项失败',
   'cms.optionsChanged': '选项数据发生变化，请重新加载',
   'cms.tooManyOptions': '选项数量过多，请缩小查询范围',

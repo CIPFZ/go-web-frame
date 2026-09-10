@@ -21,8 +21,9 @@ type CreateNoticeReq struct {
 
 type SearchNoticeReq struct {
 	common.PageInfo
-	Title string `json:"title" form:"title"`
-	Level string `json:"level" form:"level"`
+	Title      string `json:"title" form:"title"`
+	Level      string `json:"level" form:"level"`
+	TargetType string `json:"targetType" form:"targetType"`
 }
 
 type MarkNoticeReadReq struct {
@@ -36,6 +37,7 @@ type NoticeListItem struct {
 	Content       string            `json:"content"`
 	Level         model.NoticeLevel `json:"level"`
 	TargetType    string            `json:"targetType"`
+	TargetIDs     []uint            `json:"targetIds" gorm:"serializer:json"`
 	IsPopup       bool              `json:"isPopup"`
 	NeedConfirm   bool              `json:"needConfirm"`
 	StartAt       *time.Time        `json:"startAt"`

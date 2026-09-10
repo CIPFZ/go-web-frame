@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	tokenCore "github.com/CIPFZ/gowebframe/internal/core/token"
 	"github.com/CIPFZ/gowebframe/internal/docs"
 	"github.com/CIPFZ/gowebframe/internal/middleware"
 	systemApi "github.com/CIPFZ/gowebframe/internal/modules/system/api"
@@ -12,6 +13,7 @@ import (
 	systemRouter "github.com/CIPFZ/gowebframe/internal/modules/system/router"
 	systemService "github.com/CIPFZ/gowebframe/internal/modules/system/service"
 	"github.com/CIPFZ/gowebframe/internal/svc"
+	"github.com/CIPFZ/gowebframe/pkg/response"
 
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
@@ -37,6 +39,11 @@ func InitRouters(svcCtx *svc.ServiceContext) *gin.Engine {
 	publicGroup.Use(middleware.LoginRateLimit(svcCtx.Redis))
 	privateGroup := r.Group(routerPrefix)
 	privateGroup.Use(middleware.JWTAuth(svcCtx), middleware.CasbinHandler(svcCtx))
+
+	// External identities never enter the CMS JWT/Casbin group.
+	r.GET(tokenCore.TokenInfoPath(routerPrefix), middleware.ApiTokenAuth(svcCtx), func(c *gin.Context) {
+		response.OkWithData(gin.H{"tokenId": c.GetUint(middleware.CtxKeyAPITokenID)}, c)
+	})
 
 	sysRouter := wireSystemModule(svcCtx)
 	sysRouter.InitSystemRoutes(privateGroup, publicGroup)
@@ -113,7 +120,7 @@ func wireSystemModule(svcCtx *svc.ServiceContext) *systemRouter.SystemRouter {
 	menuRepo := systemRepo.NewMenuRepository(svcCtx.DB)
 	authRepo := systemRepo.NewAuthorityRepository(svcCtx.DB)
 	apiRepo := systemRepo.NewApiRepository(svcCtx.DB)
-	apiTokenRepo := systemRepo.NewApiTokenRepository(svcCtx.DB)
+	apiTokenRepo := systemRepo.NewApiTokenRepository(svcCtx.DB, svcCtx.Config.System.RouterPrefix)
 	casbinRepo := systemRepo.NewCasbinRepository(svcCtx.DB)
 	opLogRepo := systemRepo.NewOperationLogRepository(svcCtx.DB)
 	noticeRepo := systemRepo.NewNoticeRepository(svcCtx.DB)

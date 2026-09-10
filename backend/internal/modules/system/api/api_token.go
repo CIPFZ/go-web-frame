@@ -2,8 +2,10 @@ package api
 
 import (
 	logger "github.com/CIPFZ/gowebframe/internal/core/log"
+	tokenCore "github.com/CIPFZ/gowebframe/internal/core/token"
 	"github.com/CIPFZ/gowebframe/internal/middleware"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
+	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/service"
 	"github.com/CIPFZ/gowebframe/internal/svc"
 	"github.com/CIPFZ/gowebframe/pkg/response"
@@ -142,4 +144,17 @@ func (a *ApiTokenApi) toggleApiToken(c *gin.Context, enabled bool) {
 		return
 	}
 	response.Ok(c)
+}
+
+func (a *ApiTokenApi) GetOptions(c *gin.Context) {
+	var apis []model.SysApi
+	query := a.svcCtx.DB.WithContext(c.Request.Context()).Where("1 = 0")
+	for path, method := range tokenCore.Endpoints(a.svcCtx.Config.System.RouterPrefix) {
+		query = query.Or("path = ? AND method = ?", path, method)
+	}
+	if err := query.Find(&apis).Error; err != nil {
+		response.FailWithMessage("获取失败", c)
+		return
+	}
+	response.OkWithPage(apis, int64(len(apis)), 1, 100, c)
 }

@@ -30,6 +30,7 @@ async function apiLogin(
 test('workplace respects role menus and supports notice pagination and confirmation', async ({
   page,
 }, testInfo) => {
+  test.setTimeout(150_000);
   const apiBase = process.env.E2E_API_BASE || 'http://127.0.0.1:8080';
   const bootstrapApi = await request.newContext();
 
@@ -109,9 +110,20 @@ test('workplace respects role menus and supports notice pagination and confirmat
   await page.goto('/#/user/login');
   await page.getByRole('textbox', { name: '用户名' }).fill(username);
   await page.locator('input[type="password"]').fill(password);
-  await page.getByRole('button', { name: /登\s*录/ }).click();
-
-  await page.waitForURL(/#\//, { timeout: 20_000 });
+  const submitLogin = async () => {
+    const pending = page.waitForResponse(response => response.url().endsWith('/api/v1/user/login') && response.request().method() === 'POST');
+    await page.getByRole('button', { name: /登\s*录/ }).click();
+    return pending;
+  };
+  let response = await submitLogin();
+  if (response.status() === 429) {
+    // The suite shares an IP; respect the real server's login quota.
+    const seconds = Number(response.headers()['retry-after'] || 60);
+    await page.waitForTimeout(Math.min(seconds, 60) * 1000 + 100);
+    response = await submitLogin();
+  }
+  expect((await response.json()).code).toBe(0);
+  await page.waitForURL(/#\/dashboard\/workplace/, { timeout: 20_000 });
 
   await expect(page.getByText('我的通知')).toBeVisible();
   await expect(page.getByText(noticeTitle)).toBeVisible();

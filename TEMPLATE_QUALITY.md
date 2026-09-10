@@ -69,3 +69,7 @@ python3 deploy/observability/verify.py
 ```
 
 中英文适配约定、动态菜单英文名称与验证范围见 [国际化说明](docs/I18N.md)。
+
+API Token 与通知回归约定见 [Token 设计](docs/apitoken-design.md) 和 [通知投递](docs/notices-design.md)。
+新增用例覆盖实际开放路由、凭据生命周期、并发配额、重置与撤权交错、普通角色越权、角色收件人快照、有效期、登录弹窗以及定时发布。
+浏览器批量登录触发真实 429 时按 Retry-After 等待，测试环境不关闭登录限流。

@@ -1,6 +1,11 @@
 import type zh from '../zh-CN/cms';
 
 export default {
+  'cms.tokenUnexposedApi': 'API {id} is not exposed; remove this grant',
+  'cms.tokenScopeHelp':
+    'Only explicitly exposed external APIs can be granted. CMS login and administration use separate user permissions.',
+  'cms.noticeSnapshotHelp':
+    'Recipients are fixed at publication and include active users only. Later role changes do not alter delivery. Closing a popup does not mark it as read.',
   'cms.loadOptionsFailed': 'Unable to load options',
   'cms.optionsChanged': 'Options have changed. Please reload.',
   'cms.tooManyOptions': 'Too many options. Narrow your search.',
