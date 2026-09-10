@@ -52,6 +52,9 @@ func main() {
 	if err := normalizeCMSBaseline(gormDB); err != nil {
 		log.Fatalf("CMS baseline migration failed: %v", err)
 	}
+	if err := reorderCMSMenus(gormDB); err != nil {
+		log.Fatalf("CMS menu order migration failed: %v", err)
+	}
 	fmt.Println("AutoMigrate finished successfully!")
 }
 

@@ -63,7 +63,7 @@ func (r *MenuRepository) FindByPathExcludeId(ctx context.Context, path string, e
 // GetAll 从数据库中获取所有菜单，并按 'sort' 字段排序
 func (r *MenuRepository) GetAll(ctx context.Context) ([]model.SysMenu, error) {
 	var menus []model.SysMenu
-	err := r.db.WithContext(ctx).Order("sort").Find(&menus).Error
+	err := r.db.WithContext(ctx).Order("sort").Order("id").Find(&menus).Error
 	return menus, err
 }
 
@@ -78,6 +78,7 @@ func (r *MenuRepository) GetByAuthorityId(ctx context.Context, authorityId uint)
 		Where("sys_authority_menus.authority_id = ?", authorityId).
 		Where("sys_menus.deleted_at IS NULL"). // 确保菜单未被软删除
 		Order("sys_menus.sort").
+		Order("sys_menus.id").
 		Find(&menus).Error
 	return menus, err
 }

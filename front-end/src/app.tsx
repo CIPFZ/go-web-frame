@@ -17,6 +17,7 @@ import { errorConfig } from './requestErrorConfig';
 import '@ant-design/v5-patch-for-react-19';
 import { processMenuData, buildRoutes } from '@/utils/menuHelpers';
 import { fetchMenuData } from '@/utils/menuDataStore';
+import { withMenuIcon } from '@/utils/menuIcon';
 import { updateUiConfig } from '@/services/api/user';
 
 const isDev = process.env.NODE_ENV === 'development' || process.env.CI;
@@ -198,6 +199,12 @@ export const layout: RunTimeLayoutConfig = ({
       : [],
     menuHeaderRender: undefined,
     menuDataRender: () => initialState?.menuData || [],
+    subMenuItemRender: (item, defaultDom) => withMenuIcon(item.icon, defaultDom),
+    menuItemRender: (item, defaultDom) => {
+      const label = withMenuIcon(item.icon, defaultDom);
+      if (item.isUrl || !item.path || history.location.pathname === item.path) return label;
+      return <Link to={item.path.replace('/*', '')} target={item.target}>{label}</Link>;
+    },
     childrenRender: (children) => {
       return (
         <>

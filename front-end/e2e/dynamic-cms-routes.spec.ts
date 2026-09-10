@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-type Menu = { path: string; component?: string; hideInMenu?: boolean; routes?: Menu[] };
+type Menu = { path: string; component?: string; icon?: string; hideInMenu?: boolean; routes?: Menu[] };
 const flatten = (menus: Menu[]): Menu[] => menus.flatMap(menu => [menu, ...flatten(menu.routes || [])]);
 
 test.beforeEach(async ({ page, request }) => {
@@ -74,4 +74,51 @@ test('menu editor separates readable names from translation keys', async ({ page
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByLabel('展示名称', { exact: true })).toHaveValue('工作台');
   await expect(dialog.locator('input[id="locale"]')).toHaveValue('menu.dashboard.workplace');
+});
+
+test('sidebar shows ordered backend menus with icons when expanded and collapsed', async ({ page }) => {
+  await page.goto('/#/sys/menu');
+  const sidebar = page.locator('.ant-layout-sider .ant-menu-root').first();
+  const roots = sidebar.locator(':scope > .ant-menu-item > .ant-menu-title-content, :scope > .ant-menu-submenu > .ant-menu-submenu-title');
+  await expect(roots).toHaveText(['工作台', '系统管理', '服务器状态', '关于']);
+  const system = sidebar.locator(':scope > .ant-menu-submenu').filter({ hasText: '系统管理' });
+  const children = system.locator('.ant-menu-item');
+  await expect(children).toHaveText(['用户管理', '角色管理', '菜单管理', 'API 管理', 'API Token', '通知公告', '操作日志']);
+  const icons = ['user', 'team', 'menu', 'api', 'key', 'notification', 'history'];
+  for (const [index, icon] of icons.entries()) {
+    await expect(children.nth(index).locator(`svg[data-icon="${icon}"]`)).toBeVisible();
+    await expect(children.nth(index).locator('svg')).toHaveCount(1);
+  }
+  await expect(roots.nth(1).locator('svg[data-icon="setting"]')).toHaveCount(1);
+
+  await page.locator('.ant-pro-sider-collapsed-button').click();
+  await system.locator('.ant-menu-submenu-title').hover();
+  const popup = page.locator('.ant-menu-submenu-popup:visible');
+  const userLink = popup.getByRole('link', { name: '用户管理', exact: true });
+  await expect(userLink.locator('svg[data-icon="user"]')).toBeVisible();
+  await userLink.click();
+  await expect(page).toHaveURL(/#\/sys\/user$/);
+});
+
+test('nested submenu and third-level page use icons supplied by the backend', async ({ page }) => {
+  await page.route('**/api/v1/sys/menu/getMenu', async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    const system = body.data.find((item: Menu) => item.path === '/sys');
+    const user = system.routes.find((item: Menu) => item.path === '/sys/user');
+    system.routes = system.routes.filter((item: Menu) => item.path !== '/sys/user');
+    system.routes.unshift({
+      path: '/sys/accounts', name: '账号维护', icon: 'TeamOutlined',
+      component: 'components/RouterLayout',
+      routes: [{ ...user, path: '/sys/accounts/users', icon: 'RocketOutlined' }],
+    });
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto('/#/sys/accounts/users');
+  const sidebar = page.locator('.ant-layout-sider .ant-menu-root').first();
+  const group = sidebar.locator('.ant-menu-submenu-title').filter({ hasText: '账号维护' });
+  await expect(group.locator('svg[data-icon="team"]')).toBeVisible();
+  const user = sidebar.locator('.ant-menu-item').filter({ hasText: '用户管理' });
+  await expect(user.locator('svg[data-icon="rocket"]')).toBeVisible();
+  await expect(user.locator('svg')).toHaveCount(1);
 });

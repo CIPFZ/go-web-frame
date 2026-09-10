@@ -273,6 +273,7 @@ const MenuTableList: React.FC = () => {
           <ProFormDigit
             name="sort"
             label="排序"
+            tooltip="同级菜单按数字从小到大排列，建议预留间隔"
             width="xs"
             initialValue={0}
             fieldProps={{ precision: 0 }}

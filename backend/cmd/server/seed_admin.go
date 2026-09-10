@@ -169,18 +169,18 @@ func ensureAuthorities(tx *gorm.DB, opts seedAdminOptions) error {
 
 func ensureBaseMenus(tx *gorm.DB) (map[string]uint, error) {
 	menus := []seedMenu{
-		{Key: "dashboard", Path: "/dashboard/workplace", Name: "menu.dashboard.workplace", Component: "dashboard/workplace", Icon: "DashboardOutlined", Sort: 1, Locale: "menu.dashboard.workplace"},
-		{Key: "state", Path: "/state", Name: "menu.state", Component: "state", Icon: "CloudServerOutlined", Sort: 2, Locale: "menu.state"},
-		{Key: "about", Path: "/about", Name: "menu.about", Component: "about", Icon: "InfoCircleOutlined", Sort: 3, Locale: "menu.about"},
-		{Key: "sys_root", Path: "/sys", Name: "menu.system", Component: "components/RouterLayout", Icon: "SettingOutlined", Sort: 10, Locale: "menu.system"},
-		{Key: "sys_user", ParentKey: "sys_root", Path: "/sys/user", Name: "menu.system.user", Component: "sys/user", Icon: "UserOutlined", Sort: 1, Locale: "menu.system.user"},
-		{Key: "sys_authority", ParentKey: "sys_root", Path: "/sys/authority", Name: "menu.system.authority", Component: "sys/authority", Icon: "TeamOutlined", Sort: 2, Locale: "menu.system.authority"},
-		{Key: "sys_menu", ParentKey: "sys_root", Path: "/sys/menu", Name: "menu.system.menu", Component: "sys/menu", Icon: "MenuOutlined", Sort: 3, Locale: "menu.system.menu"},
-		{Key: "sys_api", ParentKey: "sys_root", Path: "/sys/api", Name: "menu.system.api", Component: "sys/api", Icon: "ApiOutlined", Sort: 4, Locale: "menu.system.api"},
-		{Key: "sys_api_token", ParentKey: "sys_root", Path: "/sys/api-token", Name: "menu.system.apiToken", Component: "sys/api-token", Icon: "KeyOutlined", Sort: 5, Locale: "menu.system.apiToken"},
-		{Key: "sys_operation", ParentKey: "sys_root", Path: "/sys/operation", Name: "menu.system.operation", Component: "sys/operation", Icon: "HistoryOutlined", Sort: 6, Locale: "menu.system.operation"},
-		{Key: "sys_notice", ParentKey: "sys_root", Path: "/sys/notice", Name: "menu.system.notice", Component: "sys/notice", Icon: "NotificationOutlined", Sort: 7, Locale: "menu.system.notice"},
-		{Key: "account_settings", Path: "/account/settings", Name: "menu.account.settings", Component: "user/info", Icon: "ProfileOutlined", Sort: 99, Locale: "menu.account.settings", HideInMenu: true},
+		{Key: "dashboard", Path: "/dashboard/workplace", Name: "menu.dashboard.workplace", Component: "dashboard/workplace", Icon: "DashboardOutlined", Locale: "menu.dashboard.workplace"},
+		{Key: "state", Path: "/state", Name: "menu.state", Component: "state", Icon: "CloudServerOutlined", Locale: "menu.state"},
+		{Key: "about", Path: "/about", Name: "menu.about", Component: "about", Icon: "InfoCircleOutlined", Locale: "menu.about"},
+		{Key: "sys_root", Path: "/sys", Name: "menu.system", Component: "components/RouterLayout", Icon: "SettingOutlined", Locale: "menu.system"},
+		{Key: "sys_user", ParentKey: "sys_root", Path: "/sys/user", Name: "menu.system.user", Component: "sys/user", Icon: "UserOutlined", Locale: "menu.system.user"},
+		{Key: "sys_authority", ParentKey: "sys_root", Path: "/sys/authority", Name: "menu.system.authority", Component: "sys/authority", Icon: "TeamOutlined", Locale: "menu.system.authority"},
+		{Key: "sys_menu", ParentKey: "sys_root", Path: "/sys/menu", Name: "menu.system.menu", Component: "sys/menu", Icon: "MenuOutlined", Locale: "menu.system.menu"},
+		{Key: "sys_api", ParentKey: "sys_root", Path: "/sys/api", Name: "menu.system.api", Component: "sys/api", Icon: "ApiOutlined", Locale: "menu.system.api"},
+		{Key: "sys_api_token", ParentKey: "sys_root", Path: "/sys/api-token", Name: "menu.system.apiToken", Component: "sys/api-token", Icon: "KeyOutlined", Locale: "menu.system.apiToken"},
+		{Key: "sys_operation", ParentKey: "sys_root", Path: "/sys/operation", Name: "menu.system.operation", Component: "sys/operation", Icon: "HistoryOutlined", Locale: "menu.system.operation"},
+		{Key: "sys_notice", ParentKey: "sys_root", Path: "/sys/notice", Name: "menu.system.notice", Component: "sys/notice", Icon: "NotificationOutlined", Locale: "menu.system.notice"},
+		{Key: "account_settings", Path: "/account/settings", Name: "menu.account.settings", Component: "user/info", Icon: "ProfileOutlined", Locale: "menu.account.settings", HideInMenu: true},
 	}
 
 	menuIDs := make(map[string]uint, len(menus))
@@ -188,6 +188,7 @@ func ensureBaseMenus(tx *gorm.DB) (map[string]uint, error) {
 		if name, ok := seed.MenuNames[item.Locale]; ok {
 			item.Name = name
 		}
+		item.Sort = seed.MenuOrder[item.Path]
 		parentID := uint(0)
 		if item.ParentKey != "" {
 			pid, ok := menuIDs[item.ParentKey]
@@ -224,11 +225,10 @@ func ensureBaseMenus(tx *gorm.DB) (map[string]uint, error) {
 				"access":       item.Access,
 				"target":       item.Target,
 				"locale":       item.Locale,
-				"sort":         item.Sort,
-				"icon":         item.Icon,
 				"hide_in_menu": item.HideInMenu,
 			}
-			// Upgrade old translation keys while preserving names edited in CMS.
+			// Display names, sort order and icons edited in CMS survive restarts.
+			// Existing defaults are upgraded by versioned migrations.
 			if menu.Name == "" || menu.Name == item.Locale {
 				updates["name"] = item.Name
 			}
