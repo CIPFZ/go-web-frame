@@ -16,7 +16,6 @@ const quickLinks = [
   { title: 'API 管理', path: '/sys/api' },
   { title: '通知公告', path: '/sys/notice' },
   { title: '操作日志', path: '/sys/operation' },
-  { title: '诗词管理', path: '/poetry/poem' },
 ];
 
 const levelColor: Record<string, string> = {

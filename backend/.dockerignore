@@ -1,0 +1,12 @@
+.git
+.env*
+logs
+uploads
+bin
+tmp
+main
+migrate
+*.db
+*.sqlite*
+*.test
+coverage.out

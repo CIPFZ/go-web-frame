@@ -29,53 +29,12 @@ export default [
     ],
   },
   {
-    path: '/plugins',
-    component: './plugin/public-list',
-    layout: false,
-    hideInMenu: true,
-  },
-  {
-    path: '/plugins/:id',
-    component: './plugin/public-detail',
-    layout: false,
-    hideInMenu: true,
-  },
-  {
     path: '/',
     id: 'ant-design-pro-layout',
     routes: [
       {
         path: '/',
         redirect: '/dashboard/workplace',
-      },
-      {
-        path: '/sys/api-token',
-        component: './sys/api-token',
-        hideInMenu: true,
-      },
-      {
-        path: '/plugin/project/:id',
-        component: './plugin/project-detail',
-        hideInMenu: true,
-      },
-      {
-        path: '/plugin/work-order/:pluginId/:id',
-        component: './plugin/work-order-detail',
-        hideInMenu: true,
-      },
-      {
-        path: '/sys/plugin-master',
-        component: './sys/plugin-master',
-      },
-    ],
-  },
-  {
-    path: '/account',
-    routes: [
-      {
-        path: '/account/settings',
-        component: './account/settings',
-        hideInMenu: true,
       },
     ],
   },

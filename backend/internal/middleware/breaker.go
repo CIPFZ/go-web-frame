@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sony/gobreaker"
@@ -15,9 +16,9 @@ func BreakerMiddleware(logger *zap.Logger) gin.HandlerFunc {
 	// 配置熔断规则 (企业级通常放在 Config 中，这里使用经典默认值)
 	settings := gobreaker.Settings{
 		Name:        "HTTP-API-Breaker",
-		MaxRequests: 0,  // 半开状态下允许的请求数 (0 表示默认 1)
-		Interval:    0,  // 计数周期 (默认 60s 清零)
-		Timeout:     30, // 熔断后等待多久进入半开状态 (秒)
+		MaxRequests: 0, // 半开状态下允许的请求数 (0 表示默认 1)
+		Interval:    0, // 计数周期 (默认 60s 清零)
+		Timeout:     30 * time.Second,
 
 		// 触发熔断的条件：
 		// 当请求总数 >= 5 且 失败率 >= 60% 时，触发熔断

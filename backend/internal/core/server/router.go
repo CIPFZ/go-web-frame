@@ -8,14 +8,6 @@ import (
 
 	"github.com/CIPFZ/gowebframe/internal/docs"
 	"github.com/CIPFZ/gowebframe/internal/middleware"
-	pluginApi "github.com/CIPFZ/gowebframe/internal/modules/plugin/api"
-	pluginRepo "github.com/CIPFZ/gowebframe/internal/modules/plugin/repository"
-	pluginRouter "github.com/CIPFZ/gowebframe/internal/modules/plugin/router"
-	pluginService "github.com/CIPFZ/gowebframe/internal/modules/plugin/service"
-	poetryApi "github.com/CIPFZ/gowebframe/internal/modules/poetry/api"
-	poetryRepo "github.com/CIPFZ/gowebframe/internal/modules/poetry/repository"
-	poetryRouter "github.com/CIPFZ/gowebframe/internal/modules/poetry/router"
-	poetryService "github.com/CIPFZ/gowebframe/internal/modules/poetry/service"
 	systemApi "github.com/CIPFZ/gowebframe/internal/modules/system/api"
 	systemRepo "github.com/CIPFZ/gowebframe/internal/modules/system/repository"
 	systemRouter "github.com/CIPFZ/gowebframe/internal/modules/system/router"
@@ -37,14 +29,10 @@ func InitRouters(svcCtx *svc.ServiceContext) *gin.Engine {
 	routerPrefix := svcCtx.Config.System.RouterPrefix
 	publicGroup := r.Group(routerPrefix)
 	privateGroup := r.Group(routerPrefix)
-	apiTokenGroup := r.Group(routerPrefix)
 	privateGroup.Use(middleware.JWTAuth(svcCtx), middleware.CasbinHandler(svcCtx))
-	apiTokenGroup.Use(middleware.ApiTokenAuth(svcCtx))
 
 	sysRouter := wireSystemModule(svcCtx)
 	sysRouter.InitSystemRoutes(privateGroup, publicGroup)
-	wirePluginModule(svcCtx).InitPluginRoutes(privateGroup, publicGroup)
-	wirePoetryModule(svcCtx).InitPoetryRoutes(privateGroup, publicGroup, apiTokenGroup)
 
 	svcCtx.Routers = r.Routes()
 	svcCtx.Logger.Info("all routes initialized")
@@ -149,18 +137,4 @@ func wireSystemModule(svcCtx *svc.ServiceContext) *systemRouter.SystemRouter {
 	}
 
 	return systemRouter.NewSystemRouter(svcCtx, apis)
-}
-
-func wirePoetryModule(svcCtx *svc.ServiceContext) *poetryRouter.PoetryRouter {
-	repo := poetryRepo.NewPoetryRepo(svcCtx.DB)
-	service := poetryService.NewPoetryService(svcCtx, repo)
-	apis := poetryApi.NewPoetryApi(svcCtx, service)
-	return poetryRouter.NewPoetryRouter(svcCtx, apis)
-}
-
-func wirePluginModule(svcCtx *svc.ServiceContext) *pluginRouter.PluginRouter {
-	repo := pluginRepo.NewPluginRepository(svcCtx.DB)
-	service := pluginService.NewPluginService(svcCtx, repo)
-	apis := pluginApi.NewPluginApi(svcCtx, service)
-	return pluginRouter.NewPluginRouter(svcCtx, apis)
 }

@@ -20,10 +20,10 @@ import (
 func TestApiTokenServiceCreatePersistsHashAndApis(t *testing.T) {
 	gormDB := newApiTokenTestDB(t)
 	if err := gormDB.Create(&model.SysApi{
-		Path:        "/api/v1/poetry/dynasty/list",
+		Path:        "/api/v1/test/resources",
 		Method:      "GET",
-		ApiGroup:    "poetry",
-		Description: "List dynasty",
+		ApiGroup:    "test",
+		Description: "List resources",
 	}).Error; err != nil {
 		t.Fatalf("seed sys api error = %v", err)
 	}
@@ -39,8 +39,8 @@ func TestApiTokenServiceCreatePersistsHashAndApis(t *testing.T) {
 	)
 
 	resp, err := service.CreateApiToken(context.Background(), 99, dto.CreateApiTokenReq{
-		Name:           "poetry-reader",
-		Description:    "read poetry api",
+		Name:           "test-reader",
+		Description:    "read test api",
 		MaxConcurrency: 2,
 		ApiIds:         []uint{api.ID},
 	})
@@ -75,10 +75,10 @@ func TestApiTokenServiceCreatePersistsHashAndApis(t *testing.T) {
 func TestApiTokenServiceResetReplacesStoredHash(t *testing.T) {
 	gormDB := newApiTokenTestDB(t)
 	if err := gormDB.Create(&model.SysApi{
-		Path:        "/api/v1/poetry/poem/list",
+		Path:        "/api/v1/test/records",
 		Method:      "GET",
-		ApiGroup:    "poetry",
-		Description: "List poems",
+		ApiGroup:    "test",
+		Description: "List records",
 	}).Error; err != nil {
 		t.Fatalf("seed sys api error = %v", err)
 	}

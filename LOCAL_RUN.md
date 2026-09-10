@@ -1,5 +1,10 @@
 # Local Run Guide
 
+## Isolated Development Deployment
+
+For the developer-server deployment on port 8080, use [deploy/local/README.md](deploy/local/README.md).
+This profile generates private credentials and uses separate MySQL, Redis and upload volumes.
+
 ## Start
 ```bash
 docker compose up -d --build

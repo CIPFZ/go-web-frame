@@ -1,18 +1,16 @@
 FROM golang:1.25.2-alpine AS builder
 
 WORKDIR /app
-ENV GOPROXY=https://goproxy.cn,direct
+ENV GOPROXY=https://proxy.golang.org,direct GOMAXPROCS=2 CGO_ENABLED=0
 
-# Install deps for sqlite/cgo if needed, though mostly using pure go
-RUN apk add --no-cache gcc musl-dev
-
-COPY . .
-
+COPY go.mod go.sum ./
 RUN go mod download
-RUN go build -o main ./cmd/server
-RUN go build -o migrate ./cmd/migrate/main.go
+COPY . .
+RUN go test -trimpath -p 2 ./... && \
+    go build -trimpath -o main ./cmd/server && \
+    go build -trimpath -o migrate ./cmd/migrate
 
-FROM alpine:latest
+FROM alpine:3.23
 WORKDIR /app
 
 # Required for timezones and ca-certs
@@ -26,5 +24,8 @@ COPY start.sh .
 RUN sed -i 's/\r$//' start.sh && chmod +x start.sh
 
 EXPOSE 8080
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=5 \
+    CMD wget -q -O /dev/null http://127.0.0.1:8080/health || exit 1
 
 CMD ["./start.sh"]

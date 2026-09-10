@@ -248,6 +248,7 @@ const MenuTableList: React.FC = () => {
         <ProFormText
           name="name"
           label="展示名称"
+          placeholder="例如：工作台"
           rules={[{ required: true }]}
         />
 
@@ -294,7 +295,7 @@ const MenuTableList: React.FC = () => {
         {/* 其他字段保持不变 */}
         <div style={{ display: 'flex', gap: 16 }}>
           <ProFormText name="target" label="跳转目标" width="sm" />
-          <ProFormText name="locale" label="国际化 Key" width="md" />
+          <ProFormText name="locale" label="国际化 Key" width="md" tooltip="可选的多语言翻译标识，与展示名称分别保存" />
         </div>
 
       </ModalForm>

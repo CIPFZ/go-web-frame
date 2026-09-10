@@ -76,7 +76,6 @@ This triggers idempotent base data initialization during startup:
 - apis
 - casbin policies
 - admin user
-- base poetry metadata
 
 ## 7) Validation Commands
 

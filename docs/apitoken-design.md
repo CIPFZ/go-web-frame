@@ -116,21 +116,9 @@
 
 ### 2. 外部 token 可访问业务接口
 
-本次不新开 `/openapi` 前缀，而是在现有业务路由上增加一组独立路由分组：
-
-- 该分组只挂 `ApiTokenAuth`
-- 只暴露明确允许外部调用的接口
-
-第一阶段选择诗词模块只读接口作为样板：
-
-- `GET /api/v1/poetry/dynasty/list`
-- `GET /api/v1/poetry/dynasty/all`
-- `GET /api/v1/poetry/genre/list`
-- `GET /api/v1/poetry/genre/all`
-- `GET /api/v1/poetry/author/list`
-- `GET /api/v1/poetry/author/:id`
-- `GET /api/v1/poetry/poem/list`
-- `GET /api/v1/poetry/poem/:id`
+基础 CMS 保留 Token 管理、权限校验和并发控制能力，目前没有注册对外业务接口。
+后续 Nexus 接口接入时，需要显式使用 `ApiTokenAuth` 注册路由，并配置 API 授权；
+在后台勾选某个 API 不会自动改变该接口的鉴权方式，系统管理接口仍使用 JWT 和 Casbin。
 
 ## 后台管理页面
 

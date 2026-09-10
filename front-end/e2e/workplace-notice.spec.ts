@@ -1,4 +1,6 @@
-﻿import { APIRequestContext, expect, request, test } from '@playwright/test';
+import { APIRequestContext, expect, request, test } from '@playwright/test';
+
+test.skip(process.env.E2E_ISOLATED !== '1', 'Creates test users; run with deploy/local/e2e.py in a disposable database.');
 
 const ADMIN_USER = process.env.E2E_ADMIN_USER || 'admin';
 const ADMIN_PASS = process.env.E2E_ADMIN_PASS || 'Admin@123456';

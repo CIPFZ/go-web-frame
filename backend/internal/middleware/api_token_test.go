@@ -19,12 +19,12 @@ import (
 
 func TestApiTokenAuthRejectsMissingToken(t *testing.T) {
 	engine, _ := newAPITokenMiddlewareTestEngine(t, func(group *gin.RouterGroup) {
-		group.GET("poetry/dynasty/list", func(c *gin.Context) {
+		group.GET("test/resources", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"code": 0})
 		})
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/poetry/dynasty/list", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/test/resources", nil)
 
 	engine.ServeHTTP(rec, req)
 
@@ -40,13 +40,13 @@ func TestApiTokenAuthRejectsMissingToken(t *testing.T) {
 func TestApiTokenAuthAllowsAuthorizedRoute(t *testing.T) {
 	rawToken := "cms_allow_token"
 	engine, _ := newAPITokenMiddlewareTestEngine(t, func(group *gin.RouterGroup) {
-		group.GET("poetry/dynasty/list", func(c *gin.Context) {
+		group.GET("test/resources", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"code": 0, "apiTokenId": c.GetUint(CtxKeyAPITokenID)})
 		})
 	})
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/poetry/dynasty/list", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/test/resources", nil)
 	req.Header.Set("X-API-Token", rawToken)
 
 	engine.ServeHTTP(rec, req)
@@ -69,13 +69,13 @@ func TestApiTokenAuthAllowsAuthorizedRoute(t *testing.T) {
 func TestApiTokenAuthRejectsUnauthorizedRoute(t *testing.T) {
 	rawToken := "cms_forbidden_token"
 	engine, _ := newAPITokenMiddlewareTestEngine(t, func(group *gin.RouterGroup) {
-		group.GET("poetry/genre/list", func(c *gin.Context) {
+		group.GET("test/other-resources", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"code": 0})
 		})
 	})
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/poetry/genre/list", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/test/other-resources", nil)
 	req.Header.Set("X-API-Token", rawToken)
 
 	engine.ServeHTTP(rec, req)
@@ -120,10 +120,10 @@ func newAPITokenMiddlewareTestEngine(t *testing.T, registerRoutes func(group *gi
 	})
 
 	api := model.SysApi{
-		Path:        "/api/v1/poetry/dynasty/list",
+		Path:        "/api/v1/test/resources",
 		Method:      "GET",
-		ApiGroup:    "poetry",
-		Description: "List dynasty",
+		ApiGroup:    "test",
+		Description: "List resources",
 	}
 	if err := gormDB.Create(&api).Error; err != nil {
 		t.Fatalf("create sys api error = %v", err)

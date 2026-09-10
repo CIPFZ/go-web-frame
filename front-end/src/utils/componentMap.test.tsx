@@ -5,11 +5,10 @@ describe('componentMap', () => {
     expect(getComponent('sys/api-token')).toBeDefined();
   });
 
-  it('maps plugin management pages used by dynamic routes', () => {
-    expect(getComponent('plugin/project-management')).toBeDefined();
-    expect(getComponent('plugin/project-detail')).toBeDefined();
-    expect(getComponent('plugin/work-order-pool')).toBeDefined();
-    expect(getComponent('plugin/work-order-detail')).toBeDefined();
-    expect(getComponent('sys/plugin-master')).toBeDefined();
+  it('maps system pages and hidden account settings used by backend menus', () => {
+    for (const name of ['dashboard/workplace', 'components/RouterLayout', 'sys/user',
+      'sys/authority', 'sys/menu', 'sys/api', 'sys/operation', 'sys/notice', 'user/info']) {
+      expect(getComponent(name)).toBeDefined();
+    }
   });
 });

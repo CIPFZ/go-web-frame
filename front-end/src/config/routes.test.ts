@@ -23,7 +23,8 @@ describe('routes config', () => {
     });
   });
 
-  it('contains sys api-token route fallback', () => {
-    expect(hasRoutePath(routes as any[], '/sys/api-token')).toBe(true);
+  it('leaves business routes to backend menus', () => {
+    expect(hasRoutePath(routes as any[], '/sys/api-token')).toBe(false);
+    expect(hasRoutePath(routes as any[], '/account/settings')).toBe(false);
   });
 });

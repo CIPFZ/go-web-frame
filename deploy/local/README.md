@@ -1,0 +1,58 @@
+# 本机 Docker 部署
+
+此配置独立运行前端、后端、MySQL 和 Redis，Compose 项目名为 `nexus-cms`。
+文件存储使用本地持久卷，默认 Web 端口为 8080，后端健康接口仅映射到本机 18081。
+
+从仓库根目录执行：
+
+```bash
+python3 deploy/local/init.py
+DOCKER_BUILDKIT=0 docker compose --env-file deploy/local/.env -f deploy/local/compose.yaml up -d --build --wait --wait-timeout 180
+python3 deploy/local/smoke.py
+```
+
+需要 Docker Engine、Docker Compose v2 和 Python 3；Go 与前端构建在容器中完成。
+`DOCKER_BUILDKIT=0` 兼容本机没有 Buildx 插件的环境；已安装 Buildx 时可去掉这个变量。
+后端构建包含 Go 测试，前端使用已锁定依赖执行 `npm ci` 和生产构建。
+
+访问 `http://localhost:8080`；从其他机器访问时，将 localhost 替换为此开发机地址。
+管理员账号为 `admin`，生成的密码保存在 `deploy/local/runtime/admin.txt`。
+初始化脚本重复执行时保留 `.env` 中的密钥，不重置数据库中的已有账号密码。
+`admin.txt` 保存初次初始化密码；如果通过后台修改密码，后续应使用修改后的密码。
+端口和绑定地址在 `deploy/local/.env` 中配置。
+
+```bash
+# 状态与日志
+docker compose --env-file deploy/local/.env -f deploy/local/compose.yaml ps
+docker compose --env-file deploy/local/.env -f deploy/local/compose.yaml logs -f --tail=100 backend frontend
+
+# 停止并保留数据
+docker compose --env-file deploy/local/.env -f deploy/local/compose.yaml down
+
+# 恢复运行
+docker compose --env-file deploy/local/.env -f deploy/local/compose.yaml up -d --wait
+```
+
+持久卷：`nexus-cms_mysql-data`、`nexus-cms_redis-data`、`nexus-cms_uploads`。
+Compose 的普通 down 保留数据；`down -v` 会删除这些数据，因此不用于日常停止。
+后端等待数据库健康后执行迁移；迁移失败会退出，成功后再启动服务。
+上传文件由前端 Nginx 通过共享卷提供访问。
+
+`smoke.py` 检查前端代理、管理员登录、菜单、系统信息及图片上传下载。
+完整浏览器验证使用 `python3 deploy/local/e2e.py`。它创建独立的临时 Compose 项目、数据库和持久卷，使用随机本机端口；退出时仅删除该测试项目。测试产物保留在私有的 `runtime/nexus-cms-e2e-*/`。
+直接运行 Playwright 时默认跳过创建用户的通知测试；仅隔离测试入口设置 `E2E_ISOLATED=1`。
+
+`.env`、运行配置、管理员密码和验证产物已加入 Git 忽略规则。
+该配置用于开发机部署验证，后续 Bench 代码与日志产物应使用带任务权限的独立存储接口。
+
+## 基础 CMS 数据迁移
+
+迁移 `20260910_minimal_cms` 清除原插件、诗词模块的菜单、API、授权、专用角色、相关操作日志和 12 张业务表。
+已有用户、密码和系统配置保留；使用被移除角色的用户转为普通 CMS 角色。
+迁移成功后记录在 `sys_schema_migrations`，重复启动不会重新执行；初始化也不再生成这两个模块的数据。
+MySQL 的表删除隐式提交，迁移按可重试步骤执行，完成标记最后写入。升级前保留私有数据库备份。
+
+菜单和业务路由来自后端 `getMenu`，更新部署后刷新浏览器即可获取新菜单。
+
+迁移 `20260910_cms_names_and_test_accounts` 把旧菜单名称中的翻译 Key 转为实际展示名称，保留 `locale` 和管理员自定义名称；清理旧测试脚本生成的 `e2e_user_<数字>`、`e2e_user_b_<数字>`、`smoke_user_<数字>` 账号及测试通知。
+该迁移只执行一次，不删除真实团队账号，也不限制以后新建用户。全新数据库仅由管理员初始化函数创建一个管理员。

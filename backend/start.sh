@@ -1,10 +1,10 @@
 #!/bin/sh
+set -eu
 
-echo "Waiting for database to start..."
-sleep 15
+config_path="${CMS_CONFIG_PATH:-./configs/config.yaml}"
 
 echo "Starting database migration..."
-./migrate -f ./configs/config.yaml
+./migrate -f "$config_path"
 
 echo "Starting backend server..."
-./main -f ./configs/config.yaml
+exec ./main -f "$config_path"

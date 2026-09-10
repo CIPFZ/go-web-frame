@@ -1,7 +1,8 @@
-﻿param(
+param(
   [string]$BaseUrl = "http://127.0.0.1:8080",
   [string]$AdminUsername = "admin",
-  [string]$AdminPassword = "Admin@123456"
+  [string]$AdminPassword = "Admin@123456",
+  [switch]$Isolated
 )
 
 $ErrorActionPreference = "Stop"
@@ -36,6 +37,11 @@ Assert-CodeZero $menuResp "getMenu"
 $stateResp = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/v1/sys/system/getServerInfo" -Headers $adminHeaders -ContentType "application/json" -Body "{}"
 Assert-CodeZero $stateResp "getServerInfo"
 Write-Host "base api ok"
+
+if (-not $Isolated) {
+  Write-Host "Read-only checks passed. Use -Isolated only with a disposable test database to exercise the notice flow."
+  exit 0
+}
 
 Write-Host "==> Notice flow"
 $stamp = Get-Date -Format "yyyyMMddHHmmss"

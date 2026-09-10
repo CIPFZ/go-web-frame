@@ -77,6 +77,10 @@ func (l *LocalDriver) Upload(ctx context.Context, file *multipart.FileHeader, fi
 	// 完整物理文件路径
 	// e.g. /data/uploads/2025-12-07/uuid.png
 	fullPath := filepath.Join(storeDir, fileName)
+	if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
+		recordError(span, err)
+		return "", "", fmt.Errorf("failed to create upload directory: %w", err)
+	}
 
 	// 记录到 Trace
 	span.SetAttributes(attribute.String("file.path", fullPath))

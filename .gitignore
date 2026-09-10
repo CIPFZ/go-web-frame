@@ -76,3 +76,8 @@ front-end/.env
 *.db
 *.sqlite
 *.sqlite3
+
+# Private local Docker deployment configuration and verification artifacts
+deploy/local/.env
+deploy/local/runtime/
+__pycache__/
