@@ -1,5 +1,25 @@
 import type { API } from '@/services/system/types';
-﻿import { request } from '@umijs/max';
+import { request } from '@umijs/max';
+
+export interface MyNotice {
+  ID: number;
+  createdAt: string;
+  title: string;
+  content: string;
+  level: 'info' | 'warning' | 'error';
+  isPopup: boolean;
+  needConfirm: boolean;
+  startAt: string | null;
+  endAt: string | null;
+  readAt: string | null;
+}
+
+export interface MyNoticePage {
+  list: MyNotice[] | null;
+  total: number;
+  page: number;
+  pageSize: number;
+}
 
 export async function createNotice(body: any, options?: { [key: string]: any }) {
   return request<API.CommonResponse>('/api/v1/sys/notice/createNotice', {
@@ -20,7 +40,7 @@ export async function getNoticeList(body: any, options?: { [key: string]: any })
 }
 
 export async function getMyNotices(params?: { page?: number; pageSize?: number }, options?: { [key: string]: any }) {
-  return request<API.CommonResponse>('/api/v1/sys/notice/getMyNotices', {
+  return request<Omit<API.CommonResponse, 'data'> & { data: MyNoticePage }>('/api/v1/sys/notice/getMyNotices', {
     method: 'GET',
     params,
     ...(options || {}),

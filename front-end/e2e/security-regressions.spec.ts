@@ -30,6 +30,7 @@ test('registration is closed in both UI and API; status page is a dependency ove
   await expect(page.getByRole('article', {name: '数据库：不可用'})).toBeVisible();
   await page.unroute('**/sys/system/getServerInfo');
   await page.setViewportSize({width: 1440, height: 1000});
+  await page.route('**/sys/user/ui-config', route => route.fulfill({json: {code: 0}}));
   await page.route('**/sys/user/getSelfInfo', async route => {
     const response = await route.fetch(); const body = await response.json();
     body.data.settings = {...body.data.settings, navTheme: 'realDark'};
