@@ -107,9 +107,9 @@ test('workplace respects role menus and supports notice pagination and confirmat
   expect(createNoticeBody.code).toBe(0);
 
   await page.goto('/#/user/login');
-  await page.getByRole('textbox', { name: /username/i }).fill(username);
+  await page.getByRole('textbox', { name: '用户名' }).fill(username);
   await page.locator('input[type="password"]').fill(password);
-  await page.getByRole('button', { name: /login/i }).click();
+  await page.getByRole('button', { name: /登\s*录/ }).click();
 
   await page.waitForURL(/#\//, { timeout: 20_000 });
 

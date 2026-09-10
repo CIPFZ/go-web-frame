@@ -967,6 +967,9 @@
                 "name": {
                   "type": "string"
                 },
+                "nameEn": {
+                  "type": "string"
+                },
                 "parentId": {
                   "type": "integer"
                 },
@@ -1142,6 +1145,9 @@
                   "type": "string"
                 },
                 "name": {
+                  "type": "string"
+                },
+                "nameEn": {
                   "type": "string"
                 },
                 "parentId": {

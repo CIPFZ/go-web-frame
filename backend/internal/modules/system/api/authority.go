@@ -64,7 +64,7 @@ func (a *AuthorityApi) GetAuthorityList(c *gin.Context) {
 func (a *AuthorityApi) CreateAuthority(c *gin.Context) {
 	var req dto.CreateAuthorityReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 	log := logger.GetLogger(c)
@@ -87,7 +87,7 @@ func (a *AuthorityApi) CreateAuthority(c *gin.Context) {
 func (a *AuthorityApi) UpdateAuthority(c *gin.Context) {
 	var req dto.UpdateAuthorityReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 	log := logger.GetLogger(c)
@@ -110,7 +110,7 @@ func (a *AuthorityApi) UpdateAuthority(c *gin.Context) {
 func (a *AuthorityApi) DeleteAuthority(c *gin.Context) {
 	var req common.GetByIdReq // 复用通用的按ID获取的请求结构
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 	log := logger.GetLogger(c)
@@ -135,7 +135,7 @@ func (a *AuthorityApi) DeleteAuthority(c *gin.Context) {
 func (a *AuthorityApi) SetAuthorityMenus(c *gin.Context) {
 	var req dto.SetAuthorityMenusReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 	log := logger.GetLogger(c)

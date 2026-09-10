@@ -1,3 +1,5 @@
+import { useFormLocale } from '@/i18n/useFormLocale';
+import { t, useI18n } from '@/i18n';
 import type { API } from '@/services/system/types';
 import React, { useRef, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-layout';
@@ -11,21 +13,33 @@ import {
 } from '@ant-design/pro-components';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 import { Button, Space, message, Popconfirm, Tag, Avatar, Divider } from 'antd';
-import { PlusOutlined, UserOutlined, KeyOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined,
+  UserOutlined,
+  KeyOutlined,
+  EditOutlined,
+  DeleteOutlined,
+} from '@ant-design/icons';
 
 // 导入 API
-import { getUserList, addUser, updateUser, deleteUser, resetPassword } from '@/services/system/user';
+import {
+  getUserList,
+  addUser,
+  updateUser,
+  deleteUser,
+  resetPassword,
+} from '@/services/system/user';
 import { getAuthorityList } from '@/services/system/authority';
-
 type AuthorityTreeNode = {
   title: string;
   value: number;
   key: number;
   children: AuthorityTreeNode[];
 };
-
-
 const UserTableList: React.FC = () => {
+  const localeFormRef2 = useFormLocale();
+  const localeFormRef1 = useFormLocale();
+  useI18n();
   const actionRef = useRef<ActionType>(null);
 
   // --- 状态管理 ---
@@ -43,23 +57,23 @@ const UserTableList: React.FC = () => {
     setCurrentRow(undefined);
     setModalVisible(true);
   };
-
   const handleEdit = (record: API.UserInfo) => {
     setCurrentRow(record);
     setModalVisible(true);
   };
-
   const handleDelete = async (id: number) => {
     try {
-      const res = await deleteUser({ id });
+      const res = await deleteUser({
+        id,
+      });
       if (res.code === 0) {
-        message.success('删除成功');
+        message.success(t('cms.deletedSuccessfully'));
         actionRef.current?.reload();
       } else {
-        message.error(res.msg || '删除失败');
+        message.error(res.msg || t('cms.deleteFailed'));
       }
     } catch (error) {
-      message.error('请求出错');
+      message.error(t('cms.requestFailed'));
     }
   };
 
@@ -83,19 +97,22 @@ const UserTableList: React.FC = () => {
       // 确保 authorityIds 是数组
       authorityIds: values.authorityIds || [],
     };
-
     try {
       const res = await method(reqData);
       if (res.code === 0) {
-        message.success(isUpdate ? '更新成功' : '创建成功');
+        message.success(
+          isUpdate
+            ? t('cms.updatedSuccessfully')
+            : t('cms.createdSuccessfully'),
+        );
         setModalVisible(false);
         actionRef.current?.reload();
         return true;
       }
-      message.error(res.msg || '操作失败');
+      message.error(res.msg || t('cms.operationFailed'));
       return false;
     } catch (error) {
-      message.error('请求出错');
+      message.error(t('cms.requestFailed'));
       return false;
     }
   };
@@ -106,17 +123,17 @@ const UserTableList: React.FC = () => {
     try {
       const res = await resetPassword({
         id: pwdCurrentRow.ID,
-        password: values.password
+        password: values.password,
       });
       if (res.code === 0) {
-        message.success('密码重置成功');
+        message.success(t('cms.passwordResetSuccessfully'));
         setPwdModalVisible(false);
         return true;
       }
-      message.error(res.msg || '重置失败');
+      message.error(res.msg || t('cms.resetFailed'));
       return false;
     } catch (error) {
-      message.error('请求出错');
+      message.error(t('cms.requestFailed'));
       return false;
     }
   };
@@ -131,7 +148,7 @@ const UserTableList: React.FC = () => {
       align: 'center',
     },
     {
-      title: '头像',
+      title: t('cms.avatar'),
       dataIndex: 'avatar',
       width: 60,
       search: false,
@@ -141,23 +158,23 @@ const UserTableList: React.FC = () => {
       ),
     },
     {
-      title: '用户名',
+      title: t('cms.username'),
       dataIndex: 'username',
       copyable: true,
       width: 120,
     },
     {
-      title: '昵称',
+      title: t('cms.nickname'),
       dataIndex: 'nickName',
       width: 120,
     },
     {
-      title: '手机号',
+      title: t('cms.phoneNumber.5a9cc5'),
       dataIndex: 'phone',
       width: 120,
     },
     {
-      title: '用户角色',
+      title: t('cms.userRoles'),
       dataIndex: 'authorityId',
       width: 200,
       search: false,
@@ -168,7 +185,10 @@ const UserTableList: React.FC = () => {
             // 如果是当前角色，高亮显示
             const isCurrent = auth.authorityId === record.authorityId;
             return (
-              <Tag key={auth.authorityId} color={isCurrent ? "blue" : "default"}>
+              <Tag
+                key={auth.authorityId}
+                color={isCurrent ? 'blue' : 'default'}
+              >
                 {auth.authorityName}
               </Tag>
             );
@@ -177,74 +197,108 @@ const UserTableList: React.FC = () => {
       ),
     },
     {
-      title: '状态',
+      title: t('cms.status'),
       dataIndex: 'status',
-      width: 100, // 稍微调宽一点以容纳标签
+      width: 100,
+      // 稍微调宽一点以容纳标签
       align: 'center',
       // valueEnum 用于搜索栏的下拉筛选，必须保留
       valueEnum: {
-        1: { text: '正常', status: 'Success' },
-        0: { text: '禁用', status: 'Error' },
+        1: {
+          text: t('cms.apiToken.enabledLabel'),
+          status: 'Success',
+        },
+        0: {
+          text: t('cms.disable'),
+          status: 'Error',
+        },
       },
       // ✨ 关键修改：使用 render 自定义渲染为 Tag
       render: (_, record) => {
         // 定义状态映射
-        const statusMap: Record<number, { color: string; text: string }> = {
-          1: { color: 'success', text: '正常' }, // 绿色胶囊
-          0: { color: 'error', text: '禁用' },   // 红色胶囊
+        const statusMap: Record<
+          number,
+          {
+            color: string;
+            text: string;
+          }
+        > = {
+          1: {
+            color: 'success',
+            text: t('cms.apiToken.enabledLabel'),
+          },
+          // 绿色胶囊
+          0: {
+            color: 'error',
+            text: t('cms.disable'),
+          }, // 红色胶囊
         };
-
-        const current = statusMap[record.status] || { color: 'default', text: '未知' };
-
+        const current = statusMap[record.status] || {
+          color: 'default',
+          text: t('cms.unknown'),
+        };
         return (
-          <Tag color={current.color} style={{ minWidth: 60, textAlign: 'center' }}>
+          <Tag
+            color={current.color}
+            style={{
+              minWidth: 60,
+              textAlign: 'center',
+            }}
+          >
             {current.text}
           </Tag>
         );
       },
     },
     {
-      title: '邮箱',
+      title: t('cms.email'),
       dataIndex: 'email',
       hideInTable: true, // 列表隐藏，搜索显示
     },
     {
-      title: '操作',
+      title: t('cms.actions'),
       valueType: 'option',
       width: 220,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
           <a onClick={() => handleEdit(record)}>
-            <EditOutlined /> 编辑
+            <EditOutlined />
+            {t('cms.edit')}
           </a>
           <a onClick={() => handleResetPwdClick(record)}>
-            <KeyOutlined /> 重置密码
+            <KeyOutlined />
+            {t('cms.resetPassword')}
           </a>
           <Popconfirm
-            title="确定删除此用户?"
-            description="删除后无法恢复"
+            title={t('cms.deleteThisUser')}
+            description={t('cms.thisActionCannotBeUndone')}
             onConfirm={() => handleDelete(record.ID!)}
-            okText="确定"
-            cancelText="取消"
+            okText={t('cms.ok')}
+            cancelText={t('cms.cancel')}
           >
-            <a style={{ color: '#ff4d4f' }}>
-              <DeleteOutlined /> 删除
+            <a
+              style={{
+                color: '#ff4d4f',
+              }}
+            >
+              <DeleteOutlined />
+              {t('cms.delete')}
             </a>
           </Popconfirm>
         </Space>
       ),
     },
   ];
-
   return (
     <PageContainer title={false}>
       <ProTable<API.UserInfo>
-        headerTitle="用户管理"
+        headerTitle={t('cms.users')}
         actionRef={actionRef}
         rowKey="ID"
-        search={{ labelWidth: 'auto' }}
-
+        search={{
+          labelWidth: 'auto',
+        }}
         request={async (params) => {
           const res = await getUserList({
             page: params.current,
@@ -260,51 +314,71 @@ const UserTableList: React.FC = () => {
             total: res.data?.total || 0,
           };
         }}
-
         columns={columns}
-        scroll={{ x: 1000 }}
+        scroll={{
+          x: 1000,
+        }}
         toolBarRender={() => [
           <Button key="add" type="primary" onClick={handleAdd}>
-            <PlusOutlined /> 新建用户
+            <PlusOutlined />
+            {t('cms.newUser')}
           </Button>,
         ]}
       />
 
       {/* --- 1. 用户信息表单 (新增/编辑) --- */}
       <ModalForm
-        title={currentRow ? '编辑用户' : '新建用户'}
+        title={currentRow ? t('cms.editUser') : t('cms.newUser')}
         width="600px"
         open={modalVisible}
         onOpenChange={setModalVisible}
         onFinish={handleFinish}
-        modalProps={{ destroyOnClose: true }}
-        // 回显数据
-        initialValues={currentRow ? {
-          ...currentRow,
-          // 将后端 1/2 转换为 switch 的 true/false
-          status: currentRow.status === 1,
-          // 回显多角色 (提取 ID 数组)
-          authorityIds: currentRow.authorities?.map(a => a.authorityId)
-        } : {
-          status: true, // 默认启用
-          authorityIds: []
+        modalProps={{
+          destroyOnClose: true,
         }}
+        // 回显数据
+        initialValues={
+          currentRow
+            ? {
+                ...currentRow,
+                // 将后端 1/2 转换为 switch 的 true/false
+                status: currentRow.status === 1,
+                // 回显多角色 (提取 ID 数组)
+                authorityIds: currentRow.authorities?.map((a) => a.authorityId),
+              }
+            : {
+                status: true,
+                // 默认启用
+                authorityIds: [],
+              }
+        }
+        formRef={localeFormRef1}
       >
         <ProFormText
           name="username"
-          label="用户名"
-          placeholder="登录账号"
+          label={t('cms.username')}
+          placeholder={t('cms.loginAccount')}
           disabled={!!currentRow} // 编辑时不可改用户名
-          rules={[{ required: true, message: '请输入用户名' }]}
+          rules={[
+            {
+              required: true,
+              message: t('cms.enterAUsername'),
+            },
+          ]}
         />
 
         {/* 只有新增时才显示密码输入框 */}
         {!currentRow && (
           <ProFormText.Password
             name="password"
-            label="初始密码"
-            placeholder="请输入密码"
-            rules={[{ required: true, message: '请输入密码' }]}
+            label={t('cms.initialPassword')}
+            placeholder={t('cms.enterAPassword')}
+            rules={[
+              {
+                required: true,
+                message: t('cms.enterAPassword'),
+              },
+            ]}
           />
         )}
 
@@ -312,14 +386,19 @@ const UserTableList: React.FC = () => {
         <ProFormGroup>
           <ProFormText
             name="nickName"
-            label="昵称"
-            placeholder="显示名称"
-            rules={[{ required: true, message: '请输入昵称' }]}
+            label={t('cms.nickname')}
+            placeholder={t('cms.displayName.75ae6a')}
+            rules={[
+              {
+                required: true,
+                message: t('cms.enterANickname'),
+              },
+            ]}
             width="sm"
           />
           <ProFormText
             name="phone"
-            label="手机号"
+            label={t('cms.phoneNumber.5a9cc5')}
             width="sm"
           />
         </ProFormGroup>
@@ -327,11 +406,14 @@ const UserTableList: React.FC = () => {
         {/* ✅ 新增：统一的角色选择框 */}
         <ProFormTreeSelect
           name="authorityIds"
-          label="角色分配"
-          placeholder="请选择用户拥有的角色 (可多选)"
+          label={t('cms.roleAssignment')}
+          placeholder={t('cms.selectOneOrMoreRoles')}
           // 直接使用 fetchRoleData (我们之前写的稳健函数)
           request={async () => {
-            const res = await getAuthorityList({ page: 1, pageSize: 9999 });
+            const res = await getAuthorityList({
+              page: 1,
+              pageSize: 9999,
+            });
             const list = res.data?.list || [];
             const loop = (data: any[]): any[] =>
               data.map((item) => ({
@@ -343,47 +425,66 @@ const UserTableList: React.FC = () => {
             return loop(list);
           }}
           fieldProps={{
-            multiple: true, // 多选
+            multiple: true,
+            // 多选
             treeDefaultExpandAll: true,
             showSearch: true,
             treeNodeFilterProp: 'title',
           }}
           // 必填校验：至少选一个
-          rules={[{ required: true, message: '请至少分配一个角色' }]}
+          rules={[
+            {
+              required: true,
+              message: t('cms.assignAtLeastOneRole'),
+            },
+          ]}
         />
 
         <ProFormText
           name="email"
-          label="邮箱"
-          rules={[{ type: 'email', message: '邮箱格式不正确' }]}
+          label={t('cms.email')}
+          rules={[
+            {
+              type: 'email',
+              message: t('cms.enterAValidEmailAddress'),
+            },
+          ]}
         />
 
         <ProFormSwitch
           name="status"
-          label="用户状态"
-          checkedChildren="正常"
-          unCheckedChildren="禁用"
+          label={t('cms.userStatus')}
+          checkedChildren={t('cms.apiToken.enabledLabel')}
+          unCheckedChildren={t('cms.disable')}
         />
       </ModalForm>
 
       {/* --- 2. 重置密码模态框 --- */}
       <ModalForm
-        title={`重置密码 - ${pwdCurrentRow?.username}`}
+        title={t('cms.resetPassword.9434c7', {
+          value0: pwdCurrentRow?.username,
+        })}
         width="400px"
         open={pwdModalVisible}
         onOpenChange={setPwdModalVisible}
         onFinish={handleResetPwdFinish}
-        modalProps={{ destroyOnClose: true }}
+        modalProps={{
+          destroyOnClose: true,
+        }}
+        formRef={localeFormRef2}
       >
         <ProFormText.Password
           name="password"
-          label="新密码"
-          rules={[{ required: true, message: '请输入新密码' }]}
+          label={t('cms.newPassword')}
+          rules={[
+            {
+              required: true,
+              message: t('cms.enterANewPassword'),
+            },
+          ]}
         />
       </ModalForm>
-
     </PageContainer>
   );
 };
-
 export default UserTableList;

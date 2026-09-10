@@ -25,7 +25,7 @@ export default defineConfig({
   // 路由的配置
   routes,
   // 配置路由模式
-  history: {type: "hash"},
+  history: { type: 'hash' },
   // 开发环境生成 sourcemap，生产环境不生成
   devtool: NODE_ENV === 'development' ? 'eval' : false,
   // 问号传参时，可以通过query传参
@@ -57,7 +57,6 @@ export default defineConfig({
   // 快速热更新配置
   fastRefresh: true,
 
-
   //============== 以下都是max的插件配置 ===============
   // 数据流插件
   model: {},
@@ -86,7 +85,7 @@ export default defineConfig({
     default: 'zh-CN',
     antd: true,
     // default true, when it is true, will use `navigator.language` overwrite default
-    baseNavigator: true,
+    baseNavigator: false,
   },
   /**
    * @name antd 插件

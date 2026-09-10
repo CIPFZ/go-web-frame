@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render } from '../../../../tests/render';
+import { screen, waitFor } from '@testing-library/react';
 
 import ApiTokenPage from './index';
 import { getApiTokenList } from '@/services/system/apiToken';
@@ -33,7 +34,7 @@ jest.mock('@ant-design/pro-components', () => {
       capturedColumns = columns || [];
       ReactLib.useEffect(() => {
         request?.({ current: 1, pageSize: 10 });
-      }, [request]);
+      }, []);
       return ReactLib.createElement(
         'div',
         null,
@@ -41,10 +42,13 @@ jest.mock('@ant-design/pro-components', () => {
         ReactLib.createElement('div', { 'data-testid': 'api-token-table' }),
       );
     },
-    DrawerForm: ({ children }: any) => ReactLib.createElement('div', null, children),
-    ProCard: ({ children }: any) => ReactLib.createElement('div', null, children),
+    DrawerForm: ({ children }: any) =>
+      ReactLib.createElement('div', null, children),
+    ProCard: ({ children }: any) =>
+      ReactLib.createElement('div', null, children),
     ProForm: {
-      Item: ({ children }: any) => ReactLib.createElement('div', null, children),
+      Item: ({ children }: any) =>
+        ReactLib.createElement('div', null, children),
     },
     ProFormText: () => null,
     ProFormTextArea: () => null,

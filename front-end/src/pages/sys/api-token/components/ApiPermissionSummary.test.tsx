@@ -1,5 +1,6 @@
+import { render } from '../../../../../tests/render';
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 
 import { ApiPermissionSummary } from './ApiPermissionSummary';
 
@@ -38,7 +39,9 @@ describe('ApiPermissionSummary', () => {
 
     expect(screen.getByTestId('api-permission-count-row')).toBeTruthy();
     expect(screen.getByTestId('api-permission-visible-list')).toBeTruthy();
-    expect(screen.getAllByTestId('api-permission-visible-api-row')).toHaveLength(2);
+    expect(
+      screen.getAllByTestId('api-permission-visible-api-row'),
+    ).toHaveLength(2);
     expect(screen.getByTestId('api-permission-overflow-row')).toBeTruthy();
   });
 

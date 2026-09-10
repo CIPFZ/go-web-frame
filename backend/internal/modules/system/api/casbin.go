@@ -35,7 +35,7 @@ func NewCasbinApi(svcCtx *svc.ServiceContext, casbinService service.ICasbinServi
 func (a *CasbinApi) UpdateCasbin(c *gin.Context) {
 	var req dto.UpdateCasbinReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 
@@ -66,7 +66,7 @@ func (a *CasbinApi) UpdateCasbin(c *gin.Context) {
 func (a *CasbinApi) GetPolicyPathByAuthorityId(c *gin.Context) {
 	var req dto.GetPolicyPathByAuthorityIdReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 	log := logger.GetLogger(c)

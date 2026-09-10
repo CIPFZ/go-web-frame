@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"github.com/CIPFZ/gowebframe/internal/core/config"
+	"github.com/CIPFZ/gowebframe/pkg/response"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/time/rate"
@@ -56,7 +57,7 @@ func (i *IPRateLimiter) GetLimiter(ip string) *rate.Limiter {
 }
 func rateDenied(c *gin.Context) {
 	c.Header("Retry-After", "60")
-	c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"code": 7, "msg": "访问过于频繁，请稍后再试", "data": nil})
+	c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"code": 7, "msg": response.LocalizeMessage(c, "访问过于频繁，请稍后再试"), "data": nil})
 }
 func RateLimitMiddleware(cfg config.RateLimitConfig) gin.HandlerFunc {
 	if !cfg.Enabled {

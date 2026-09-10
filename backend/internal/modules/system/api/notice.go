@@ -24,7 +24,7 @@ func NewNoticeApi(svcCtx *svc.ServiceContext, noticeService service.INoticeServi
 func (a *NoticeApi) CreateNotice(c *gin.Context) {
 	var req dto.CreateNoticeReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("invalid request: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 	if err := a.noticeService.CreateNotice(c.Request.Context(), req, utils.GetUserID(c)); err != nil {
@@ -37,7 +37,7 @@ func (a *NoticeApi) CreateNotice(c *gin.Context) {
 func (a *NoticeApi) GetNoticeList(c *gin.Context) {
 	var req dto.SearchNoticeReq
 	if err := c.ShouldBind(&req); err != nil {
-		response.FailWithMessage("invalid request: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 	req.Normalize()
@@ -85,7 +85,7 @@ func (a *NoticeApi) GetMyNotices(c *gin.Context) {
 func (a *NoticeApi) MarkRead(c *gin.Context) {
 	var req dto.MarkNoticeReadReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("invalid request: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 	if err := a.noticeService.MarkRead(c.Request.Context(), req.NoticeID, utils.GetUserID(c)); err != nil {

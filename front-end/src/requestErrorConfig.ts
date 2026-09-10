@@ -1,3 +1,4 @@
+import { currentLocale } from '@/i18n';
 import type { RequestOptions } from '@@/plugin-request/request';
 import { clearMenuCache } from './routing/menuDataStore';
 import type { RequestConfig } from '@umijs/max';
@@ -11,10 +12,19 @@ export const errorConfig: RequestConfig = {
   timeout: 10000,
   requestInterceptors: [
     (config: RequestOptions) => {
-      if (!isBackendRequest(config.url, config.baseURL) || config.url?.includes('/user/login')) {
+      if (!isBackendRequest(config.url, config.baseURL)) {
         return config;
       }
 
+      if (config.headers instanceof Headers) {
+        config.headers.set('Accept-Language', currentLocale());
+      } else {
+        config.headers = {
+          ...config.headers,
+          'Accept-Language': currentLocale(),
+        };
+      }
+      if (config.url?.includes('/user/login')) return config;
       const token = localStorage.getItem(TOKEN_KEY);
       if (!token) {
         return config;
@@ -34,14 +44,24 @@ export const errorConfig: RequestConfig = {
   ],
   responseInterceptors: [
     (response) => {
-      if (isBackendRequest(response.config?.url, response.config?.baseURL) && (response.data as {code?: number} | undefined)?.code === 1003) {
+      if (
+        isBackendRequest(response.config?.url, response.config?.baseURL) &&
+        (response.data as { code?: number } | undefined)?.code === 1003
+      ) {
         localStorage.removeItem(TOKEN_KEY);
         clearMenuCache();
-        if (!window.location.hash.startsWith('#/user/')) { window.location.hash = '/user/login'; window.location.reload(); }
+        if (!window.location.hash.startsWith('#/user/')) {
+          window.location.hash = '/user/login';
+          window.location.reload();
+        }
         return response;
       }
-      const newToken = isBackendRequest(response.config?.url, response.config?.baseURL)
-        ? renewedToken(response.headers) : undefined;
+      const newToken = isBackendRequest(
+        response.config?.url,
+        response.config?.baseURL,
+      )
+        ? renewedToken(response.headers)
+        : undefined;
       if (newToken) {
         localStorage.setItem(TOKEN_KEY, newToken);
       }

@@ -82,7 +82,7 @@ func (a *MenuApi) GetMenuList(c *gin.Context) {
 func (a *MenuApi) AddBaseMenu(c *gin.Context) {
 	var req dto.AddMenuReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 
@@ -105,7 +105,7 @@ func (a *MenuApi) AddBaseMenu(c *gin.Context) {
 func (a *MenuApi) DeleteBaseMenu(c *gin.Context) {
 	var req common.GetByIdReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 
@@ -129,7 +129,7 @@ func (a *MenuApi) DeleteBaseMenu(c *gin.Context) {
 func (a *MenuApi) UpdateBaseMenu(c *gin.Context) {
 	var req dto.UpdateMenuReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 
@@ -152,7 +152,7 @@ func (a *MenuApi) UpdateBaseMenu(c *gin.Context) {
 func (a *MenuApi) GetMenuAuthority(c *gin.Context) {
 	var req dto.GetAuthorityIdReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 

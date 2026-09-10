@@ -3,6 +3,7 @@ package middleware
 import (
 	"errors"
 	"fmt"
+	"github.com/CIPFZ/gowebframe/pkg/response"
 	"net/http"
 	"time"
 
@@ -68,7 +69,7 @@ func BreakerMiddleware(logger *zap.Logger) gin.HandlerFunc {
 				logger.Warn("请求被熔断器拦截", zap.String("path", c.Request.URL.Path))
 				c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
 					"code": 7,
-					"msg":  "服务繁忙，请稍后重试 (Breaker Open)",
+					"msg":  response.LocalizeMessage(c, "服务繁忙，请稍后重试 (Breaker Open)"),
 				})
 				return
 			}

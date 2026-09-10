@@ -1,3 +1,5 @@
+import { t } from '@/i18n';
+import { localizeMenus } from '@/i18n/menus';
 import type { API } from '@/services/system/types';
 import { LinkOutlined } from '@ant-design/icons';
 import type { Settings as LayoutSettings } from '@ant-design/pro-components';
@@ -63,8 +65,7 @@ export async function getInitialState(): Promise<{
       // ⚠️ 场景 3：其他业务错误 (如 1000 系统内部错误)
       // 抛出错误，触发 Ant Design Pro 的 ErrorPage (显示“加载失败，点击重试”)
       // 而不是把用户踢回登录页
-      throw new Error(msg.msg || '获取用户信息失败');
-
+      throw new Error(msg.msg || t('cms.unableToLoadUser'));
     } catch (error) {
       // 这里的 error 可能是网络错误 (fetch failed) 或上面抛出的业务错误
       // 我们不在这里做跳转，而是返回 undefined，让 Layout 决定如何展示
@@ -79,7 +80,9 @@ export async function getInitialState(): Promise<{
 
   // 只有 (非登录页) 且 (有Token) 时才请求
   if (
-    ![loginPath, '/user/register', '/user/register-result'].includes(location.pathname) &&
+    ![loginPath, '/user/register', '/user/register-result'].includes(
+      location.pathname,
+    ) &&
     token
   ) {
     try {
@@ -99,7 +102,9 @@ export async function getInitialState(): Promise<{
       }
 
       const menuData = processMenuData(rawMenuData);
-      const settings = currentUser?.settings as Partial<LayoutSettings> || defaultSettings as Partial<LayoutSettings>;
+      const settings =
+        (currentUser?.settings as Partial<LayoutSettings>) ||
+        (defaultSettings as Partial<LayoutSettings>);
 
       return {
         fetchUserInfo,
@@ -120,13 +125,14 @@ export async function getInitialState(): Promise<{
 
 // ProLayout 支持的api https://procomponents.ant.design/components/layout
 export const layout: RunTimeLayoutConfig = ({
-                                              initialState,
-                                              setInitialState,
-                                            }) => {
-
+  initialState,
+  setInitialState,
+}) => {
   const handleSettingChange = (settings: any) => {
     setInitialState((pre) => ({ ...pre, settings }));
-    updateUiConfig({ settings }).catch(err => console.error("配置同步失败", err));
+    updateUiConfig({ settings }).catch((err) =>
+      console.error('配置同步失败', err),
+    );
   };
 
   return {
@@ -154,7 +160,11 @@ export const layout: RunTimeLayoutConfig = ({
       // 1. 未登录检查：
       // 如果没有 currentUser，且连 token 都没有，那必须去登录
       // (注意：如果 token 存在但 currentUser 为空，可能是接口 500 了，此时不跳登录，而是停留在当前页显示错误)
-      if (!initialState?.currentUser && !token && location.pathname !== loginPath) {
+      if (
+        !initialState?.currentUser &&
+        !token &&
+        location.pathname !== loginPath
+      ) {
         history.push(loginPath);
         return;
       }
@@ -163,7 +173,9 @@ export const layout: RunTimeLayoutConfig = ({
       if (initialState?.currentUser && location.pathname === '/') {
         const defaultRouter = initialState.currentUser.authority?.defaultRouter;
         if (defaultRouter) {
-          const targetPath = defaultRouter.startsWith('/') ? defaultRouter : `/${defaultRouter}`;
+          const targetPath = defaultRouter.startsWith('/')
+            ? defaultRouter
+            : `/${defaultRouter}`;
           history.replace(targetPath);
         } else {
           history.replace('/dashboard/workplace');
@@ -192,19 +204,25 @@ export const layout: RunTimeLayoutConfig = ({
     ],
     links: isDev
       ? [
-        <Link key="openapi" to="/umi/plugin/openapi" target="_blank">
-          <LinkOutlined />
-          <span>OpenAPI 文档</span>
-        </Link>,
-      ]
+          <Link key="openapi" to="/umi/plugin/openapi" target="_blank">
+            <LinkOutlined />
+            <span>{t('cms.openApiDocs')}</span>
+          </Link>,
+        ]
       : [],
     menuHeaderRender: undefined,
-    menuDataRender: () => initialState?.menuData || [],
-    subMenuItemRender: (item, defaultDom) => withMenuIcon(item.icon, defaultDom),
+    menuDataRender: () => localizeMenus(initialState?.menuData || []),
+    subMenuItemRender: (item, defaultDom) =>
+      withMenuIcon(item.icon, defaultDom),
     menuItemRender: (item, defaultDom) => {
       const label = withMenuIcon(item.icon, defaultDom);
-      if (item.isUrl || !item.path || history.location.pathname === item.path) return label;
-      return <Link to={item.path.replace('/*', '')} target={item.target}>{label}</Link>;
+      if (item.isUrl || !item.path || history.location.pathname === item.path)
+        return label;
+      return (
+        <Link to={item.path.replace('/*', '')} target={item.target}>
+          {label}
+        </Link>
+      );
     },
     childrenRender: (children) => {
       return (
@@ -235,7 +253,9 @@ export async function patchClientRoutes({ routes }: { routes: any[] }) {
     if (!rawMenuData || rawMenuData.length === 0) return;
 
     const dynamicRoutes = buildRoutes(rawMenuData);
-    const layoutRoute = routes.find((route) => route.id === 'ant-design-pro-layout' || route.path === '/');
+    const layoutRoute = routes.find(
+      (route) => route.id === 'ant-design-pro-layout' || route.path === '/',
+    );
 
     if (layoutRoute) {
       if (!layoutRoute.routes) {
@@ -247,11 +267,19 @@ export async function patchClientRoutes({ routes }: { routes: any[] }) {
         const userRes = await getCurrentUserInfo({ skipErrorHandler: true });
 
         // ✨ 这里也做同样的精确判断
-        if (userRes && userRes.code === Code.SUCCESS && userRes.data?.authority) {
+        if (
+          userRes &&
+          userRes.code === Code.SUCCESS &&
+          userRes.data?.authority
+        ) {
           const defaultRouter = userRes.data.authority.defaultRouter;
           if (defaultRouter) {
-            const redirectPath = defaultRouter.startsWith('/') ? defaultRouter : `/${defaultRouter}`;
-            const redirectRoute = layoutRoute.routes.find((r: any) => r.path === '/' && r.redirect);
+            const redirectPath = defaultRouter.startsWith('/')
+              ? defaultRouter
+              : `/${defaultRouter}`;
+            const redirectRoute = layoutRoute.routes.find(
+              (r: any) => r.path === '/' && r.redirect,
+            );
 
             if (redirectRoute) {
               redirectRoute.redirect = redirectPath;

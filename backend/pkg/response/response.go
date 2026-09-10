@@ -27,7 +27,7 @@ type PageResult struct {
 func result(c *gin.Context, code int, msg string, data interface{}) {
 	c.JSON(http.StatusOK, Response{
 		Code: code,
-		Msg:  msg,
+		Msg:  LocalizeMessage(c, msg),
 		Data: data,
 	})
 }

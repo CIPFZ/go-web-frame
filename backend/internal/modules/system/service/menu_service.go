@@ -67,6 +67,7 @@ func (s *MenuService) AddBaseMenu(ctx context.Context, req dto.AddMenuReq) error
 		ParentId:   req.ParentId,
 		Path:       req.Path,
 		Name:       req.Name,
+		NameEn:     req.NameEn,
 		Component:  req.Component,
 		Sort:       req.Sort,
 		Icon:       req.Icon,
@@ -110,6 +111,9 @@ func (s *MenuService) UpdateBaseMenu(ctx context.Context, req dto.UpdateMenuReq)
 		"locale":       req.Locale,
 	}
 
+	if req.NameEn != nil {
+		updMap["name_en"] = *req.NameEn
+	}
 	if err := s.menuRepo.Update(ctx, menu, updMap); err != nil {
 		log.Error("更新菜单失败", zap.Error(err))
 		return err

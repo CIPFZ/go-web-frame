@@ -212,6 +212,7 @@ func ensureBaseMenus(tx *gorm.DB) (map[string]uint, error) {
 				ParentId:   parentID,
 				Path:       item.Path,
 				Name:       item.Name,
+				NameEn:     MenuNamesEn[item.Locale],
 				Component:  item.Component,
 				Access:     item.Access,
 				Target:     item.Target,

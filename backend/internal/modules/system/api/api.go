@@ -37,7 +37,7 @@ func (a *SysApiApi) GetApiList(c *gin.Context) {
 	var req dto.SearchApiReq
 	// ShouldBind 支持从 JSON 或 Query 参数绑定
 	if err := c.ShouldBind(&req); err != nil {
-		response.FailWithMessage("参数绑定失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 
@@ -63,7 +63,7 @@ func (a *SysApiApi) GetApiList(c *gin.Context) {
 func (a *SysApiApi) CreateApi(c *gin.Context) {
 	var req dto.CreateApiReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 	log := logger.GetLogger(c)
@@ -86,7 +86,7 @@ func (a *SysApiApi) CreateApi(c *gin.Context) {
 func (a *SysApiApi) UpdateApi(c *gin.Context) {
 	var req dto.UpdateApiReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 	log := logger.GetLogger(c)
@@ -110,7 +110,7 @@ func (a *SysApiApi) UpdateApi(c *gin.Context) {
 func (a *SysApiApi) DeleteApi(c *gin.Context) {
 	var req dto.DeleteApiReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 	log := logger.GetLogger(c)

@@ -33,7 +33,7 @@ func NewUserApi(svcCtx *svc.ServiceContext, userService service.IUserService) *U
 func (u *UserApi) Register(c *gin.Context) {
 	var req dto.RegisterReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 
@@ -51,7 +51,7 @@ func (u *UserApi) Login(c *gin.Context) {
 	log := logger.GetLogger(c)
 	var req dto.LoginReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage(err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 
@@ -147,7 +147,7 @@ func (u *UserApi) GetUserList(c *gin.Context) {
 func (u *UserApi) AddUser(c *gin.Context) {
 	var req dto.AddUserReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage(err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 
@@ -164,7 +164,7 @@ func (u *UserApi) AddUser(c *gin.Context) {
 func (u *UserApi) UpdateUser(c *gin.Context) {
 	var req dto.UpdateUserReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage(err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 
@@ -181,7 +181,7 @@ func (u *UserApi) UpdateUser(c *gin.Context) {
 func (u *UserApi) DeleteUser(c *gin.Context) {
 	var req common.GetByIdReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage(err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 
@@ -198,7 +198,7 @@ func (u *UserApi) DeleteUser(c *gin.Context) {
 func (u *UserApi) ResetPassword(c *gin.Context) {
 	var req dto.ResetPasswordReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage(err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 
@@ -219,7 +219,7 @@ func (u *UserApi) SwitchAuthority(c *gin.Context) {
 
 	var req reqBody
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage(err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 
@@ -241,7 +241,7 @@ func (u *UserApi) SwitchAuthority(c *gin.Context) {
 func (u *UserApi) UpdateSelfInfo(c *gin.Context) {
 	var req dto.UpdateSelfInfoReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数错误", c)
+		response.FailWithValidation(err, c)
 		return
 	}
 
@@ -257,7 +257,7 @@ func (u *UserApi) UpdateSelfInfo(c *gin.Context) {
 func (u *UserApi) UpdateUiConfig(c *gin.Context) {
 	var req dto.UpdateUiConfigReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("配置参数错误", c)
+		response.FailWithValidation(err, c)
 		return
 	}
 

@@ -1,11 +1,22 @@
+import { t, useI18n } from '@/i18n';
 import React, { useRef, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-layout';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import { Button, Tag, Space, message, Popconfirm, Modal, Typography } from 'antd';
+import {
+  Button,
+  Tag,
+  Space,
+  message,
+  Popconfirm,
+  Modal,
+  Typography,
+} from 'antd';
 import { DeleteOutlined, EyeOutlined } from '@ant-design/icons';
-import { getOperationLogList, deleteOperationLogByIds } from '@/services/system/operationLog';
-
+import {
+  getOperationLogList,
+  deleteOperationLogByIds,
+} from '@/services/system/operationLog';
 const { Text } = Typography;
 
 // 日志项类型定义
@@ -20,7 +31,10 @@ type OperationLogItem = {
   agent: string;
   body: string;
   resp: string;
-  user?: { nickName: string; userName: string };
+  user?: {
+    nickName: string;
+    userName: string;
+  };
   traceId?: string;
   error_msg?: string;
 };
@@ -33,8 +47,8 @@ const prettyJson = (str: string) => {
     return str;
   }
 };
-
 const OperationLogTable: React.FC = () => {
+  useI18n();
   const actionRef = useRef<ActionType>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentRow, setCurrentRow] = useState<OperationLogItem>();
@@ -44,19 +58,20 @@ const OperationLogTable: React.FC = () => {
   const handleBatchDelete = async () => {
     if (!selectedRowKeys.length) return;
     try {
-      const res = await deleteOperationLogByIds({ ids: selectedRowKeys as number[] });
+      const res = await deleteOperationLogByIds({
+        ids: selectedRowKeys as number[],
+      });
       if (res.code === 0) {
-        message.success('删除成功');
+        message.success(t('cms.deletedSuccessfully'));
         setSelectedRowKeys([]);
         actionRef.current?.reload();
       } else {
-        message.error(res.msg || '删除失败');
+        message.error(res.msg || t('cms.deleteFailed'));
       }
     } catch (error) {
-      message.error('请求出错');
+      message.error(t('cms.requestFailed'));
     }
   };
-
   const columns: ProColumns<OperationLogItem>[] = [
     {
       title: 'ID',
@@ -65,44 +80,73 @@ const OperationLogTable: React.FC = () => {
       search: false,
     },
     {
-      title: '操作人',
+      title: t('cms.operator'),
       dataIndex: 'user_id',
-      width: 120, // 固定宽度
-      ellipsis: true, // 超出显示省略号
+      width: 120,
+      // 固定宽度
+      ellipsis: true,
+      // 超出显示省略号
       render: (_, record) => (
-        <Tag color="blue" style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {record.user?.nickName || record.user?.userName || 'Unknown'}
+        <Tag
+          color="blue"
+          style={{
+            maxWidth: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {record.user?.nickName || record.user?.userName || t('cms.unknown')}
         </Tag>
       ),
     },
     {
-      title: '日期',
+      title: t('cms.date'),
       dataIndex: 'created_at',
       valueType: 'dateTimeRange',
-      hideInTable: true, // 只在搜索栏显示
+      hideInTable: true,
+      // 只在搜索栏显示
       search: {
-        transform: (value) => ({ startDate: value[0], endDate: value[1] }),
+        transform: (value) => ({
+          startDate: value[0],
+          endDate: value[1],
+        }),
       },
     },
     {
-      title: '操作时间',
+      title: t('cms.operationTime'),
       dataIndex: 'CreatedAt',
       valueType: 'dateTime',
-      search: false, // 表格中只展示时间点
+      search: false,
+      // 表格中只展示时间点
       width: 160,
     },
     // ✨ 2. 优化状态列 (改为胶囊 Tag)
     {
-      title: '状态',
+      title: t('cms.status'),
       dataIndex: 'status',
       width: 80,
       align: 'center',
       valueEnum: {
-        200: { text: '200', status: 'Success' },
-        400: { text: '400', status: 'Warning' },
-        401: { text: '401', status: 'Warning' },
-        403: { text: '403', status: 'Error' },
-        500: { text: '500', status: 'Error' },
+        200: {
+          text: '200',
+          status: 'Success',
+        },
+        400: {
+          text: '400',
+          status: 'Warning',
+        },
+        401: {
+          text: '401',
+          status: 'Warning',
+        },
+        403: {
+          text: '403',
+          status: 'Error',
+        },
+        500: {
+          text: '500',
+          status: 'Error',
+        },
       },
       // 自定义渲染为 Tag
       render: (_, record) => {
@@ -110,12 +154,11 @@ const OperationLogTable: React.FC = () => {
         if (record.status === 200) color = 'success';
         else if (record.status >= 400 && record.status < 500) color = 'warning';
         else if (record.status >= 500) color = 'error';
-
         return <Tag color={color}>{record.status}</Tag>;
-      }
+      },
     },
     {
-      title: '耗时',
+      title: t('cms.duration'),
       dataIndex: 'latency',
       width: 100,
       search: false,
@@ -128,48 +171,67 @@ const OperationLogTable: React.FC = () => {
       },
     },
     {
-      title: '方法',
+      title: t('cms.method'),
       dataIndex: 'method',
       width: 80,
       valueEnum: {
-        GET: { text: 'GET', status: 'Default' }, // 理论上我们过滤了 GET
-        POST: { text: 'POST', status: 'Processing' },
-        PUT: { text: 'PUT', status: 'Warning' },
-        DELETE: { text: 'DELETE', status: 'Error' },
+        GET: {
+          text: 'GET',
+          status: 'Default',
+        },
+        // 理论上我们过滤了 GET
+        POST: {
+          text: 'POST',
+          status: 'Processing',
+        },
+        PUT: {
+          text: 'PUT',
+          status: 'Warning',
+        },
+        DELETE: {
+          text: 'DELETE',
+          status: 'Error',
+        },
       },
     },
     {
-      title: '请求路径',
+      title: t('cms.requestPath'),
       dataIndex: 'path',
       copyable: true,
       ellipsis: true,
     },
     {
-      title: '请求IP',
+      title: t('cms.clientIp'),
       dataIndex: 'ip',
       width: 120,
       copyable: true,
     },
     {
-      title: 'TraceID', // OTel 链路追踪
+      title: 'TraceID',
+      // OTel 链路追踪
       dataIndex: 'traceId',
       copyable: true,
       ellipsis: true,
       search: false, // 可以开启搜索，方便排错
     },
     {
-      title: '操作',
+      title: t('cms.actions'),
       valueType: 'option',
       fixed: 'right',
       width: 80,
       render: (_, record) => (
-        <a onClick={() => { setCurrentRow(record); setIsModalOpen(true); }}>
-          <EyeOutlined /> 详情
+        <a
+          onClick={() => {
+            setCurrentRow(record);
+            setIsModalOpen(true);
+          }}
+        >
+          <EyeOutlined />
+          {t('cms.details')}
         </a>
       ),
     },
   ];
-
   return (
     <PageContainer title={false}>
       <ProTable<OperationLogItem>
@@ -196,16 +258,21 @@ const OperationLogTable: React.FC = () => {
           };
         }}
         columns={columns}
-        scroll={{ x: 1300 }}
+        scroll={{
+          x: 1300,
+        }}
         toolBarRender={() => [
           selectedRowKeys.length > 0 && (
             <Popconfirm
               key="batchDelete"
-              title={`确定删除选中的 ${selectedRowKeys.length} 条日志吗？`}
+              title={t('cms.deleteOther.0883ec', {
+                value0: selectedRowKeys.length,
+              })}
               onConfirm={handleBatchDelete}
             >
               <Button danger type="primary">
-                <DeleteOutlined /> 批量删除
+                <DeleteOutlined />
+                {t('cms.deleteSelected')}
               </Button>
             </Popconfirm>
           ),
@@ -214,50 +281,69 @@ const OperationLogTable: React.FC = () => {
 
       {/* 详情模态框 */}
       <Modal
-        title="请求详情"
+        title={t('cms.requestDetails')}
         width={800}
         open={isModalOpen}
         onCancel={() => setIsModalOpen(false)}
         footer={null}
       >
         {currentRow && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16,
+            }}
+          >
             <div>
-              <Text strong>请求 Body:</Text>
-              <div style={{
-                marginTop: 8,
-                padding: 12,
-                background: '#f5f5f5',
-                borderRadius: 4,
-                maxHeight: 300,
-                overflow: 'auto',
-                whiteSpace: 'pre-wrap',
-                fontFamily: 'monospace'
-              }}>
+              <Text strong>{t('cms.requestBody')}</Text>
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: 12,
+                  background: '#f5f5f5',
+                  borderRadius: 4,
+                  maxHeight: 300,
+                  overflow: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: 'monospace',
+                }}
+              >
                 {prettyJson(currentRow.body)}
               </div>
             </div>
 
             <div>
-              <Text strong>响应 Body:</Text>
-              <div style={{
-                marginTop: 8,
-                padding: 12,
-                background: '#f5f5f5',
-                borderRadius: 4,
-                maxHeight: 300,
-                overflow: 'auto',
-                whiteSpace: 'pre-wrap',
-                fontFamily: 'monospace'
-              }}>
+              <Text strong>{t('cms.responseBody')}</Text>
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: 12,
+                  background: '#f5f5f5',
+                  borderRadius: 4,
+                  maxHeight: 300,
+                  overflow: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: 'monospace',
+                }}
+              >
                 {prettyJson(currentRow.resp)}
               </div>
             </div>
 
             {currentRow.error_msg && (
               <div>
-                <Text strong type="danger">错误信息:</Text>
-                <div style={{ marginTop: 8, padding: 8, background: '#fff1f0', border: '1px solid #ffccc7' }}>
+                <Text strong type="danger">
+                  {t('cms.error')}
+                </Text>
+                <div
+                  style={{
+                    marginTop: 8,
+                    padding: 8,
+                    background: '#fff1f0',
+                    border: '1px solid #ffccc7',
+                  }}
+                >
                   {currentRow.error_msg}
                 </div>
               </div>
@@ -268,5 +354,4 @@ const OperationLogTable: React.FC = () => {
     </PageContainer>
   );
 };
-
 export default OperationLogTable;

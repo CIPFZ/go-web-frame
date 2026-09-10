@@ -1,3 +1,5 @@
+import { useFormLocale } from '@/i18n/useFormLocale';
+import { t, useI18n, formatDate } from '@/i18n';
 import type { API } from '@/services/system/types';
 import { loadPagedOptions } from '@/utils/pagedOptions';
 import React, { useMemo, useRef, useState } from 'react';
@@ -22,9 +24,17 @@ import {
   RedoOutlined,
   SafetyCertificateOutlined,
 } from '@ant-design/icons';
-import { Button, Form, message, Modal, Popconfirm, Space, Tag, Typography } from 'antd';
+import {
+  Button,
+  Form,
+  message,
+  Modal,
+  Popconfirm,
+  Space,
+  Tag,
+  Typography,
+} from 'antd';
 import dayjs from 'dayjs';
-
 import {
   createApiToken,
   deleteApiToken,
@@ -49,58 +59,45 @@ import {
   type TokenFormValues,
 } from './helpers';
 import './index.less';
-
 const extractPlainToken = (res: API.CommonResponse): string | undefined => {
   const data = res?.data || {};
   return data.token || data.plainToken || data.accessToken || data.value;
 };
-
-const showPlainTokenModal = (token: string, title: string) => {
-  Modal.info({
-    title,
-    width: 640,
-    content: (
-      <div>
-        <Typography.Paragraph type="secondary">
-          明文 Token 只展示一次，请立即复制并妥善保管。
-        </Typography.Paragraph>
-        <Typography.Paragraph copyable code>
-          {token}
-        </Typography.Paragraph>
-      </div>
-    ),
-  });
-};
-
 const getExpiryStatus = (expiresAt?: string) => {
   if (!expiresAt) {
-    return <Tag>未设置</Tag>;
+    return <Tag>{t('cms.notSet')}</Tag>;
   }
-
   const expires = dayjs(expiresAt);
   const now = dayjs();
-
   if (expires.isBefore(now)) {
-    return <Tag color="error">已过期</Tag>;
+    return <Tag color="error">{t('cms.expired')}</Tag>;
   }
-
   const remainingDays = expires.diff(now, 'day');
   if (remainingDays <= 7) {
-    return <Tag color="warning">{`${remainingDays} 天内到期`}</Tag>;
+    return (
+      <Tag color="warning">
+        {t('cms.expiresInOther', {
+          value0: remainingDays,
+        })}
+      </Tag>
+    );
   }
-
-  return <Tag color="processing">有效中</Tag>;
+  return <Tag color="processing">{t('cms.valid')}</Tag>;
 };
-
 const ApiTokenPage: React.FC = () => {
+  const localeFormRef1 = useFormLocale();
+  useI18n();
   const actionRef = useRef<ActionType>(null);
   const [form] = Form.useForm<TokenFormValues>();
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [plainToken, setPlainToken] = useState<{
+    token: string;
+    reset: boolean;
+  }>();
   const [currentRow, setCurrentRow] = useState<ApiTokenItem>();
   const [apiOptions, setApiOptions] = useState<ApiPermissionOption[]>([]);
   const [apiOptionsLoading, setApiOptionsLoading] = useState(false);
   const [pageList, setPageList] = useState<ApiTokenItem[]>([]);
-
   const stats = useMemo(() => {
     const enabledCount = pageList.filter((item) => item.enabled).length;
     const expiringSoonCount = pageList.filter((item) => {
@@ -110,23 +107,20 @@ const ApiTokenPage: React.FC = () => {
       const expires = dayjs(item.expiresAt);
       return expires.isAfter(dayjs()) && expires.diff(dayjs(), 'day') <= 7;
     }).length;
-
     return {
       total: pageList.length,
       enabledCount,
       expiringSoonCount,
     };
   }, [pageList]);
-
   const loadApiOptions = async () => {
     setApiOptionsLoading(true);
     try {
       const res = await loadPagedOptions(getApiOptions);
       if (res.code !== 0) {
-        message.error(res.msg || '加载 API 列表失败');
+        message.error(res.msg || t('cms.unableToLoadApis'));
         return;
       }
-
       setApiOptions(
         (res.data?.list || []).map((item: any) => ({
           value: item.ID,
@@ -138,12 +132,11 @@ const ApiTokenPage: React.FC = () => {
         })),
       );
     } catch (error) {
-      message.error('加载 API 列表失败');
+      message.error(t('cms.unableToLoadApis'));
     } finally {
       setApiOptionsLoading(false);
     }
   };
-
   const openCreateDrawer = () => {
     setCurrentRow(undefined);
     form.setFieldsValue(buildTokenFormInitialValues());
@@ -152,124 +145,127 @@ const ApiTokenPage: React.FC = () => {
       loadApiOptions();
     }
   };
-
   const openEditDrawer = async (record: ApiTokenItem) => {
     try {
       const [detailRes] = await Promise.all([
-        getApiTokenDetail({ id: record.ID }),
+        getApiTokenDetail({
+          id: record.ID,
+        }),
         apiOptions.length ? Promise.resolve(null) : loadApiOptions(),
       ]);
-
       if (detailRes.code !== 0) {
-        message.error(detailRes.msg || '获取详情失败');
+        message.error(detailRes.msg || t('cms.unableToLoadDetails'));
         return;
       }
-
       const detail = (detailRes.data || {}) as Partial<ApiTokenItem>;
       const nextRow = {
         ...record,
         ...detail,
         apis: Array.isArray(detail.apis) ? detail.apis : record.apis || [],
       };
-
       setCurrentRow(nextRow);
       form.setFieldsValue(buildTokenFormInitialValues(nextRow));
       setDrawerVisible(true);
     } catch (error) {
-      message.error('请求异常');
+      message.error(t('cms.requestError'));
     }
   };
-
   const handleDelete = async (id: number) => {
     try {
-      const res = await deleteApiToken({ id });
+      const res = await deleteApiToken({
+        id,
+      });
       if (res.code !== 0) {
-        message.error(res.msg || '删除失败');
+        message.error(res.msg || t('cms.deleteFailed'));
         return;
       }
-      message.success('删除成功');
+      message.success(t('cms.deletedSuccessfully'));
       actionRef.current?.reload();
     } catch (error) {
-      message.error('请求异常');
+      message.error(t('cms.requestError'));
     }
   };
-
   const handleToggleEnable = async (record: ApiTokenItem) => {
     const request = record.enabled ? disableApiToken : enableApiToken;
     try {
-      const res = await request({ id: record.ID });
+      const res = await request({
+        id: record.ID,
+      });
       if (res.code !== 0) {
-        message.error(res.msg || '状态更新失败');
+        message.error(res.msg || t('cms.statusUpdateFailed'));
         return;
       }
-      message.success(record.enabled ? '已禁用' : '已启用');
+      message.success(record.enabled ? t('cms.disabled') : t('cms.enabled'));
       actionRef.current?.reload();
     } catch (error) {
-      message.error('请求异常');
+      message.error(t('cms.requestError'));
     }
   };
-
   const handleReset = async (id: number) => {
     try {
-      const res = await resetApiToken({ id });
+      const res = await resetApiToken({
+        id,
+      });
       if (res.code !== 0) {
-        message.error(res.msg || '重置失败');
+        message.error(res.msg || t('cms.resetFailed'));
         return;
       }
-
-      message.success('重置成功');
+      message.success(t('cms.resetSuccessfully'));
       const plainToken = extractPlainToken(res);
       if (plainToken) {
-        showPlainTokenModal(plainToken, 'Token 已重置，请复制新的明文 Token');
+        setPlainToken({ token: plainToken, reset: true });
       }
       actionRef.current?.reload();
     } catch (error) {
-      message.error('请求异常');
+      message.error(t('cms.requestError'));
     }
   };
-
   const handleSubmit = async (values: TokenFormValues) => {
     const payload = buildTokenSubmitPayload(values, currentRow?.ID);
-
     try {
-      const res = currentRow?.ID ? await updateApiToken(payload) : await createApiToken(payload);
+      const res = currentRow?.ID
+        ? await updateApiToken(payload)
+        : await createApiToken(payload);
       if (res.code !== 0) {
-        message.error(res.msg || '保存失败');
+        message.error(res.msg || t('cms.saveFailed'));
         return false;
       }
-
-      message.success(currentRow?.ID ? '更新成功' : '创建成功');
+      message.success(
+        currentRow?.ID
+          ? t('cms.updatedSuccessfully')
+          : t('cms.createdSuccessfully'),
+      );
       if (!currentRow?.ID) {
         const plainToken = extractPlainToken(res);
         if (plainToken) {
-          showPlainTokenModal(plainToken, 'Token 创建成功，请立即复制');
+          setPlainToken({ token: plainToken, reset: false });
         }
       }
-
       setDrawerVisible(false);
       actionRef.current?.reload();
       return true;
     } catch (error) {
-      message.error('请求异常');
+      message.error(t('cms.requestError'));
       return false;
     }
   };
-
   const columns: ProColumns<ApiTokenItem>[] = [
     {
-      title: '名称',
+      title: t('cms.name'),
       dataIndex: 'name',
       width: API_TOKEN_TABLE_LAYOUT.nameWidth,
       ellipsis: true,
       render: (_, record) => (
         <Space direction="vertical" size={0}>
           <Typography.Text strong>{record.name}</Typography.Text>
-          <Typography.Text type="secondary">{record.description || '未填写说明'}</Typography.Text>
+          <Typography.Text type="secondary">
+            {record.description || t('cms.noDescription')}
+          </Typography.Text>
         </Space>
       ),
     },
     {
-      title: 'Token 前缀',
+      title: t('cms.tokenPrefix'),
       dataIndex: 'tokenPrefix',
       width: API_TOKEN_TABLE_LAYOUT.tokenPrefixWidth,
       search: false,
@@ -279,36 +275,44 @@ const ApiTokenPage: React.FC = () => {
             <SafetyCertificateOutlined />
             {record.tokenPrefix}
           </span>
-          <span className="tokenPrefixMeta">仅展示前缀，用于快速识别</span>
+          <span className="tokenPrefixMeta">
+            {t('cms.onlyThePrefixIsDisplayedFor')}
+          </span>
         </Space>
       ),
     },
     {
-      title: '授权 API',
+      title: t('cms.authorizedApis.653b57'),
       dataIndex: 'apis',
       width: API_TOKEN_TABLE_LAYOUT.apisWidth,
       search: false,
       render: (_, record) => <ApiPermissionSummary apis={record.apis} />,
     },
     {
-      title: '状态',
+      title: t('cms.status'),
       dataIndex: 'enabled',
       width: API_TOKEN_TABLE_LAYOUT.statusWidth,
       valueEnum: {
-        true: { text: '启用', status: 'Success' },
-        false: { text: '禁用', status: 'Default' },
+        true: {
+          text: t('cms.enabled'),
+          status: 'Success',
+        },
+        false: {
+          text: t('cms.disabled'),
+          status: 'Default',
+        },
       },
       render: (_, record) =>
         record.enabled ? (
           <Tag color="success" icon={<CheckCircleOutlined />}>
-            启用
+            {t('cms.enabled')}
           </Tag>
         ) : (
-          <Tag icon={<PauseCircleOutlined />}>禁用</Tag>
+          <Tag icon={<PauseCircleOutlined />}>{t('cms.disabled')}</Tag>
         ),
     },
     {
-      title: '并发上限',
+      title: t('cms.concurrencyLimit'),
       dataIndex: 'maxConcurrency',
       width: API_TOKEN_TABLE_LAYOUT.concurrencyWidth,
       search: false,
@@ -316,96 +320,125 @@ const ApiTokenPage: React.FC = () => {
       render: (_, record) => record.maxConcurrency || '-',
     },
     {
-      title: '过期时间',
+      title: t('cms.expiresAt'),
       dataIndex: 'expiresAt',
       width: API_TOKEN_TABLE_LAYOUT.expiresAtWidth,
       search: false,
       render: (_, record) => (
         <Space direction="vertical" size={4}>
-          <Typography.Text>{record.expiresAt ? dayjs(record.expiresAt).format('YYYY-MM-DD HH:mm') : '-'}</Typography.Text>
+          <Typography.Text>
+            {record.expiresAt ? formatDate(record.expiresAt) : '-'}
+          </Typography.Text>
           {getExpiryStatus(record.expiresAt)}
         </Space>
       ),
     },
     {
-      title: '最近使用',
+      title: t('cms.lastUsed'),
       dataIndex: 'lastUsedAt',
       width: API_TOKEN_TABLE_LAYOUT.lastUsedWidth,
       search: false,
       render: (_, record) =>
-        record.lastUsedAt ? dayjs(record.lastUsedAt).format('YYYY-MM-DD HH:mm') : '暂无记录',
+        record.lastUsedAt ? formatDate(record.lastUsedAt) : t('cms.noRecords'),
     },
     {
-      title: '操作',
+      title: t('cms.actions'),
       dataIndex: 'option',
       valueType: 'option',
       width: API_TOKEN_TABLE_LAYOUT.actionWidth,
       render: (_, record) => (
         <Space size="small" wrap>
           <a onClick={() => openEditDrawer(record)}>
-            <EditOutlined /> 编辑
+            <EditOutlined />
+            {t('cms.edit')}
           </a>
           <Popconfirm
-            title={record.enabled ? '确认禁用该 Token？' : '确认启用该 Token？'}
+            title={
+              record.enabled
+                ? t('cms.disableThisToken')
+                : t('cms.enableThisToken')
+            }
             onConfirm={() => handleToggleEnable(record)}
-            okText="确认"
-            cancelText="取消"
+            okText={t('cms.confirm')}
+            cancelText={t('cms.cancel')}
           >
             <a>
-              {record.enabled ? <PauseCircleOutlined /> : <CheckCircleOutlined />} {record.enabled ? '禁用' : '启用'}
+              {record.enabled ? (
+                <PauseCircleOutlined />
+              ) : (
+                <CheckCircleOutlined />
+              )}{' '}
+              {record.enabled ? t('cms.disable') : t('cms.enable')}
             </a>
           </Popconfirm>
           <Popconfirm
-            title="确认重置 Token？"
-            description="重置后旧 Token 会立即失效。"
+            title={t('cms.resetThisToken')}
+            description={t('cms.theOldTokenWillStopWorking')}
             onConfirm={() => handleReset(record.ID)}
-            okText="确认"
-            cancelText="取消"
+            okText={t('cms.confirm')}
+            cancelText={t('cms.cancel')}
           >
             <a>
-              <RedoOutlined /> 重置
+              <RedoOutlined />
+              {t('cms.reset')}
             </a>
           </Popconfirm>
           <Popconfirm
-            title="确认删除该 Token？"
+            title={t('cms.deleteThisToken')}
             onConfirm={() => handleDelete(record.ID)}
-            okText="确认"
-            cancelText="取消"
+            okText={t('cms.confirm')}
+            cancelText={t('cms.cancel')}
           >
-            <a style={{ color: '#ff4d4f' }}>
-              <DeleteOutlined /> 删除
+            <a
+              style={{
+                color: '#ff4d4f',
+              }}
+            >
+              <DeleteOutlined />
+              {t('cms.delete')}
             </a>
           </Popconfirm>
         </Space>
       ),
     },
   ];
-
   return (
     <PageContainer title={false} className="apiTokenPage">
       <ProCard className="apiTokenHero" bordered>
-        <Space direction="vertical" size={4} style={{ width: '100%' }}>
+        <Space
+          direction="vertical"
+          size={4}
+          style={{
+            width: '100%',
+          }}
+        >
           <Typography.Title level={4} className="heroTitle">
-            API Token 控制台
+            {t('cms.apiTokenConsole')}
           </Typography.Title>
           <Typography.Paragraph className="heroParagraph">
-            面向外部服务端和脚本调用场景。这里可以集中管理 Token 生命周期、授权接口范围和可用状态，避免在单条记录里堆叠过多信息。
+            {t('cms.manageApiTokensForExternalServices')}
           </Typography.Paragraph>
           <div className="statsRow">
             <div className="statCard">
-              <span className="statLabel">当前页 Token</span>
+              <span className="statLabel">{t('cms.tokensOnThisPage')}</span>
               <span className="statValue">{stats.total}</span>
-              <span className="statHint">用于快速感知当前检索范围</span>
+              <span className="statHint">
+                {t('cms.overviewOfTheCurrentSearchResults')}
+              </span>
             </div>
             <div className="statCard">
-              <span className="statLabel">启用中</span>
+              <span className="statLabel">{t('cms.enabled.595aab')}</span>
               <span className="statValue">{stats.enabledCount}</span>
-              <span className="statHint">可直接对外访问的 Token 数量</span>
+              <span className="statHint">
+                {t('cms.enabledTokensOnThisPage')}
+              </span>
             </div>
             <div className="statCard">
-              <span className="statLabel">7 天内到期</span>
+              <span className="statLabel">{t('cms.expiringWithin7Days')}</span>
               <span className="statValue">{stats.expiringSoonCount}</span>
-              <span className="statHint">需要尽快轮换或续期</span>
+              <span className="statHint">
+                {t('cms.reviewTokensThatNeedRenewalOr')}
+              </span>
             </div>
           </div>
         </Space>
@@ -415,24 +448,23 @@ const ApiTokenPage: React.FC = () => {
         <ProTable<ApiTokenItem>
           actionRef={actionRef}
           rowKey="ID"
-          headerTitle="Token 列表"
-          search={{ labelWidth: 'auto' }}
+          headerTitle={t('cms.tokenList')}
+          search={{
+            labelWidth: 'auto',
+          }}
           request={async (params) => {
             const enabled =
               params.enabled === undefined
                 ? undefined
                 : params.enabled === 'true' || params.enabled === true;
-
             const res = await getApiTokenList({
               page: params.current,
               pageSize: params.pageSize,
               name: params.name as string,
               enabled,
             });
-
             const list = res.data?.list || [];
             setPageList(list);
-
             return {
               success: res.code === 0,
               data: list,
@@ -440,10 +472,13 @@ const ApiTokenPage: React.FC = () => {
             };
           }}
           columns={columns}
-          scroll={{ x: API_TOKEN_TABLE_LAYOUT.scrollX }}
+          scroll={{
+            x: API_TOKEN_TABLE_LAYOUT.scrollX,
+          }}
           toolBarRender={() => [
             <Button key="create" type="primary" onClick={openCreateDrawer}>
-              <PlusOutlined /> 新建 Token
+              <PlusOutlined />
+              {t('cms.newToken')}
             </Button>,
           ]}
         />
@@ -451,7 +486,7 @@ const ApiTokenPage: React.FC = () => {
 
       <DrawerForm<TokenFormValues>
         form={form}
-        title={currentRow ? '编辑 Token' : '新建 Token'}
+        title={currentRow ? t('cms.editToken') : t('cms.newToken')}
         width={760}
         open={drawerVisible}
         onOpenChange={(open) => {
@@ -462,50 +497,105 @@ const ApiTokenPage: React.FC = () => {
           }
         }}
         onFinish={handleSubmit}
-        drawerProps={{ destroyOnClose: true }}
+        drawerProps={{
+          destroyOnClose: true,
+        }}
         initialValues={buildTokenFormInitialValues(currentRow)}
+        formRef={localeFormRef1}
       >
         <div className="drawerTips">
-          <div className="drawerTipsTitle">填写建议</div>
+          <div className="drawerTipsTitle">{t('cms.tokenGuidelines')}</div>
           <Typography.Paragraph className="drawerTipsText">
-            过期时间为必填项，建议为不同系统或脚本分别创建独立 Token，并只授予必要的 API 权限。
+            {t('cms.anExpirationDateIsRequiredUse')}
           </Typography.Paragraph>
         </div>
         <ProFormText
           name="name"
-          label="名称"
-          placeholder="例如：CI 发布脚本、第三方同步服务"
-          rules={[{ required: true, message: '请输入 Token 名称' }]}
+          label={t('cms.name')}
+          placeholder={t('cms.eGCiReleaseScriptOr')}
+          rules={[
+            {
+              required: true,
+              message: t('cms.enterATokenName'),
+            },
+          ]}
         />
         <ProFormTextArea
           name="description"
-          label="说明"
-          placeholder="填写 Token 的用途、所属系统或负责人"
-          fieldProps={{ rows: 3, showCount: true, maxLength: 120 }}
+          label={t('cms.description')}
+          placeholder={t('cms.describeItsPurposeSystemOrOwner')}
+          fieldProps={{
+            rows: 3,
+            showCount: true,
+            maxLength: 120,
+          }}
         />
         <ProFormDigit
           name="maxConcurrency"
-          label="最大并发"
+          label={t('cms.maximumConcurrency')}
           min={1}
-          fieldProps={{ precision: 0 }}
-          rules={[{ required: true, message: '请输入最大并发' }]}
+          fieldProps={{
+            precision: 0,
+          }}
+          rules={[
+            {
+              required: true,
+              message: t('cms.enterTheMaximumConcurrency'),
+            },
+          ]}
         />
         <ProFormDateTimePicker
           name="expiresAt"
-          label="过期时间"
-          fieldProps={{ showNow: true }}
-          rules={[{ required: true, message: '请选择过期时间' }]}
+          label={t('cms.expiresAt')}
+          fieldProps={{
+            showNow: true,
+          }}
+          rules={[
+            {
+              required: true,
+              message: t('cms.selectAnExpirationDate'),
+            },
+          ]}
         />
         <ProForm.Item
           name="apiIds"
-          label="授权 API"
-          rules={[{ required: true, message: '请选择至少一个授权 API' }]}
+          label={t('cms.authorizedApis.653b57')}
+          rules={[
+            {
+              required: true,
+              message: t('cms.selectAtLeastOneApi'),
+            },
+          ]}
         >
-          <ApiPermissionTransfer loading={apiOptionsLoading} options={apiOptions} />
+          <ApiPermissionTransfer
+            loading={apiOptionsLoading}
+            options={apiOptions}
+          />
         </ProForm.Item>
       </DrawerForm>
+      <Modal
+        open={!!plainToken}
+        title={t(
+          plainToken?.reset
+            ? 'cms.tokenResetCopyTheNewToken'
+            : 'cms.tokenCreatedCopyItNow',
+        )}
+        width={640}
+        onCancel={() => setPlainToken(undefined)}
+        footer={
+          <Button type="primary" onClick={() => setPlainToken(undefined)}>
+            {t('cms.confirm')}
+          </Button>
+        }
+      >
+        <Typography.Paragraph type="secondary">
+          {t('cms.thisTokenIsShownOnlyOnce')}
+        </Typography.Paragraph>
+        <Typography.Paragraph copyable code>
+          {plainToken?.token}
+        </Typography.Paragraph>
+      </Modal>
     </PageContainer>
   );
 };
-
 export default ApiTokenPage;

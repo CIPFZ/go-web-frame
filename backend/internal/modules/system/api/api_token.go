@@ -26,7 +26,7 @@ func NewApiTokenApi(svcCtx *svc.ServiceContext, apiTokenService service.IApiToke
 func (a *ApiTokenApi) GetApiTokenList(c *gin.Context) {
 	var req dto.SearchApiTokenReq
 	if err := c.ShouldBind(&req); err != nil {
-		response.FailWithMessage("参数绑定失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 
@@ -43,7 +43,7 @@ func (a *ApiTokenApi) GetApiTokenList(c *gin.Context) {
 func (a *ApiTokenApi) CreateApiToken(c *gin.Context) {
 	var req dto.CreateApiTokenReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 
@@ -60,7 +60,7 @@ func (a *ApiTokenApi) CreateApiToken(c *gin.Context) {
 func (a *ApiTokenApi) GetApiTokenDetail(c *gin.Context) {
 	var req dto.ApiTokenDetailReq
 	if err := c.ShouldBindQuery(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 	resp, err := a.apiTokenService.GetApiTokenDetail(c.Request.Context(), req.ID)
@@ -75,7 +75,7 @@ func (a *ApiTokenApi) GetApiTokenDetail(c *gin.Context) {
 func (a *ApiTokenApi) UpdateApiToken(c *gin.Context) {
 	var req dto.UpdateApiTokenReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 	if err := a.apiTokenService.UpdateApiToken(c.Request.Context(), req); err != nil {
@@ -89,7 +89,7 @@ func (a *ApiTokenApi) UpdateApiToken(c *gin.Context) {
 func (a *ApiTokenApi) DeleteApiToken(c *gin.Context) {
 	var req dto.DeleteApiTokenReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 	if err := a.apiTokenService.DeleteApiToken(c.Request.Context(), req); err != nil {
@@ -103,7 +103,7 @@ func (a *ApiTokenApi) DeleteApiToken(c *gin.Context) {
 func (a *ApiTokenApi) ResetApiToken(c *gin.Context) {
 	var req dto.ToggleApiTokenReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 	resp, err := a.apiTokenService.ResetApiToken(c.Request.Context(), req.ID)
@@ -126,7 +126,7 @@ func (a *ApiTokenApi) DisableApiToken(c *gin.Context) {
 func (a *ApiTokenApi) toggleApiToken(c *gin.Context, enabled bool) {
 	var req dto.ToggleApiTokenReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 

@@ -1,3 +1,5 @@
+import { useFormLocale } from '@/i18n/useFormLocale';
+import { t, useI18n } from '@/i18n';
 import React, { useRef, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-layout';
 import {
@@ -8,12 +10,21 @@ import {
 } from '@ant-design/pro-components';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 import { Button, Space, message, Popconfirm } from 'antd';
-import { PlusOutlined, SettingOutlined, CopyOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-
-import { getAuthorityList, createAuthority, updateAuthority, deleteAuthority } from '@/services/system/authority';
+import {
+  PlusOutlined,
+  SettingOutlined,
+  CopyOutlined,
+  EditOutlined,
+  DeleteOutlined,
+} from '@ant-design/icons';
+import {
+  getAuthorityList,
+  createAuthority,
+  updateAuthority,
+  deleteAuthority,
+} from '@/services/system/authority';
 // ✨ 导入尚未创建的 PermissionDrawer
 import PermissionDrawer from './components/PermissionDrawer';
-
 export type AuthorityItem = {
   authorityId: number;
   authorityName: string;
@@ -21,8 +32,9 @@ export type AuthorityItem = {
   defaultRouter: string;
   children: AuthorityItem[] | null;
 };
-
 const AuthorityTableList: React.FC = () => {
+  const localeFormRef1 = useFormLocale();
+  useI18n();
   const actionRef = useRef<ActionType>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [currentRow, setCurrentRow] = useState<AuthorityItem>();
@@ -38,39 +50,39 @@ const AuthorityTableList: React.FC = () => {
     setCurrentParentId(0);
     setIsModalOpen(true);
   };
-
   const handleAddChild = (record: AuthorityItem) => {
     setCurrentRow(undefined);
     setCurrentParentId(record.authorityId);
     setIsModalOpen(true);
   };
-
   const handleEdit = (record: AuthorityItem) => {
     setCurrentRow(record);
     setCurrentParentId(record.parentId);
     setIsModalOpen(true);
   };
-
   const handleCopy = (record: AuthorityItem) => {
-    setCurrentRow({ ...record, authorityId: undefined } as any); // 清空ID
+    setCurrentRow({
+      ...record,
+      authorityId: undefined,
+    } as any); // 清空ID
     setCurrentParentId(record.parentId);
     setIsModalOpen(true);
   };
-
   const handleDelete = async (id: number) => {
     try {
-      const res = await deleteAuthority({ id });
+      const res = await deleteAuthority({
+        id,
+      });
       if (res.code === 0) {
-        message.success('删除成功');
+        message.success(t('cms.deletedSuccessfully'));
         actionRef.current?.reload();
       } else {
-        message.error(res.msg || '删除失败');
+        message.error(res.msg || t('cms.deleteFailed'));
       }
     } catch (error) {
-      message.error('请求出错');
+      message.error(t('cms.requestFailed'));
     }
   };
-
   const handleModalFinish = async (values: any) => {
     const isUpdate = !!currentRow?.authorityId;
     const method = isUpdate ? updateAuthority : createAuthority;
@@ -80,59 +92,84 @@ const AuthorityTableList: React.FC = () => {
       // 如果是更新，需要传原来的 authorityId
       authorityId: isUpdate ? currentRow?.authorityId : values.authorityId,
     };
-
     try {
       const res = await method(data);
       if (res.code === 0) {
-        message.success('操作成功');
+        message.success(t('cms.operationCompleted'));
         setIsModalOpen(false);
         actionRef.current?.reload();
         return true;
       }
-      message.error(res.msg || '操作失败');
+      message.error(res.msg || t('cms.operationFailed'));
       return false;
     } catch (error) {
-      message.error('请求出错');
+      message.error(t('cms.requestFailed'));
       return false;
     }
   };
-
   const columns: ProColumns<AuthorityItem>[] = [
-    { title: '角色ID', dataIndex: 'authorityId', width: 100, fixed: 'left' },
-    { title: '角色名称', dataIndex: 'authorityName', width: 200 },
-    { title: '默认路由', dataIndex: 'defaultRouter' },
     {
-      title: '操作',
+      title: t('cms.roleId'),
+      dataIndex: 'authorityId',
+      width: 100,
+      fixed: 'left',
+    },
+    {
+      title: t('cms.roleName'),
+      dataIndex: 'authorityName',
+      width: 200,
+    },
+    {
+      title: t('cms.defaultRoute'),
+      dataIndex: 'defaultRouter',
+    },
+    {
+      title: t('cms.actions'),
       valueType: 'option',
       width: 350,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
-          <a onClick={() => { setPermissionRow(record); setIsDrawerOpen(true); }}>
-            <SettingOutlined /> 设置权限
+          <a
+            onClick={() => {
+              setPermissionRow(record);
+              setIsDrawerOpen(true);
+            }}
+          >
+            <SettingOutlined />
+            {t('cms.configurePermissions')}
           </a>
           <a onClick={() => handleAddChild(record)}>
-            <PlusOutlined />新增子角色
+            <PlusOutlined />
+            {t('cms.addChildRole')}
           </a>
           <a onClick={() => handleCopy(record)}>
-            <CopyOutlined /> 拷贝
+            <CopyOutlined />
+            {t('cms.copy')}
           </a>
           <a onClick={() => handleEdit(record)}>
-            <EditOutlined />编辑
+            <EditOutlined />
+            {t('cms.edit')}
           </a>
           <Popconfirm
-            title="确定删除?"
+            title={t('cms.deleteThisItem')}
             onConfirm={() => handleDelete(record.authorityId)}
-            cancelText="取消"
-            okText="确定"
+            cancelText={t('cms.cancel')}
+            okText={t('cms.ok')}
           >
-            <a style={{ color: '#ff4d4f' }}><DeleteOutlined />删除</a>
+            <a
+              style={{
+                color: '#ff4d4f',
+              }}
+            >
+              <DeleteOutlined />
+              {t('cms.delete')}
+            </a>
           </Popconfirm>
         </Space>
       ),
     },
   ];
-
   return (
     <PageContainer title={false}>
       <ProTable<AuthorityItem>
@@ -141,42 +178,63 @@ const AuthorityTableList: React.FC = () => {
         rowKey="authorityId"
         search={false}
         pagination={false}
-        expandable = {{ childrenColumnName: "children" }}
-        scroll={{ x: 'max-content' }}
+        expandable={{
+          childrenColumnName: 'children',
+        }}
+        scroll={{
+          x: 'max-content',
+        }}
         request={async () => {
           const res = await getAuthorityList();
-          return { data: res.data?.list || [], success: res.code === 0 };
+          return {
+            data: res.data?.list || [],
+            success: res.code === 0,
+          };
         }}
         columns={columns}
         toolBarRender={() => [
           <Button type="primary" key="add" onClick={handleAddNew}>
-            <PlusOutlined /> 新增角色
+            <PlusOutlined />
+            {t('cms.newRole')}
           </Button>,
         ]}
       />
 
       <ModalForm
-        title={currentRow?.authorityId ? '编辑角色' : '新增角色'}
+        title={currentRow?.authorityId ? t('cms.editRole') : t('cms.newRole')}
         width="500px"
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
         onFinish={handleModalFinish}
-        modalProps={{ destroyOnClose: true }}
+        modalProps={{
+          destroyOnClose: true,
+        }}
         initialValues={currentRow}
+        formRef={localeFormRef1}
       >
         <ProFormDigit
           name="authorityId"
-          label="角色ID"
-          tooltip="必须是唯一的数字"
-          placeholder="例如 888"
+          label={t('cms.roleId')}
+          tooltip={t('cms.mustBeAUniqueNumber')}
+          placeholder={t('cms.eG888')}
           disabled={!!currentRow?.authorityId} // 编辑时不可改
-          rules={[{ required: true, message: '角色ID为必填项' }]}
+          rules={[
+            {
+              required: true,
+              message: t('cms.roleIdIsRequired'),
+            },
+          ]}
         />
         <ProFormText
           name="authorityName"
-          label="角色名称"
-          placeholder="例如：管理员"
-          rules={[{ required: true, message: '角色名称为必填项' }]}
+          label={t('cms.roleName')}
+          placeholder={t('cms.eGAdministrator')}
+          rules={[
+            {
+              required: true,
+              message: t('cms.roleNameIsRequired'),
+            },
+          ]}
         />
       </ModalForm>
 
@@ -185,7 +243,10 @@ const AuthorityTableList: React.FC = () => {
         <PermissionDrawer
           open={isDrawerOpen}
           role={permissionRow}
-          onClose={() => { setIsDrawerOpen(false); setPermissionRow(undefined); }}
+          onClose={() => {
+            setIsDrawerOpen(false);
+            setPermissionRow(undefined);
+          }}
           onSuccess={() => {
             actionRef.current?.reload();
           }}
@@ -194,5 +255,4 @@ const AuthorityTableList: React.FC = () => {
     </PageContainer>
   );
 };
-
 export default AuthorityTableList;

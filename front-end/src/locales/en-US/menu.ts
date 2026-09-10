@@ -49,7 +49,7 @@
   'menu.editor.flow': 'Flow Editor',
   'menu.editor.mind': 'Mind Editor',
   'menu.editor.koni': 'Koni Editor',
-  'menu.state': 'Server State',
+  'menu.state': 'System status',
   'menu.about': 'About',
   'menu.system': 'System',
   'menu.system.user': 'Users',

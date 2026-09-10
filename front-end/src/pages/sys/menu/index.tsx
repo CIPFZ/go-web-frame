@@ -1,3 +1,5 @@
+import { useFormLocale } from '@/i18n/useFormLocale';
+import { t, useI18n } from '@/i18n';
 import React, { useRef, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-layout';
 import {
@@ -15,22 +17,26 @@ import {
   EditOutlined,
   DeleteOutlined,
   FileOutlined,
-  FolderOpenOutlined
+  FolderOpenOutlined,
 } from '@ant-design/icons';
 // ✨ 导入全局 Model
 import { useModel } from '@umijs/max';
-
-import { getMenuList, addBaseMenu, updateBaseMenu, deleteBaseMenu } from '@/services/system/menu';
+import {
+  getMenuList,
+  addBaseMenu,
+  updateBaseMenu,
+  deleteBaseMenu,
+} from '@/services/system/menu';
 import { getIcon } from '@/utils/iconMap';
 // ✨ 导入我们刚写的组件
 import IconPicker from '@/components/IconPicker';
 import { clearMenuCache } from '@/routing/menuDataStore';
-
 type MenuItem = {
   ID: number;
   parentId: number;
   path: string;
   name: string;
+  nameEn?: string;
   component: string;
   sort: number;
   icon: string;
@@ -40,85 +46,81 @@ type MenuItem = {
   locale: string;
   routes?: MenuItem[];
 };
-
 const MenuTableList: React.FC = () => {
+  const localeFormRef1 = useFormLocale();
+  useI18n();
   const actionRef = useRef<ActionType>(null);
   // ✨ 获取全局 initialState 的刷新方法
   const { refresh } = useModel('@@initialState');
-
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [currentRow, setCurrentRow] = useState<MenuItem>();
   const [parentId, setParentId] = useState<number>(0);
-
   const handleAddRoot = () => {
     setCurrentRow(undefined);
     setParentId(0);
     setModalVisible(true);
   };
-
   const handleAddChild = (record: MenuItem) => {
     setCurrentRow(undefined);
     setParentId(record.ID);
     setModalVisible(true);
   };
-
   const handleEdit = (record: MenuItem) => {
     setCurrentRow(record);
     setParentId(record.parentId);
     setModalVisible(true);
   };
-
   const handleFinish = async (values: any) => {
     const isUpdate = !!currentRow;
     const method = isUpdate ? updateBaseMenu : addBaseMenu;
-
     const data = {
       ...values,
       id: currentRow?.ID,
       parentId: parentId,
       hideInMenu: values.hideInMenu,
     };
-
     try {
       const res = await method(data);
       if (res.code === 0) {
-        message.success(isUpdate ? '更新成功' : '添加成功');
+        message.success(
+          isUpdate ? t('cms.updatedSuccessfully') : t('cms.addedSuccessfully'),
+        );
         setModalVisible(false);
         actionRef.current?.reload();
         // ✨ 关键：刷新左侧全局菜单
         clearMenuCache();
         await refresh();
-        console.log("update refresh success");
+        console.log('update refresh success');
         return true;
       }
-      message.error(res.msg || '操作失败');
+      message.error(res.msg || t('cms.operationFailed'));
       return false;
     } catch (error) {
-      message.error('请求出错');
+      message.error(t('cms.requestFailed'));
       return false;
     }
   };
-
   const handleDelete = async (id: number) => {
     try {
-      const res = await deleteBaseMenu({ id });
+      const res = await deleteBaseMenu({
+        id,
+      });
       if (res.code === 0) {
-        message.success('删除成功');
+        message.success(t('cms.deletedSuccessfully'));
         actionRef.current?.reload();
         // ✨ 关键：刷新左侧全局菜单
         clearMenuCache();
         await refresh();
       } else {
-        message.error(res.msg || '删除失败');
+        message.error(res.msg || t('cms.deleteFailed'));
       }
     } catch (error) {
-      message.error('请求出错');
+      message.error(t('cms.requestFailed'));
     }
   };
-
   const columns: ProColumns<MenuItem>[] = [
     {
-      title: '展示名称',
+      title: t('cms.displayName'),
       dataIndex: 'name',
       width: 200,
       fixed: 'left',
@@ -126,58 +128,85 @@ const MenuTableList: React.FC = () => {
       // 给父节点加个文件夹图标，子节点加文件图标，更好看
       render: (text, record) => (
         <Space>
-          {record.routes ? <FolderOpenOutlined style={{color:'#faad14'}} /> : <FileOutlined style={{color:'#1890ff'}} />}
+          {record.routes ? (
+            <FolderOpenOutlined
+              style={{
+                color: '#faad14',
+              }}
+            />
+          ) : (
+            <FileOutlined
+              style={{
+                color: '#1890ff',
+              }}
+            />
+          )}
           {text}
         </Space>
-      )
+      ),
     },
     {
-      title: '图标',
+      title: t('cms.englishDisplayName'),
+      dataIndex: 'nameEn',
+      search: false,
+      width: 180,
+    },
+    {
+      title: t('cms.icon'),
       dataIndex: 'icon',
       width: 80,
       align: 'center',
       search: false,
       render: (text) => (
-        <div style={{ fontSize: 18, color: '#595959' }}>
+        <div
+          style={{
+            fontSize: 18,
+            color: '#595959',
+          }}
+        >
           {getIcon(text as string)}
         </div>
       ),
     },
     {
-      title: '路由路径',
+      title: t('cms.routePath'),
       dataIndex: 'path',
+      width: 280,
       copyable: true,
       ellipsis: true,
       search: false,
     },
     {
-      title: '组件路径',
+      title: t('cms.componentPath'),
       dataIndex: 'component',
+      width: 220,
       ellipsis: true,
       search: false,
     },
     {
-      title: '排序',
+      title: t('cms.sortOrder'),
       dataIndex: 'sort',
       width: 80,
       align: 'center',
       search: false,
     },
     {
-      title: '状态', // 改名，更直观
+      title: t('cms.status'),
+      // 改名，更直观
       dataIndex: 'hideInMenu',
       width: 100,
       align: 'center',
       search: false,
       // ✨ 优化：使用 Tag 渲染
-      render: (_, record) => (
-        record.hideInMenu ?
-          <Tag color="default">隐藏</Tag> :
-          <Tag color="success">显示</Tag>
-      ),
+      render: (_, record) =>
+        record.hideInMenu ? (
+          <Tag color="default">{t('cms.hidden')}</Tag>
+        ) : (
+          <Tag color="success">{t('cms.visible')}</Tag>
+        ),
     },
     {
-      title: '操作',
+      title: t('cms.actions'),
       dataIndex: 'option',
       valueType: 'option',
       width: 220,
@@ -185,28 +214,44 @@ const MenuTableList: React.FC = () => {
       // ✨ 优化：添加图标，平铺显示
       render: (_, record) => (
         <Space size="small">
-          <a key="edit" onClick={() => handleEdit(record)} title="编辑">
-            <EditOutlined /> 编辑
+          <a
+            key="edit"
+            onClick={() => handleEdit(record)}
+            title={t('cms.edit')}
+          >
+            <EditOutlined />
+            {t('cms.edit')}
           </a>
-          <a key="add" onClick={() => handleAddChild(record)} title="添加子菜单">
-            <PlusOutlined /> 子菜单
+          <a
+            key="add"
+            onClick={() => handleAddChild(record)}
+            title={t('cms.addSubmenu')}
+          >
+            <PlusOutlined />
+            {t('cms.submenu')}
           </a>
           <Popconfirm
-            title="确定删除?"
-            description="删除后无法恢复"
+            title={t('cms.deleteThisItem')}
+            description={t('cms.thisActionCannotBeUndone')}
             onConfirm={() => handleDelete(record.ID)}
-            okText="是"
-            cancelText="否"
+            okText={t('cms.yes')}
+            cancelText={t('cms.no')}
           >
-            <a key="delete" style={{ color: '#ff4d4f' }} title="删除">
-              <DeleteOutlined /> 删除
+            <a
+              key="delete"
+              style={{
+                color: '#ff4d4f',
+              }}
+              title={t('cms.delete')}
+            >
+              <DeleteOutlined />
+              {t('cms.delete')}
             </a>
           </Popconfirm>
         </Space>
       ),
     },
   ];
-
   return (
     <PageContainer title={false}>
       <ProTable<MenuItem>
@@ -216,9 +261,13 @@ const MenuTableList: React.FC = () => {
         search={false}
         pagination={false}
         childrenColumnName="routes"
-
         request={async (params) => {
-          const res = await getMenuList({ pageInfo: { page: 1, pageSize: 999 } });
+          const res = await getMenuList({
+            pageInfo: {
+              page: 1,
+              pageSize: 999,
+            },
+          });
           return {
             // ✨ 修正：直接使用 res.data，因为截图显示它就是一个数组
             data: res.data || [],
@@ -230,78 +279,123 @@ const MenuTableList: React.FC = () => {
         columns={columns}
         toolBarRender={() => [
           <Button key="add" type="primary" onClick={handleAddRoot}>
-            <PlusOutlined /> 新建根菜单
+            <PlusOutlined />
+            {t('cms.newRootMenu')}
           </Button>,
         ]}
-        scroll={{ x: 1200 }}
+        scroll={{
+          x: 1600,
+        }}
       />
 
       <ModalForm
-        title={currentRow ? '编辑菜单' : '新建菜单'}
+        title={currentRow ? t('cms.editMenu') : t('cms.newMenu')}
         width="600px"
         open={modalVisible}
         onOpenChange={setModalVisible}
         onFinish={handleFinish}
-        modalProps={{ destroyOnClose: true }}
+        modalProps={{
+          destroyOnClose: true,
+        }}
         initialValues={currentRow}
+        formRef={localeFormRef1}
       >
         <ProFormText
           name="name"
-          label="展示名称"
-          placeholder="例如：工作台"
-          rules={[{ required: true }]}
+          label={t('cms.displayName')}
+          placeholder={t('cms.eGWorkplace')}
+          rules={[
+            {
+              required: true,
+            },
+          ]}
         />
 
         <ProFormText
+          name="nameEn"
+          label={t('cms.englishDisplayName')}
+          placeholder="e.g. Workplace"
+        />
+        <ProFormText
           name="path"
-          label="路由路径"
-          rules={[{ required: true }]}
+          label={t('cms.routePath')}
+          rules={[
+            {
+              required: true,
+            },
+          ]}
         />
 
         <ProFormText
           name="component"
-          label="组件路径"
-          rules={[{ required: true }]}
+          label={t('cms.componentPath')}
+          rules={[
+            {
+              required: true,
+            },
+          ]}
         />
 
-        <div style={{ display: 'flex', gap: 16 }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 16,
+          }}
+        >
           {/* ✨ 关键：使用自定义的 IconPicker */}
-          <Form.Item name="icon" label="图标" style={{flex: 1}}>
+          <Form.Item
+            name="icon"
+            label={t('cms.icon')}
+            style={{
+              flex: 1,
+            }}
+          >
             <IconPicker />
           </Form.Item>
 
           <ProFormDigit
             name="sort"
-            label="排序"
-            tooltip="同级菜单按数字从小到大排列，建议预留间隔"
+            label={t('cms.sortOrder')}
+            tooltip={t('cms.siblingMenusAreSortedInAscending')}
             width="xs"
             initialValue={0}
-            fieldProps={{ precision: 0 }}
+            fieldProps={{
+              precision: 0,
+            }}
           />
         </div>
 
-        <div style={{ display: 'flex', gap: 16 }}>
-          <ProFormText
-            name="access"
-            label="权限标识"
-            width="md"
-          />
+        <div
+          style={{
+            display: 'flex',
+            gap: 16,
+          }}
+        >
+          <ProFormText name="access" label={t('cms.accessKey')} width="md" />
           <ProFormSwitch
             name="hideInMenu"
-            label="在菜单中隐藏"
+            label={t('cms.hideInNavigation')}
             initialValue={false}
           />
         </div>
 
         {/* 其他字段保持不变 */}
-        <div style={{ display: 'flex', gap: 16 }}>
-          <ProFormText name="target" label="跳转目标" width="sm" />
-          <ProFormText name="locale" label="国际化 Key" width="md" tooltip="可选的多语言翻译标识，与展示名称分别保存" />
+        <div
+          style={{
+            display: 'flex',
+            gap: 16,
+          }}
+        >
+          <ProFormText name="target" label={t('cms.linkTarget')} width="sm" />
+          <ProFormText
+            name="locale"
+            label={t('cms.translationKey')}
+            width="md"
+            tooltip={t('cms.optionalBuiltInTranslationKeyStored')}
+          />
         </div>
-
       </ModalForm>
     </PageContainer>
   );
 };
-
 export default MenuTableList;

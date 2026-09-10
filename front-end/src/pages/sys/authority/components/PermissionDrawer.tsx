@@ -1,18 +1,35 @@
+import { menuLabel } from '@/i18n/menus';
+import { t, useI18n } from '@/i18n';
 import { loadPagedOptions } from '@/utils/pagedOptions';
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import { HomeOutlined, HomeFilled } from '@ant-design/icons';
-import {Drawer, Tree, Spin, Button, message, Space, Tabs, Checkbox, Tooltip} from 'antd';
-import type {CheckboxChangeEvent} from 'antd/es/checkbox';
-import {useRequest} from '@umijs/max';
+import {
+  Drawer,
+  Tree,
+  Spin,
+  Button,
+  message,
+  Space,
+  Tabs,
+  Checkbox,
+  Tooltip,
+} from 'antd';
+import type { CheckboxChangeEvent } from 'antd/es/checkbox';
+import { useRequest } from '@umijs/max';
 
 // --- 导入 API ---
-import {getMenuAuthority, getMenuList} from '@/services/system/menu';
+import { getMenuAuthority, getMenuList } from '@/services/system/menu';
 // ✨ 修正：确保引用路径精确到文件 (除非你有 api.ts 导出)
-import {getApiList} from '@/services/system/api';
-import {getPolicyPathByAuthorityId, updateCasbin} from '@/services/system/casbin';
-import {setAuthorityMenus, updateAuthority} from '@/services/system/authority';
-
-import type {AuthorityItem} from '../index';
+import { getApiList } from '@/services/system/api';
+import {
+  getPolicyPathByAuthorityId,
+  updateCasbin,
+} from '@/services/system/casbin';
+import {
+  setAuthorityMenus,
+  updateAuthority,
+} from '@/services/system/authority';
+import type { AuthorityItem } from '../index';
 
 // --- 类型定义 ---
 type TreeDataItem = {
@@ -27,13 +44,12 @@ type TreeDataItem = {
 const normalizeMenuTree = (menuList: any[]): TreeDataItem[] => {
   if (!menuList) return [];
   return menuList.map((menu) => ({
-    title: `${menu.name} ${menu.name !== menu.path ? `(${menu.path})` : ''}`,
+    title: `${menuLabel(menu)} ${menu.name !== menu.path ? `(${menu.path})` : ''}`,
     key: menu.ID,
     path: menu.path,
     children: menu.routes ? normalizeMenuTree(menu.routes) : [],
   }));
 };
-
 const buildApiTree = (apiList: any[]): TreeDataItem[] => {
   const groups: Record<string, TreeDataItem> = {};
   apiList.forEach((api) => {
@@ -52,7 +68,6 @@ const buildApiTree = (apiList: any[]): TreeDataItem[] => {
   });
   return Object.values(groups);
 };
-
 const getAllKeys = (tree: TreeDataItem[]): (string | number)[] => {
   let keys: (string | number)[] = [];
   for (const item of tree) {
@@ -73,10 +88,16 @@ type PermissionDrawerProps = {
   // 成功回调
   onSuccess?: () => void;
 };
-
-const PermissionDrawer: React.FC<PermissionDrawerProps> = ({ open, role, onClose, onSuccess }) => {
+const PermissionDrawer: React.FC<PermissionDrawerProps> = ({
+  open,
+  role,
+  onClose,
+  onSuccess,
+}) => {
+  useI18n();
   const [activeTab, setActiveTab] = useState<string>('menu');
-  const [menuTree, setMenuTree] = useState<TreeDataItem[]>([]);
+  const [rawMenus, setRawMenus] = useState<any[]>([]);
+  const menuTree = normalizeMenuTree(rawMenus);
   const [menuCheckedKeys, setMenuCheckedKeys] = useState<React.Key[]>([]);
   const [allMenuKeys, setAllMenuKeys] = useState<React.Key[]>([]);
   const [apiTree, setApiTree] = useState<TreeDataItem[]>([]);
@@ -85,17 +106,20 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({ open, role, onClose
 
   // --- 1. 加载所有菜单数据 ---
   const { loading: menuLoading } = useRequest(
-    async () => getMenuList({ pageInfo: { page: 1, pageSize: 9999 } }),
+    async () =>
+      getMenuList({
+        pageInfo: {
+          page: 1,
+          pageSize: 9999,
+        },
+      }),
     {
       onSuccess: (res: any) => {
-        // ✨ 关键修复：先打印原始 res 确认结构
-        console.log('Raw Menu Response:', res);
         const tree = normalizeMenuTree(res);
-        console.log('Tree:', tree);
-        setMenuTree(tree);
+        setRawMenus(res || []);
         setAllMenuKeys(getAllKeys(tree));
       },
-    }
+    },
   );
 
   // --- 2. 加载所有 API 数据 ---
@@ -103,11 +127,10 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({ open, role, onClose
     async () => loadPagedOptions(getApiList),
     {
       onSuccess: (res: any) => {
-        console.log('Raw Menu Response:', res);
         const list = res?.list || [];
         setApiTree(buildApiTree(list));
       },
-    }
+    },
   );
 
   // --- 3. 回显当前角色的权限 ---
@@ -115,44 +138,41 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({ open, role, onClose
     if (open && role) {
       setDefaultRouter(role.defaultRouter || 'dashboard/workplace');
       // 3a. 回显 API 权限
-      getPolicyPathByAuthorityId({ authorityId: String(role.authorityId) }).then((res: any) => {
+      getPolicyPathByAuthorityId({
+        authorityId: String(role.authorityId),
+      }).then((res: any) => {
         const responseData = res.code !== undefined ? res : res.data;
         if (responseData?.code === 0) {
           const rawData = responseData.data;
-          const list = Array.isArray(rawData) ? rawData : (rawData?.list || []);
-
+          const list = Array.isArray(rawData) ? rawData : rawData?.list || [];
           const keys = list.map((item: any) => `${item.path}:${item.method}`);
           setApiCheckedKeys(keys);
         }
       });
 
       // 3b. 回显菜单权限
-      getMenuAuthority({ authorityId: role.authorityId }).then((res: any) => {
+      getMenuAuthority({
+        authorityId: role.authorityId,
+      }).then((res: any) => {
         const responseData = res.code !== undefined ? res : res.data;
         if (responseData?.code === 0) {
           const rawData = responseData.data;
-          const list = Array.isArray(rawData) ? rawData : (rawData?.list || []);
-
+          const list = Array.isArray(rawData) ? rawData : rawData?.list || [];
           const checkedIds = list.map((item: any) => item.ID);
           setMenuCheckedKeys(checkedIds);
         }
       });
     }
   }, [open, role]);
-
-
   const onMenuCheck = (checked: any) => {
     setMenuCheckedKeys(checked.checked ? checked.checked : checked);
   };
-
   const onMenuSelectAll = (e: CheckboxChangeEvent) => {
     setMenuCheckedKeys(e.target.checked ? allMenuKeys : []);
   };
-
   const onApiCheck = (checked: any) => {
     setApiCheckedKeys(checked.checked ? checked.checked : checked);
   };
-
   const handleSave = async () => {
     try {
       if (activeTab === 'menu') {
@@ -168,9 +188,8 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({ open, role, onClose
           authorityName: role.authorityName,
           defaultRouter: defaultRouter,
         });
-
         await Promise.all([p1, p2]);
-        message.success('菜单权限及首页配置保存成功');
+        message.success(t('cms.menuPermissionsAndHomePageSaved'));
         // ✨ 关键修改：如果存在 onSuccess 回调，则调用它
         if (onSuccess) {
           onSuccess();
@@ -181,18 +200,20 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({ open, role, onClose
           .filter((k) => k.includes(':') && !k.startsWith('group:'))
           .map((k) => {
             const [path, method] = k.split(':');
-            return { path, method };
+            return {
+              path,
+              method,
+            };
           });
-
         await updateCasbin({
           authorityId: String(role.authorityId),
           casbinInfos,
         });
-        message.success('API 权限保存成功');
+        message.success(t('cms.apiPermissionsSaved'));
       }
     } catch (error) {
       console.error(error);
-      message.error('保存失败，请重试');
+      message.error(t('cms.unableToSavePleaseRetry'));
     }
   };
 
@@ -200,23 +221,48 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({ open, role, onClose
   const renderTreeTitle = (nodeData: any) => {
     const isHome = defaultRouter === nodeData.path;
     return (
-      <div className="group" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+      <div
+        className="group"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+        }}
+      >
         <span>{nodeData.title}</span>
 
         {/* 仅当节点有 path 时才显示设置首页图标 */}
         {nodeData.path && (
-          <Tooltip title={isHome ? "当前首页" : "设为首页"}>
+          <Tooltip
+            title={isHome ? t('cms.currentHomePage') : t('cms.setAsHomePage')}
+          >
             <span
               onClick={(e) => {
                 e.stopPropagation(); // 阻止触发勾选
                 setDefaultRouter(nodeData.path);
               }}
-              style={{ marginLeft: 12, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+              style={{
+                marginLeft: 12,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+              }}
             >
               {isHome ? (
-                <HomeFilled style={{ color: '#faad14', fontSize: 16 }} />
+                <HomeFilled
+                  style={{
+                    color: '#faad14',
+                    fontSize: 16,
+                  }}
+                />
               ) : (
-                <HomeOutlined style={{ color: '#d9d9d9', fontSize: 16 }} />
+                <HomeOutlined
+                  style={{
+                    color: '#d9d9d9',
+                    fontSize: 16,
+                  }}
+                />
               )}
             </span>
           </Tooltip>
@@ -224,26 +270,32 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({ open, role, onClose
       </div>
     );
   };
-
   const isLoading = menuLoading || apiLoading;
-
   const tabItems = [
     {
       key: 'menu',
-      label: '角色菜单',
+      label: t('cms.menuPermissions'),
       children: (
         <>
-          <div style={{ marginBottom: 16, paddingBottom: 8, borderBottom: '1px solid #f0f0f0' }}>
+          <div
+            style={{
+              marginBottom: 16,
+              paddingBottom: 8,
+              borderBottom: '1px solid #f0f0f0',
+            }}
+          >
             <Checkbox
               onChange={onMenuSelectAll}
               checked={
-                allMenuKeys.length > 0 && menuCheckedKeys.length === allMenuKeys.length
+                allMenuKeys.length > 0 &&
+                menuCheckedKeys.length === allMenuKeys.length
               }
               indeterminate={
-                menuCheckedKeys.length > 0 && menuCheckedKeys.length < allMenuKeys.length
+                menuCheckedKeys.length > 0 &&
+                menuCheckedKeys.length < allMenuKeys.length
               }
             >
-              全选 / 全不选
+              {t('cms.selectAllClearAll')}
             </Checkbox>
           </div>
           <Tree
@@ -251,12 +303,19 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({ open, role, onClose
             checkStrictly
             defaultExpandAll
             // ✨ 显式指定字段，防止 title/key 不匹配
-            fieldNames={{ title: 'title', key: 'key', children: 'children' }}
+            fieldNames={{
+              title: 'title',
+              key: 'key',
+              children: 'children',
+            }}
             treeData={menuTree}
             checkedKeys={menuCheckedKeys}
             onCheck={onMenuCheck}
             // ✨ 移除 height，使用样式控制
-            style={{ maxHeight: '600px', overflowY: 'auto' }}
+            style={{
+              maxHeight: '600px',
+              overflowY: 'auto',
+            }}
             titleRender={renderTreeTitle}
           />
         </>
@@ -264,11 +323,17 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({ open, role, onClose
     },
     {
       key: 'api',
-      label: '角色 API',
+      label: t('cms.apiPermissions'),
       children: (
         <>
-          <div style={{ marginBottom: 16, color: '#888', fontSize: '12px' }}>
-            * 勾选对应的 API 分组或具体接口即可授权
+          <div
+            style={{
+              marginBottom: 16,
+              color: '#888',
+              fontSize: '12px',
+            }}
+          >
+            {t('cms.selectApiGroupsOrIndividualApis')}
           </div>
           <Tree
             checkable
@@ -277,25 +342,33 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({ open, role, onClose
             checkedKeys={apiCheckedKeys}
             onCheck={onApiCheck}
             // ✨ 移除 height，使用样式控制
-            style={{ maxHeight: '600px', overflowY: 'auto' }}
+            style={{
+              maxHeight: '600px',
+              overflowY: 'auto',
+            }}
           />
         </>
       ),
     },
   ];
-
   return (
     <Drawer
-      title={`角色配置 - ${role.authorityName}`}
+      title={t('cms.roleSettings', {
+        value0: role.authorityName,
+      })}
       width={600}
       open={open}
       onClose={onClose}
       maskClosable={false}
       footer={
-        <Space style={{ float: 'right' }}>
-          <Button onClick={onClose}>取消</Button>
+        <Space
+          style={{
+            float: 'right',
+          }}
+        >
+          <Button onClick={onClose}>{t('cms.cancel')}</Button>
           <Button type="primary" onClick={handleSave} loading={isLoading}>
-            保存当前 Tab 配置
+            {t('cms.saveThisTab')}
           </Button>
         </Space>
       }
@@ -306,5 +379,4 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({ open, role, onClose
     </Drawer>
   );
 };
-
 export default PermissionDrawer;

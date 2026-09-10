@@ -61,6 +61,7 @@ func registerGlobalMiddleware(r *gin.Engine, svcCtx *svc.ServiceContext) {
 		))
 	}
 
+	r.Use(middleware.I18nMiddleware(svcCtx.I18n))
 	r.Use(middleware.RateLimitMiddleware(cfg.RateLimit))
 	r.Use(middleware.GinLoggerMiddleware(svcCtx.Logger))
 	r.Use(middleware.CorsByRules(svcCtx.Config.Cors))

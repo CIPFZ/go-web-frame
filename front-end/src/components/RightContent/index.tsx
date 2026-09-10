@@ -1,28 +1,48 @@
-import { QuestionCircleOutlined } from '@ant-design/icons';
-import { SelectLang as UmiSelectLang } from '@umijs/max';
+import { GlobalOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { setLocale } from '@umijs/max';
+import { Button, Dropdown } from 'antd';
+import { t, useI18n } from '@/i18n';
 
 export type SiderTheme = 'light' | 'dark';
 
 export const SelectLang: React.FC = () => {
+  const locale = useI18n();
   return (
-    <UmiSelectLang
-      style={{
-        padding: 4,
+    <Dropdown
+      trigger={['click']}
+      menu={{
+        selectedKeys: [locale],
+        items: [
+          { key: 'zh-CN', label: '简体中文' },
+          { key: 'en-US', label: 'English' },
+        ],
+        onClick: ({ key }) => {
+          setLocale(key, false);
+        },
       }}
-    />
+    >
+      <Button
+        type="text"
+        aria-label={t('cms.language.change')}
+        title={t('cms.language.change')}
+        icon={<GlobalOutlined />}
+      />
+    </Dropdown>
   );
 };
 
 export const Question: React.FC = () => {
+  const locale = useI18n();
   return (
     <a
-      href="https://pro.ant.design/docs/getting-started"
+      href="https://github.com/CIPFZ/go-web-frame"
       target="_blank"
       rel="noreferrer"
+      aria-label={t('cms.projectDocs')}
       style={{
         display: 'inline-flex',
-        padding: '4px',
-        fontSize: '18px',
+        padding: 4,
+        fontSize: 18,
         color: 'inherit',
       }}
     >

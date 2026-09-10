@@ -68,7 +68,7 @@ func (a *OperationLogApi) DeleteOperationLogByIds(c *gin.Context) {
 	log := logger.GetLogger(c)
 	var req dto.DeleteOperationLogReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.FailWithValidation(err, c)
 		return
 	}
 

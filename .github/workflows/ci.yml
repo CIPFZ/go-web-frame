@@ -38,7 +38,7 @@ jobs:
         working-directory: front-end
         env:
           HUSKY: '0'
-      - run: npm run tsc && npm test -- --runInBand && npm run build
+      - run: npm run check:i18n && npm run tsc && npm test -- --runInBand && npm run build
         working-directory: front-end
       - name: Dependency audit report (includes upstream build-tool advisories)
         run: npm audit --json > npm-audit.json

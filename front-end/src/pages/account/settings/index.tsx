@@ -1,3 +1,5 @@
+import { useFormLocale } from '@/i18n/useFormLocale';
+import { t, useI18n } from '@/i18n';
 import React, { useState, useEffect, useRef } from 'react'; // ✨ 引入 useEffect
 import { GridContent } from '@ant-design/pro-components';
 import { Menu, Typography, message, List } from 'antd';
@@ -13,9 +15,7 @@ import { MobileOutlined, MailOutlined } from '@ant-design/icons';
 import UploadImage from '@/components/Upload/UploadImage';
 // ✨ 引入 API
 import { updateSelfInfo } from '@/services/system/user';
-
 const { Title } = Typography;
-
 const useStyles = createStyles(({ token }) => {
   return {
     avatarWrapper: {
@@ -36,12 +36,12 @@ const useStyles = createStyles(({ token }) => {
           borderColor: `${token.colorPrimary} !important`,
         },
       },
-      'img': {
+      img: {
         width: '100%',
         height: '100%',
         objectFit: 'cover',
         borderRadius: '50%',
-      }
+      },
     },
     title: {
       marginBottom: 12,
@@ -53,14 +53,18 @@ const useStyles = createStyles(({ token }) => {
       color: token.colorTextSecondary,
       fontSize: 12,
       textAlign: 'center',
-    }
+    },
   };
 });
 
 // --- 子组件：基本设置 (BaseView) ---
-const BaseView: React.FC<{ currentUser: any; refresh: () => void }> = ({ currentUser, refresh }) => {
+const BaseView: React.FC<{
+  currentUser: any;
+  refresh: () => void;
+}> = ({ currentUser, refresh }) => {
+  const localeFormRef1 = useFormLocale();
+  useI18n();
   const { styles } = useStyles();
-
   const handleFinish = async (values: any) => {
     try {
       // ✨ 调用后端接口更新
@@ -68,29 +72,38 @@ const BaseView: React.FC<{ currentUser: any; refresh: () => void }> = ({ current
         nickName: values.nickName,
         bio: values.bio,
       });
-
       if (res.code === 0) {
-        message.success('更新基本信息成功');
+        message.success(t('cms.profileUpdated'));
         // ✨ 刷新全局状态，让右上角名字和页面数据同步更新
         refresh();
       } else {
-        message.error(res.msg || '更新失败');
+        message.error(res.msg || t('cms.updateFailed'));
       }
     } catch (error) {
-      message.error('请求失败，请稍后重试');
+      message.error(t('cms.requestFailedPleaseTryAgainLater'));
     }
   };
-
   return (
-    <div style={{ display: 'flex', gap: '48px', flexDirection: 'row' }}>
+    <div
+      style={{
+        display: 'flex',
+        gap: '48px',
+        flexDirection: 'row',
+      }}
+    >
       {/* 左侧表单 */}
-      <div style={{ flex: 1, maxWidth: '440px' }}>
+      <div
+        style={{
+          flex: 1,
+          maxWidth: '440px',
+        }}
+      >
         <ProForm
           layout="vertical"
           onFinish={handleFinish}
           submitter={{
             searchConfig: {
-              submitText: '更新基本信息',
+              submitText: t('cms.updateProfile'),
             },
             render: (_, dom) => dom[1],
           }}
@@ -103,18 +116,24 @@ const BaseView: React.FC<{ currentUser: any; refresh: () => void }> = ({ current
           }}
           // 关键：当 currentUser 变化时重置表单，防止刷新后数据没变
           key={currentUser?.id}
+          formRef={localeFormRef1}
         >
           <ProFormText
             width="md"
             name="nickName"
-            label="昵称"
-            rules={[{ required: true, message: '请输入您的昵称!' }]}
+            label={t('cms.nickname')}
+            rules={[
+              {
+                required: true,
+                message: t('cms.enterYourNickname'),
+              },
+            ]}
           />
 
           <ProFormTextArea
             name="bio"
-            label="个人简介"
-            placeholder="介绍一下自己..."
+            label={t('cms.bio')}
+            placeholder={t('cms.tellUsAboutYourself')}
             fieldProps={{
               rows: 4,
               showCount: true,
@@ -125,31 +144,42 @@ const BaseView: React.FC<{ currentUser: any; refresh: () => void }> = ({ current
           <ProFormText
             width="md"
             name="phone"
-            label="手机号码"
+            label={t('cms.phoneNumber')}
             disabled
             fieldProps={{
-              prefix: <MobileOutlined style={{ color: '#999' }} />,
+              prefix: (
+                <MobileOutlined
+                  style={{
+                    color: '#999',
+                  }}
+                />
+              ),
             }}
-            extra="如需修改手机号，请前往 [安全设置]"
+            extra={t('cms.toChangeYourPhoneNumberContact')}
           />
 
           <ProFormText
             width="md"
             name="email"
-            label="邮箱"
+            label={t('cms.email')}
             disabled
             fieldProps={{
-              prefix: <MailOutlined style={{ color: '#999' }} />,
+              prefix: (
+                <MailOutlined
+                  style={{
+                    color: '#999',
+                  }}
+                />
+              ),
             }}
-            extra="如需修改邮箱，请前往 [安全设置]"
+            extra={t('cms.toChangeYourEmailContactAn')}
           />
-
         </ProForm>
       </div>
 
       {/* 右侧头像 */}
       <div className={styles.avatarWrapper}>
-        <div className={styles.title}>头像</div>
+        <div className={styles.title}>{t('cms.avatar')}</div>
         <div className={styles.uploadOverride}>
           {/* ✨ UploadImage 组件内部已经处理了上传逻辑，成功后会调用 onChange */}
           {/* 这里我们需要在 onChange 时不仅打印 Log，还要通知后端更新 avatar 字段 */}
@@ -176,7 +206,9 @@ const BaseView: React.FC<{ currentUser: any; refresh: () => void }> = ({ current
           />
         </div>
         <div className={styles.desc}>
-          支持 jpg, png, gif 格式<br/>大小不超过 2MB
+          {t('cms.supportsJpgPngGifAndWebp')}
+          <br />
+          {t('cms.maximumSize2Mb')}
         </div>
       </div>
     </div>
@@ -184,34 +216,59 @@ const BaseView: React.FC<{ currentUser: any; refresh: () => void }> = ({ current
 };
 
 // --- 子组件：安全设置 (SecurityView) ---
-const SecurityView: React.FC<{ currentUser: any }> = ({ currentUser }) => {
+const SecurityView: React.FC<{
+  currentUser: any;
+}> = ({ currentUser }) => {
+  useI18n();
   const handleModify = (type: string) => {
-    message.info(`即将打开 [${type}] 修改弹窗 (需验证码)`);
+    message.info(
+      t('cms.contactAnAdministratorToChange', {
+        value0: type,
+      }),
+    );
   };
-
   const data = [
     {
-      title: '账户密码',
-      description: '当前密码强度：强',
-      actions: [<a key="Modify" onClick={() => handleModify('密码')}>修改</a>],
+      title: t('cms.accountPassword'),
+      description: t('cms.contactAnAdministratorToResetYour'),
+      actions: [
+        <a key="Modify" onClick={() => handleModify(t('cms.password'))}>
+          {t('cms.change')}
+        </a>,
+      ],
     },
     {
-      title: '密保手机',
-      description: `已绑定手机：${currentUser?.phone || '未绑定'}`,
-      actions: [<a key="Modify" onClick={() => handleModify('手机')}>修改</a>],
+      title: t('cms.recoveryPhone'),
+      description: t('cms.phone', {
+        value0: currentUser?.phone || t('cms.notLinked'),
+      }),
+      actions: [
+        <a key="Modify" onClick={() => handleModify(t('cms.phone.9c01ad'))}>
+          {t('cms.change')}
+        </a>,
+      ],
     },
     {
-      title: '密保邮箱',
-      description: `已绑定邮箱：${currentUser?.email || '未绑定'}`,
-      actions: [<a key="Modify" onClick={() => handleModify('邮箱')}>修改</a>],
+      title: t('cms.recoveryEmail'),
+      description: t('cms.email.5e91be', {
+        value0: currentUser?.email || t('cms.notLinked'),
+      }),
+      actions: [
+        <a key="Modify" onClick={() => handleModify(t('cms.email'))}>
+          {t('cms.change')}
+        </a>,
+      ],
     },
     {
-      title: 'MFA 设备',
-      description: '未绑定 MFA 设备，绑定后，可以进行二次确认',
-      actions: [<a key="bind" onClick={() => handleModify('MFA')}>绑定</a>],
+      title: t('cms.mfaDevice'),
+      description: t('cms.mfaEnrollmentIsNotAvailableYet'),
+      actions: [
+        <a key="bind" onClick={() => handleModify('MFA')}>
+          {t('cms.link')}
+        </a>,
+      ],
     },
   ];
-
   return (
     <List
       itemLayout="horizontal"
@@ -227,16 +284,14 @@ const SecurityView: React.FC<{ currentUser: any }> = ({ currentUser }) => {
 
 // --- 主页面 ---
 const Settings: React.FC = () => {
+  useI18n();
   const { initialState, setInitialState, refresh } = useModel('@@initialState'); // ✨ 获取 refresh 方法
   const currentUser = initialState?.currentUser;
-
   const [initConfig, setInitConfig] = useState<'base' | 'security'>('base');
-
   const menuMap: Record<'base' | 'security', string> = {
-    base: '基本设置',
-    security: '安全设置',
+    base: t('cms.profile'),
+    security: t('cms.accountSecurity'),
   };
-
   const renderChildren = () => {
     switch (initConfig) {
       case 'base':
@@ -248,29 +303,55 @@ const Settings: React.FC = () => {
         return null;
     }
   };
-
   return (
     <GridContent>
       <ProCard
-        style={{ height: '100%', minHeight: 600 }}
-        bodyStyle={{ padding: 0, display: 'flex', flexDirection: 'row' }}
+        style={{
+          height: '100%',
+          minHeight: 600,
+        }}
+        bodyStyle={{
+          padding: 0,
+          display: 'flex',
+          flexDirection: 'row',
+        }}
         bordered
       >
-        <div style={{ width: 224, borderRight: '1px solid #f0f0f0', padding: '16px 0' }}>
+        <div
+          style={{
+            width: 224,
+            borderRight: '1px solid #f0f0f0',
+            padding: '16px 0',
+          }}
+        >
           <Menu
             mode="inline"
             selectedKeys={[initConfig]}
             onClick={({ key }) => setInitConfig(key as 'base' | 'security')}
-            style={{ border: 'none' }}
+            style={{
+              border: 'none',
+            }}
           >
-            {(Object.keys(menuMap) as Array<keyof typeof menuMap>).map((item) => (
-              <Menu.Item key={item}>{menuMap[item]}</Menu.Item>
-            ))}
+            {(Object.keys(menuMap) as Array<keyof typeof menuMap>).map(
+              (item) => (
+                <Menu.Item key={item}>{menuMap[item]}</Menu.Item>
+              ),
+            )}
           </Menu>
         </div>
 
-        <div style={{ flex: 1, padding: '24px 40px' }}>
-          <Title level={4} style={{ marginBottom: 24 }}>
+        <div
+          style={{
+            flex: 1,
+            padding: '24px 40px',
+          }}
+        >
+          <Title
+            level={4}
+            style={{
+              marginBottom: 24,
+            }}
+          >
             {menuMap[initConfig]}
           </Title>
           {renderChildren()}
@@ -279,5 +360,4 @@ const Settings: React.FC = () => {
     </GridContent>
   );
 };
-
 export default Settings;

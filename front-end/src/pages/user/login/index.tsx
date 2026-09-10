@@ -1,25 +1,20 @@
+import { useFormLocale } from '@/i18n/useFormLocale';
+import { t, useI18n } from '@/i18n';
 import type { API } from '@/services/system/types';
-import {LockOutlined, UserOutlined} from '@ant-design/icons';
+import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import {
   LoginForm,
   ProFormCheckbox,
   ProFormText,
 } from '@ant-design/pro-components';
-import {
-  FormattedMessage,
-  Helmet,
-  SelectLang,
-  useIntl,
-  useModel,
-} from '@umijs/max';
+import { FormattedMessage, Helmet, useIntl, useModel } from '@umijs/max';
 import { Alert, App, Tabs } from 'antd';
 import { createStyles } from 'antd-style';
 import React, { useState, useEffect } from 'react';
 import { flushSync } from 'react-dom';
-import { Footer } from '@/components';
+import { Footer, SelectLang } from '@/components';
 import { login, getPublicConfig } from '@/services/system/user';
 import Settings from '../../../../config/defaultSettings';
-
 const useStyles = createStyles(({ token }) => {
   return {
     action: {
@@ -49,8 +44,7 @@ const useStyles = createStyles(({ token }) => {
       flexDirection: 'column',
       height: '100vh',
       overflow: 'auto',
-      backgroundImage:
-        "url('/V-_oS6r-i7wAAAAAAAAAAAAAFl94AQBr.png')",
+      backgroundImage: "url('/V-_oS6r-i7wAAAAAAAAAAAAAFl94AQBr.png')",
       backgroundSize: '100% 100%',
     },
   };
@@ -58,18 +52,18 @@ const useStyles = createStyles(({ token }) => {
 
 // 选择语言
 const Lang = () => {
+  useI18n();
   const { styles } = useStyles();
-
   return (
     <div className={styles.lang} data-lang>
       {SelectLang && <SelectLang />}
     </div>
   );
 };
-
 const LoginMessage: React.FC<{
   content: string;
 }> = ({ content }) => {
+  useI18n();
   return (
     <Alert
       style={{
@@ -81,11 +75,19 @@ const LoginMessage: React.FC<{
     />
   );
 };
-
 const Login: React.FC = () => {
- const [registrationEnabled, setRegistrationEnabled] = useState(false);
- useEffect(() => { getPublicConfig().then(r => setRegistrationEnabled(r.data.registrationEnabled)).catch(() => setRegistrationEnabled(false)); }, []);
-  const [userLoginState, setUserLoginState] = useState<API.LoginResult>({msg: "", code: -1});
+  const localeFormRef1 = useFormLocale();
+  useI18n();
+  const [registrationEnabled, setRegistrationEnabled] = useState(false);
+  useEffect(() => {
+    getPublicConfig()
+      .then((r) => setRegistrationEnabled(r.data.registrationEnabled))
+      .catch(() => setRegistrationEnabled(false));
+  }, []);
+  const [userLoginState, setUserLoginState] = useState<API.LoginResult>({
+    msg: '',
+    code: -1,
+  });
   const [type, setType] = useState<string>('account');
   const { initialState, setInitialState } = useModel('@@initialState');
   const { styles } = useStyles();
@@ -109,7 +111,10 @@ const Login: React.FC = () => {
   const handleSubmit = async (values: API.LoginParams) => {
     try {
       // 登录
-      const response = await login({ ...values, type });
+      const response = await login({
+        ...values,
+        type,
+      });
       // 判断是否登录成功
       if (response.code === 0) {
         const defaultLoginSuccessMessage = intl.formatMessage({
@@ -128,12 +133,20 @@ const Login: React.FC = () => {
         // 路由跳转
         const urlParams = new URL(window.location.href).searchParams;
         const redirect = urlParams.get('redirect');
-        window.location.href = redirect?.startsWith('/') && !redirect.startsWith('//') && !redirect.includes('\\') ? redirect : '/';
+        window.location.href =
+          redirect?.startsWith('/') &&
+          !redirect.startsWith('//') &&
+          !redirect.includes('\\')
+            ? redirect
+            : '/';
         return;
       }
       console.log(response);
       // 如果失败去设置登录失败错误信息
-      setUserLoginState({code: response.code, msg: response.msg})
+      setUserLoginState({
+        code: response.code,
+        msg: response.msg,
+      });
     } catch (error) {
       const defaultLoginFailureMessage = intl.formatMessage({
         id: 'pages.login.failure',
@@ -143,7 +156,6 @@ const Login: React.FC = () => {
       message.error(defaultLoginFailureMessage);
     }
   };
-
   return (
     <div className={styles.container}>
       <Helmet>
@@ -178,6 +190,7 @@ const Login: React.FC = () => {
           onFinish={async (values) => {
             await handleSubmit(values as API.LoginParams);
           }}
+          formRef={localeFormRef1}
         >
           <Tabs
             activeKey={type}
@@ -203,51 +216,51 @@ const Login: React.FC = () => {
             />
           )}
           <>
-              <ProFormText
-                name="username"
-                fieldProps={{
-                  size: 'large',
-                  prefix: <UserOutlined />,
-                }}
-                placeholder={intl.formatMessage({
-                  id: 'pages.login.username.placeholder',
-                  defaultMessage: '请输入用户名',
-                })}
-                rules={[
-                  {
-                    required: true,
-                    message: (
-                      <FormattedMessage
-                        id="pages.login.username.required"
-                        defaultMessage="请输入用户名!"
-                      />
-                    ),
-                  },
-                ]}
-              />
-              <ProFormText.Password
-                name="password"
-                fieldProps={{
-                  size: 'large',
-                  prefix: <LockOutlined />,
-                }}
-                placeholder={intl.formatMessage({
-                  id: 'pages.login.password.placeholder',
-                  defaultMessage: '请输入密码',
-                })}
-                rules={[
-                  {
-                    required: true,
-                    message: (
-                      <FormattedMessage
-                        id="pages.login.password.required"
-                        defaultMessage="请输入密码！"
-                      />
-                    ),
-                  },
-                ]}
-              />
-            </>
+            <ProFormText
+              name="username"
+              fieldProps={{
+                size: 'large',
+                prefix: <UserOutlined />,
+              }}
+              placeholder={intl.formatMessage({
+                id: 'pages.login.username.placeholder',
+                defaultMessage: '请输入用户名',
+              })}
+              rules={[
+                {
+                  required: true,
+                  message: (
+                    <FormattedMessage
+                      id="pages.login.username.required"
+                      defaultMessage="请输入用户名!"
+                    />
+                  ),
+                },
+              ]}
+            />
+            <ProFormText.Password
+              name="password"
+              fieldProps={{
+                size: 'large',
+                prefix: <LockOutlined />,
+              }}
+              placeholder={intl.formatMessage({
+                id: 'pages.login.password.placeholder',
+                defaultMessage: '请输入密码',
+              })}
+              rules={[
+                {
+                  required: true,
+                  message: (
+                    <FormattedMessage
+                      id="pages.login.password.required"
+                      defaultMessage="请输入密码！"
+                    />
+                  ),
+                },
+              ]}
+            />
+          </>
           <div
             style={{
               marginBottom: 24,
@@ -259,7 +272,16 @@ const Login: React.FC = () => {
                 defaultMessage="记住我"
               />
             </ProFormCheckbox>
-            {registrationEnabled && <a href="#/user/register" style={{float: 'right'}}>注册账号</a>}
+            {registrationEnabled && (
+              <a
+                href="#/user/register"
+                style={{
+                  float: 'right',
+                }}
+              >
+                {t('cms.createAnAccount')}
+              </a>
+            )}
           </div>
         </LoginForm>
       </div>
@@ -267,5 +289,4 @@ const Login: React.FC = () => {
     </div>
   );
 };
-
 export default Login;

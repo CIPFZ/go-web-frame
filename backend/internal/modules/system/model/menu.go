@@ -8,6 +8,7 @@ type SysMenu struct {
 	ParentId  uint   `json:"parentId" gorm:"default:0;index;comment:父菜单ID"`
 	Path      string `json:"path" gorm:"comment:路由path"`
 	Name      string `json:"name" gorm:"comment:路由name(Antd title)"`
+	NameEn    string `json:"nameEn" gorm:"column:name_en;default:'';comment:English display name"`
 	Component string `json:"component" gorm:"comment:前端组件路径"`
 	Access    string `json:"access,omitempty" gorm:"comment:权限标识"` // omitempty 解决 403 问题
 	Target    string `json:"target" gorm:"comment:跳转目标"`

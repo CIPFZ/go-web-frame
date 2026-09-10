@@ -1,3 +1,4 @@
+import { t, useI18n } from '@/i18n';
 import {
   LogoutOutlined,
   SettingOutlined,
@@ -14,18 +15,16 @@ import { flushSync } from 'react-dom';
 // 修正导入路径，确保你的 api 定义正确
 import { outLogin, switchAuthority } from '@/services/system/user';
 import HeaderDropdown from '../HeaderDropdown';
-
 export type GlobalHeaderRightProps = {
   menu?: boolean;
   children?: React.ReactNode;
 };
-
 export const AvatarName = () => {
+  useI18n();
   const { initialState } = useModel('@@initialState');
   const { currentUser } = initialState || {};
   return <span className="anticon">{currentUser?.nickName}</span>;
 };
-
 const useStyles = createStyles(({ token }) => {
   return {
     action: {
@@ -43,11 +42,11 @@ const useStyles = createStyles(({ token }) => {
     },
   };
 });
-
 export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({
-                                                                   menu,
-                                                                   children,
-                                                                 }) => {
+  menu,
+  children,
+}) => {
+  useI18n();
   const { styles } = useStyles();
   const { initialState, setInitialState } = useModel('@@initialState');
 
@@ -58,18 +57,18 @@ export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({
     try {
       await outLogin();
     } catch (error) {
-      console.error("Logout failed:", error);
+      console.error('Logout failed:', error);
     }
     localStorage.removeItem('token');
-
     const { search, pathname } = window.location;
     const urlParams = new URL(window.location.href).searchParams;
     const redirect = urlParams.get('redirect');
-
     if (window.location.pathname !== '/user/login' && !redirect) {
       history.replace({
         pathname: '/user/login',
-        search: stringify({ redirect: pathname + search }), // 需导入 stringify 或手动拼接
+        search: stringify({
+          redirect: pathname + search,
+        }), // 需导入 stringify 或手动拼接
       });
     }
   };
@@ -79,16 +78,18 @@ export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({
    */
   const handleSwitchAuthority = async (authorityId: number) => {
     try {
-      const res = await switchAuthority({ authorityId });
+      const res = await switchAuthority({
+        authorityId,
+      });
       if (res.code === 0) {
-        message.success('切换角色成功，正在刷新...');
+        message.success(t('cms.roleChangedReloading'));
         // 更新本地 Token
         localStorage.setItem('token', res.data.token);
         // 强制刷新页面，让应用重新加载
         window.location.href = '/';
       }
     } catch (error) {
-      message.error('切换失败');
+      message.error(t('cms.unableToSwitchRoles'));
     }
   };
 
@@ -101,7 +102,10 @@ export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({
     // 1. 退出登录
     if (key === 'logout') {
       flushSync(() => {
-        setInitialState((s) => ({ ...s, currentUser: undefined }));
+        setInitialState((s) => ({
+          ...s,
+          currentUser: undefined,
+        }));
       });
       loginOut();
       return;
@@ -116,63 +120,107 @@ export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({
 
     // 3. 路由跳转 (个人中心/设置)
     if (key === 'settings') {
-      history.push(`/account/${key}`);
+      if (settingsPath) history.push(settingsPath);
       return;
     }
   };
-
   const loading = (
     <span className={styles.action}>
-      <Spin size="small" style={{ marginLeft: 8, marginRight: 8 }} />
+      <Spin
+        size="small"
+        style={{
+          marginLeft: 8,
+          marginRight: 8,
+        }}
+      />
     </span>
   );
-
-  if (!initialState || !initialState.currentUser || !initialState.currentUser.nickName) {
+  if (
+    !initialState ||
+    !initialState.currentUser ||
+    !initialState.currentUser.nickName
+  ) {
     return loading;
   }
-
   const { currentUser } = initialState;
 
   // ✨ 构建角色菜单项
-  const roleMenuItems: MenuProps['items'] = currentUser.authorities?.map((auth: any) => {
-    const isCurrent = auth.authorityId === currentUser.authorityId;
-    return {
-      key: `role:${auth.authorityId}`, // 使用前缀区分
-      // 当前角色显示打钩，其他显示占位符保持对齐
-      icon: isCurrent ? <CheckOutlined /> : <div style={{ width: 14, display: 'inline-block' }} />,
-      label: auth.authorityName,
-      // ✨ 关键修改：使用 disabled 属性
-      disabled: isCurrent,
-    };
-  }) || [];
+  const roleMenuItems: MenuProps['items'] =
+    currentUser.authorities?.map((auth: any) => {
+      const isCurrent = auth.authorityId === currentUser.authorityId;
+      return {
+        key: `role:${auth.authorityId}`,
+        // 使用前缀区分
+        // 当前角色显示打钩，其他显示占位符保持对齐
+        icon: isCurrent ? (
+          <CheckOutlined />
+        ) : (
+          <div
+            style={{
+              width: 14,
+              display: 'inline-block',
+            }}
+          />
+        ),
+        label: auth.authorityName,
+        // ✨ 关键修改：使用 disabled 属性
+        disabled: isCurrent,
+      };
+    }) || [];
+
+  const findSettings = (menus: any[]): string | undefined => {
+    for (const item of menus) {
+      if (item.component === 'user/info') return item.path;
+      const child = findSettings(item.routes || []);
+      if (child) return child;
+    }
+    return undefined;
+  };
+  const settingsPath = findSettings(initialState.menuData || []);
 
   // 组装所有菜单
   const menuItems: MenuProps['items'] = [
-    { key: 'settings', icon: <UserOutlined />, label: '账号设置' },
+    {
+      key: 'settings',
+      disabled: !settingsPath,
+      icon: <UserOutlined />,
+      label: t('cms.accountSettings'),
+    },
     {
       type: 'divider' as const, // ✨ 修复点 2
     },
-
     // 角色切换标题
     {
       key: 'switch-role-title',
-      label: <span style={{ color: '#999', fontSize: '12px', cursor: 'default' }}><SwapOutlined /> 切换角色</span>,
+      label: (
+        <span
+          style={{
+            color: '#999',
+            fontSize: '12px',
+            cursor: 'default',
+          }}
+        >
+          <SwapOutlined />
+          {t('cms.switchRole')}
+        </span>
+      ),
       disabled: true,
     },
-
     ...roleMenuItems,
-
     {
       type: 'divider' as const, // ✨ 修复点 2
     },
-
-    { key: 'logout', icon: <LogoutOutlined />, label: '退出登录' },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: t('cms.signOut'),
+    },
   ];
-
   return (
     <HeaderDropdown
       menu={{
-        selectedKeys: [], // 不选中任何项
+        selectedKeys: [],
+        // 不选中任何项
         onClick: onMenuClick,
         items: menuItems,
       }}

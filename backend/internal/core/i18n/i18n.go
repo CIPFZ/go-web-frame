@@ -140,3 +140,12 @@ func (s *Service) Translate(lang, messageID string, templateData ...map[string]i
 	}
 	return msg
 }
+
+// Lookup lets the HTTP boundary distinguish an unknown internal error from a
+// translated business message without returning translation keys to clients.
+func (s *Service) Lookup(lang, id string, data map[string]interface{}) (string, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	value, err := i18n.NewLocalizer(s.bundle, lang).Localize(&i18n.LocalizeConfig{MessageID: id, TemplateData: data})
+	return value, err == nil
+}

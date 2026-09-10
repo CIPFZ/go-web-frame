@@ -21,6 +21,7 @@ go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 cd front-end
 npm ci --legacy-peer-deps --ignore-scripts
 npm run postinstall
+npm run check:i18n
 npm run tsc
 npm test -- --runInBand
 npm run build
@@ -66,3 +67,5 @@ python3 scripts/check-api-contract.py
 python3 deploy/local/db-matrix.py
 python3 deploy/observability/verify.py
 ```
+
+中英文适配约定、动态菜单英文名称与验证范围见 [国际化说明](docs/I18N.md)。
