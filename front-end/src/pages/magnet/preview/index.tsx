@@ -112,8 +112,8 @@ export default function MagnetPreviewPage() {
                 <Descriptions column={{ xs: 1, sm: 2 }}>
                   <Descriptions.Item label={t.size}>{result.total_size_human}</Descriptions.Item>
                   <Descriptions.Item label={t.count}>{result.file_count}</Descriptions.Item>
-                  <Descriptions.Item label={t.hash} span={2}><Typography.Text copyable style={{ overflowWrap: 'anywhere' }}>{result.info_hash}</Typography.Text></Descriptions.Item>
                   <Descriptions.Item label={t.retrieved} span={2}>{new Date(result.retrieved_at).toLocaleString(intl.locale)}</Descriptions.Item>
+                  <Descriptions.Item label={t.hash} span={2}><Typography.Text copyable style={{ overflowWrap: 'anywhere' }}>{result.info_hash}</Typography.Text></Descriptions.Item>
                 </Descriptions>
               </Col>
             </Row>
