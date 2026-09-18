@@ -1,3 +1,4 @@
+import magnet from './en-US/magnet';
 import cms from './en-US/cms';
 import component from './en-US/component';
 import globalHeader from './en-US/globalHeader';
@@ -8,6 +9,7 @@ import settingDrawer from './en-US/settingDrawer';
 import settings from './en-US/settings';
 
 export default {
+  ...magnet,
   ...cms,
   'navBar.lang': 'Languages',
   'layout.user.link.help': 'Help',

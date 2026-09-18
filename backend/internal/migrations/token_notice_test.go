@@ -25,7 +25,7 @@ func TestTokenNoticeUpgradePreservesHistoryAndDoesNotGrantTokens(t *testing.T) {
 	require.NoError(t, database.Create(&token).Error)
 	// Simulate the pre-upgrade schema and missing catalog entries.
 	require.NoError(t, database.Migrator().DropColumn(&model.SysNotice{}, "target_ids"))
-	require.NoError(t, database.Where("name = ?", Latest).Delete(&schemaMigration{}).Error)
+	require.NoError(t, database.Where("name = ?", tokenNoticeVersion).Delete(&schemaMigration{}).Error)
 	require.NoError(t, database.Unscoped().Where("path IN ?", []string{"/api/v1/open/token-info", "/api/v1/sys/api-token/options"}).Delete(&model.SysApi{}).Error)
 	require.NoError(t, Run(context.Background(), database, cfg, zap.NewNop()))
 	require.NoError(t, Run(context.Background(), database, cfg, zap.NewNop()))

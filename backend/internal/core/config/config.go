@@ -6,20 +6,21 @@ import (
 
 // Config 全局配置
 type Config struct {
-	System     System          `mapstructure:"system" json:"system" yaml:"system"`
-	Logger     Logger          `mapstructure:"logger" json:"logger" yaml:"logger"`
-	I18n       I18n            `mapstructure:"i18n" json:"i18n" yaml:"i18n"`
-	JWT        JWT             `mapstructure:"jwt" json:"jwt" yaml:"jwt"`
-	Database   Database        `mapstructure:"database" json:"database" yaml:"database"`
-	Mysql      MySQL           `mapstructure:"mysql" json:"mysql" yaml:"mysql"`
-	Mongo      Mongo           `mapstructure:"mongo" json:"mongo" yaml:"mongo"`
-	Redis      Redis           `mapstructure:"redis" json:"redis" yaml:"redis"`
-	File       FileConfig      `mapstructure:"file" json:"file" yaml:"file"`
-	Email      Email           `mapstructure:"email" json:"email" yaml:"email"`
-	Captcha    Captcha         `mapstructure:"captcha" json:"captcha" yaml:"captcha"`
-	Cors       CORS            `mapstructure:"cors" json:"cors" yaml:"cors"`
-	Observable Observability   `mapstructure:"observable" json:"observable" yaml:"observable"`
-	RateLimit  RateLimitConfig `mapstructure:"rate_limit" json:"rate_limit" yaml:"rate_limit"`
+	MagnetPreview MagnetPreview   `mapstructure:"magnet_preview" yaml:"magnet_preview" json:"magnet_preview"`
+	System        System          `mapstructure:"system" json:"system" yaml:"system"`
+	Logger        Logger          `mapstructure:"logger" json:"logger" yaml:"logger"`
+	I18n          I18n            `mapstructure:"i18n" json:"i18n" yaml:"i18n"`
+	JWT           JWT             `mapstructure:"jwt" json:"jwt" yaml:"jwt"`
+	Database      Database        `mapstructure:"database" json:"database" yaml:"database"`
+	Mysql         MySQL           `mapstructure:"mysql" json:"mysql" yaml:"mysql"`
+	Mongo         Mongo           `mapstructure:"mongo" json:"mongo" yaml:"mongo"`
+	Redis         Redis           `mapstructure:"redis" json:"redis" yaml:"redis"`
+	File          FileConfig      `mapstructure:"file" json:"file" yaml:"file"`
+	Email         Email           `mapstructure:"email" json:"email" yaml:"email"`
+	Captcha       Captcha         `mapstructure:"captcha" json:"captcha" yaml:"captcha"`
+	Cors          CORS            `mapstructure:"cors" json:"cors" yaml:"cors"`
+	Observable    Observability   `mapstructure:"observable" json:"observable" yaml:"observable"`
+	RateLimit     RateLimitConfig `mapstructure:"rate_limit" json:"rate_limit" yaml:"rate_limit"`
 }
 
 type Database struct {
@@ -145,4 +146,14 @@ type RateLimitConfig struct {
 	Enabled bool `mapstructure:"enabled" json:"enabled" yaml:"enabled"`
 	QPS     int  `mapstructure:"qps" json:"qps" yaml:"qps"`       // 每秒并发数 (放入桶的速度)
 	Burst   int  `mapstructure:"burst" json:"burst" yaml:"burst"` // 突发大小 (桶容量)
+}
+
+type MagnetPreview struct {
+	Enabled            bool   `mapstructure:"enabled" yaml:"enabled" json:"enabled"`
+	CacheDir           string `mapstructure:"cache_dir" yaml:"cache_dir" json:"cache_dir"`
+	MetadataTimeoutSec int    `mapstructure:"metadata_timeout_sec" yaml:"metadata_timeout_sec" json:"metadata_timeout_sec"`
+	MaxFiles           int    `mapstructure:"max_files" yaml:"max_files" json:"max_files"`
+	FetchCover         bool   `mapstructure:"fetch_cover" yaml:"fetch_cover" json:"fetch_cover"`
+	MaxCoverMB         int64  `mapstructure:"max_cover_mb" yaml:"max_cover_mb" json:"max_cover_mb"`
+	MaxConcurrent      int    `mapstructure:"max_concurrent" yaml:"max_concurrent" json:"max_concurrent"`
 }

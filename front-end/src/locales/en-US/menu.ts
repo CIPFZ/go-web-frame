@@ -1,4 +1,5 @@
 ﻿export default {
+  'menu.magnetPreview': 'Magnet preview',
   'menu.welcome': 'Welcome',
   'menu.more-blocks': 'More Blocks',
   'menu.home': 'Home',

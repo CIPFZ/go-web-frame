@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/CIPFZ/gowebframe/internal/core/session"
 	"github.com/CIPFZ/gowebframe/internal/migrations"
+	"github.com/CIPFZ/gowebframe/internal/modules/magnet"
+	"path/filepath"
 	"time"
 
 	"github.com/CIPFZ/gowebframe/internal/core/claims"
@@ -200,6 +202,24 @@ func Initialize(path string, serviceCtx *svc.ServiceContext) (shutdowns []utils.
 	// Step 9: 初始化 OSS
 	serviceCtx.OSS = file.NewFileService(serviceCtx.Config.File, serviceCtx.Logger)
 
+	if cfg.MagnetPreview.Enabled {
+		mc := cfg.MagnetPreview
+		if mc.CacheDir == "" {
+			mc.CacheDir = filepath.Join(filepath.Dir(path), "magnet-preview")
+		}
+		if !filepath.IsAbs(mc.CacheDir) {
+			mc.CacheDir, _ = filepath.Abs(mc.CacheDir)
+		}
+		serviceCtx.MagnetPreview, err = magnet.NewService(magnet.Config{
+			CacheDir: mc.CacheDir, MetadataTimeout: time.Duration(mc.MetadataTimeoutSec) * time.Second,
+			MaxFiles: mc.MaxFiles, FetchCover: mc.FetchCover, MaxCoverBytes: mc.MaxCoverMB * 1024 * 1024,
+			MaxConcurrent: mc.MaxConcurrent,
+		})
+		if err != nil {
+			return shutdowns, fmt.Errorf("magnet preview init: %w", err)
+		}
+		shutdowns = append(shutdowns, func(context.Context) error { return serviceCtx.MagnetPreview.Close() })
+	}
 	serviceCtx.Logger.Info("✅ 系统核心组件组装完成")
 	return shutdowns, nil
 }

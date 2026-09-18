@@ -145,3 +145,12 @@ rate_limit:
   enabled: true
   qps: 100
   burst: 200
+
+# Optional magnet metadata preview (requires the magnet menu migration).
+magnet_preview:
+  enabled: false
+  metadata_timeout_sec: 45
+  max_files: 1000
+  fetch_cover: true
+  max_cover_mb: 2
+  max_concurrent: 1

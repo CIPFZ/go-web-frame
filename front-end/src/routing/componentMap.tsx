@@ -1,6 +1,7 @@
 import React from 'react';
 
 export const componentMap: Record<string, React.LazyExoticComponent<any>> = {
+  'magnet/preview': React.lazy(() => import('@/pages/magnet/preview')),
   'state': React.lazy(() => import('@/pages/state')),
   'about': React.lazy(() => import('@/pages/about')),
   'dashboard/workplace': React.lazy(() => import('@/pages/dashboard/workplace')),

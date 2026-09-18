@@ -1,3 +1,4 @@
+import magnet from './zh-CN/magnet';
 import cms from './zh-CN/cms';
 import component from './zh-CN/component';
 import globalHeader from './zh-CN/globalHeader';
@@ -8,6 +9,7 @@ import settingDrawer from './zh-CN/settingDrawer';
 import settings from './zh-CN/settings';
 
 export default {
+  ...magnet,
   ...cms,
   'navBar.lang': '语言',
   'layout.user.link.help': '帮助',

@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"github.com/CIPFZ/gowebframe/internal/modules/magnet"
 	"net/http"
 	"strings"
 
@@ -48,6 +49,11 @@ func InitRouters(svcCtx *svc.ServiceContext) *gin.Engine {
 	sysRouter := wireSystemModule(svcCtx)
 	sysRouter.InitSystemRoutes(privateGroup, publicGroup)
 
+	if svcCtx.MagnetPreview != nil {
+		magnetAPI := magnet.NewAPI(svcCtx.MagnetPreview)
+		privateGroup.POST("/magnet/preview", magnetAPI.Preview)
+		privateGroup.GET("/magnet/cover/:hash", magnetAPI.Cover)
+	}
 	svcCtx.Routers = r.Routes()
 	svcCtx.Logger.Info("all routes initialized")
 	return r
