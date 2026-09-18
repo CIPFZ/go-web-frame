@@ -211,8 +211,9 @@ func Initialize(path string, serviceCtx *svc.ServiceContext) (shutdowns []utils.
 			mc.CacheDir, _ = filepath.Abs(mc.CacheDir)
 		}
 		serviceCtx.MagnetPreview, err = magnet.NewService(magnet.Config{
-			CacheDir: mc.CacheDir, MetadataTimeout: time.Duration(mc.MetadataTimeoutSec) * time.Second,
-			MaxFiles: mc.MaxFiles, FetchCover: mc.FetchCover, MaxCoverBytes: mc.MaxCoverMB * 1024 * 1024,
+			CacheDir: mc.CacheDir, CacheTTL: time.Duration(mc.CacheTTLSeconds) * time.Second,
+			MetadataTimeout: time.Duration(mc.MetadataTimeoutSec) * time.Second,
+			MaxFiles:        mc.MaxFiles, FetchCover: mc.FetchCover, MaxCoverBytes: mc.MaxCoverMB * 1024 * 1024,
 			MaxConcurrent: mc.MaxConcurrent,
 		})
 		if err != nil {

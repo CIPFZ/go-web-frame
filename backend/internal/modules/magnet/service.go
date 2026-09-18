@@ -23,6 +23,7 @@ import (
 
 type Config struct {
 	CacheDir        string
+	CacheTTL        time.Duration
 	MetadataTimeout time.Duration
 	MaxFiles        int
 	FetchCover      bool
@@ -34,6 +35,7 @@ type Service struct {
 	ctx          context.Context
 	cancel       context.CancelFunc
 	cacheDir     string
+	cacheTTL     time.Duration
 	timeout      time.Duration
 	maxFiles     int
 	fetchCover   bool
@@ -85,6 +87,9 @@ func NewService(cfg Config) (*Service, error) {
 	if cfg.CacheDir == "" {
 		cfg.CacheDir = filepath.Join(os.TempDir(), "base-frame", "magnet-preview")
 	}
+	if cfg.CacheTTL <= 0 {
+		cfg.CacheTTL = 3 * time.Hour
+	}
 	if cfg.MetadataTimeout <= 0 || cfg.MetadataTimeout > 45*time.Second {
 		cfg.MetadataTimeout = 45 * time.Second
 	}
@@ -102,15 +107,18 @@ func NewService(cfg Config) (*Service, error) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Service{
+	service := &Service{
 		ctx: ctx, cancel: cancel,
 		cacheDir:     cfg.CacheDir,
+		cacheTTL:     cfg.CacheTTL,
 		timeout:      cfg.MetadataTimeout,
 		maxFiles:     cfg.MaxFiles,
 		fetchCover:   cfg.FetchCover,
 		maxCoverSize: cfg.MaxCoverBytes,
 		limiter:      make(chan struct{}, cfg.MaxConcurrent),
-	}, nil
+	}
+	service.pruneCache("")
+	return service, nil
 }
 
 func (s *Service) Close() error {
@@ -331,7 +339,7 @@ func (s *Service) readCache(hash string) (Preview, bool) {
 		return Preview{}, false
 	}
 	var preview Preview
-	if json.Unmarshal(data, &preview) != nil || time.Since(preview.RetrievedAt) > 24*time.Hour {
+	if json.Unmarshal(data, &preview) != nil || time.Since(preview.RetrievedAt) > s.cacheTTL {
 		return Preview{}, false
 	}
 	return preview, true

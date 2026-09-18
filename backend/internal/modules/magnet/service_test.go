@@ -4,6 +4,7 @@ import (
 	"encoding/base32"
 	"encoding/hex"
 	"testing"
+	"time"
 )
 
 func TestParseHexAndTrackerFiltering(t *testing.T) {
@@ -32,5 +33,22 @@ func TestParseBase32(t *testing.T) {
 	}
 	if result.InfoHash != hexHash {
 		t.Fatalf("unexpected hash: %s", result.InfoHash)
+	}
+}
+
+func TestCacheTTL(t *testing.T) {
+	s, err := NewService(Config{CacheDir: t.TempDir(), CacheTTL: time.Hour})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.cacheTTL != time.Hour {
+		t.Fatalf("unexpected cache ttl: %s", s.cacheTTL)
+	}
+	hash := "0123456789abcdef0123456789abcdef01234567"
+	if err := s.writeCache(hash, Preview{InfoHash: hash, RetrievedAt: time.Now().Add(-2 * time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := s.readCache(hash); ok {
+		t.Fatal("expired cache was returned")
 	}
 }

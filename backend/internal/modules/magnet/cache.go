@@ -27,7 +27,7 @@ func (s *Service) pruneCache(current string) {
 		if err != nil {
 			continue
 		}
-		if time.Since(info.ModTime()) > 24*time.Hour {
+		if time.Since(info.ModTime()) > s.cacheTTL {
 			_ = os.RemoveAll(filepath.Join(s.cacheDir, entry.Name()))
 			continue
 		}

@@ -149,6 +149,8 @@ rate_limit:
 # Optional magnet metadata preview (requires the magnet menu migration).
 magnet_preview:
   enabled: false
+  cache_dir: ./runtime/magnet-preview
+  cache_ttl_sec: 10800
   metadata_timeout_sec: 45
   max_files: 1000
   fetch_cover: true

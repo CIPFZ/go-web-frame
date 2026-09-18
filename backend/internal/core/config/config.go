@@ -151,6 +151,7 @@ type RateLimitConfig struct {
 type MagnetPreview struct {
 	Enabled            bool   `mapstructure:"enabled" yaml:"enabled" json:"enabled"`
 	CacheDir           string `mapstructure:"cache_dir" yaml:"cache_dir" json:"cache_dir"`
+	CacheTTLSeconds    int    `mapstructure:"cache_ttl_sec" yaml:"cache_ttl_sec" json:"cache_ttl_sec"`
 	MetadataTimeoutSec int    `mapstructure:"metadata_timeout_sec" yaml:"metadata_timeout_sec" json:"metadata_timeout_sec"`
 	MaxFiles           int    `mapstructure:"max_files" yaml:"max_files" json:"max_files"`
 	FetchCover         bool   `mapstructure:"fetch_cover" yaml:"fetch_cover" json:"fetch_cover"`
