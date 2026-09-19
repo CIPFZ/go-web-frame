@@ -1,57 +1,135 @@
 import React, { useEffect, useState } from 'react';
 import { useIntl } from '@umijs/max';
 import { PageContainer } from '@ant-design/pro-components';
-import { Alert, Button, Card, Col, Descriptions, Input, List, Modal, Row, Space, Statistic, Tag, Typography, message } from 'antd';
-import { CheckCircleOutlined, CodeOutlined, PauseCircleOutlined, PlayCircleOutlined, ReloadOutlined, RollbackOutlined, SaveOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Col, Descriptions, Drawer, Empty, Input, List, Modal, Row, Space, Statistic, Tag, Typography, message } from 'antd';
+import { CheckCircleOutlined, CodeOutlined, LineChartOutlined, PauseCircleOutlined, PlayCircleOutlined, ReloadOutlined, RollbackOutlined, SaveOutlined } from '@ant-design/icons';
 import {
   actionProxy, listProxyInstances, readProxyConfig, readProxyMetrics, rollbackProxyConfig, saveProxyConfig, validateProxyConfig,
   type ProxyInstance, type ProxyMetrics,
 } from '@/services/proxy';
 
 const stateColor: Record<string, string> = { active: 'green', running: 'green', inactive: 'default', failed: 'red', unavailable: 'orange', unknown: 'gold' };
+const HISTORY_LIMIT = 30;
+
+type MetricSample = { at: number; metrics: ProxyMetrics };
+
+const isRunning = (state?: string) => state === 'active' || state === 'running';
+
+const formatBytes = (value?: number) => {
+  const bytes = Math.max(0, Number(value || 0));
+  if (bytes < 1024) return bytes.toFixed(0) + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+};
+
+function Sparkline({ label, samples, color, value }: {
+  label: string;
+  samples: MetricSample[];
+  color: string;
+  value: (sample: MetricSample) => number;
+}) {
+  if (!samples.length) return <Typography.Text type="secondary">-</Typography.Text>;
+  const values = samples.map(value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const points = values.map((item, index) => {
+    const x = values.length === 1 ? 50 : (index / (values.length - 1)) * 100;
+    const y = 96 - ((item - min) / range) * 84;
+    return x.toFixed(2) + ',' + y.toFixed(2);
+  }).join(' ');
+  return <div style={{ marginBottom: 20 }}>
+    <Typography.Text type="secondary">{label}</Typography.Text>
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: 'block', width: '100%', height: 86, marginTop: 6, background: 'rgba(0,0,0,0.02)', borderRadius: 6 }}>
+      <line x1="0" y1="96" x2="100" y2="96" stroke="rgba(0,0,0,0.12)" strokeWidth="0.6" />
+      <polyline fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" points={points} />
+    </svg>
+  </div>;
+}
 
 export default function ProxyManagerPage() {
   const intl = useIntl();
   const [items, setItems] = useState<ProxyInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<ProxyInstance>();
+  const [monitoring, setMonitoring] = useState<ProxyInstance>();
   const [config, setConfig] = useState('');
   const [configDigest, setConfigDigest] = useState('');
   const [metrics, setMetrics] = useState<Record<number, ProxyMetrics>>({});
+  const [metricHistory, setMetricHistory] = useState<Record<number, MetricSample[]>>({});
+  const [actionLoading, setActionLoading] = useState<Record<number, string | undefined>>({});
   const [saving, setSaving] = useState(false);
 
   const t = (id: string) => intl.formatMessage({ id });
-  const refresh = async () => {
-    setLoading(true);
+  const refresh = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const res = await listProxyInstances();
       if (res.code === 0) setItems(res.data || []);
       else message.error(res.msg || t('proxy.loadFailed'));
     } catch { message.error(t('proxy.loadFailed')); }
-    finally { setLoading(false); }
+    finally { if (showLoading) setLoading(false); }
   };
-  useEffect(() => { refresh(); }, []);
+
   useEffect(() => {
+    refresh();
+    const timer = window.setInterval(async () => {
+      try {
+        const res = await listProxyInstances();
+        if (res.code === 0) setItems(res.data || []);
+      } catch { /* keep the last known service state */ }
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
     const poll = async () => {
-      await Promise.all(items.map(async item => {
+      const results = await Promise.all(items.map(async item => {
         try {
           const res = await readProxyMetrics(item.id);
-          if (res.code === 0) setMetrics(prev => ({ ...prev, [item.id]: res.data }));
-        } catch { /* status remains visible even when metrics are unavailable */ }
+          return res.code === 0 ? { id: item.id, metrics: res.data } : undefined;
+        } catch { return undefined; }
       }));
+      if (disposed) return;
+      const samples = results.filter((item): item is { id: number; metrics: ProxyMetrics } => !!item);
+      if (!samples.length) return;
+      const now = Date.now();
+      setMetrics(prev => {
+        const next = { ...prev };
+        samples.forEach(item => { next[item.id] = item.metrics; });
+        return next;
+      });
+      setMetricHistory(prev => {
+        const next = { ...prev };
+        samples.forEach(item => {
+          const history = next[item.id] || [];
+          const last = history[history.length - 1];
+          if (!last || last.metrics.updatedAt !== item.metrics.updatedAt) {
+            next[item.id] = [...history, { at: now, metrics: item.metrics }].slice(-HISTORY_LIMIT);
+          }
+        });
+        return next;
+      });
     };
     if (items.length) poll();
     const timer = window.setInterval(poll, 5000);
-    return () => window.clearInterval(timer);
+    return () => { disposed = true; window.clearInterval(timer); };
   }, [items]);
 
   const runAction = async (item: ProxyInstance, action: string) => {
+    const running = isRunning(item.status?.state);
+    if ((action === 'start' && running) || (action === 'stop' && !running) || (action === 'restart' && !running)) return;
+    setActionLoading(prev => ({ ...prev, [item.id]: action }));
     try {
       const res = await actionProxy(item.id, action);
       if (res.code !== 0) message.error(res.msg || t('proxy.actionFailed'));
-      else { message.success(t('proxy.actionDone')); refresh(); }
+      else { message.success(t('proxy.actionDone')); await refresh(false); }
     } catch { message.error(t('proxy.actionFailed')); }
+    finally { setActionLoading(prev => ({ ...prev, [item.id]: undefined })); }
   };
+
   const openConfig = async (item: ProxyInstance) => {
     try {
       const res = await readProxyConfig(item.id);
@@ -59,6 +137,7 @@ export default function ProxyManagerPage() {
       setEditing(item); setConfig(res.data.content); setConfigDigest(res.data.digest);
     } catch { message.error(t('proxy.configReadFailed')); }
   };
+
   const validate = async () => {
     if (!editing) return;
     try {
@@ -67,6 +146,7 @@ export default function ProxyManagerPage() {
       else message.error(res.msg || t('proxy.invalid'));
     } catch { message.error(t('proxy.invalid')); }
   };
+
   const save = async () => {
     if (!editing) return;
     setSaving(true);
@@ -79,6 +159,7 @@ export default function ProxyManagerPage() {
     } catch { message.error(t('proxy.saveFailed')); }
     finally { setSaving(false); }
   };
+
   const rollback = async () => {
     if (!editing) return;
     setSaving(true);
@@ -93,31 +174,58 @@ export default function ProxyManagerPage() {
     finally { setSaving(false); }
   };
 
-  return <PageContainer title={t('proxy.title')} extra={<Button icon={<ReloadOutlined />} onClick={refresh}>{t('proxy.refresh')}</Button>}>
+  const monitorItem = monitoring ? items.find(item => item.id === monitoring.id) || monitoring : undefined;
+  const monitorHistory = monitorItem ? (metricHistory[monitorItem.id] || []) : [];
+  const currentMetrics = monitorItem ? metrics[monitorItem.id] || (monitorHistory.length ? monitorHistory[monitorHistory.length - 1].metrics : undefined) : undefined;
+  const previousMetrics = monitorHistory.length > 1 ? monitorHistory[monitorHistory.length - 2].metrics : undefined;
+  const currentTime = currentMetrics ? Date.parse(currentMetrics.updatedAt) : 0;
+  const previousTime = previousMetrics ? Date.parse(previousMetrics.updatedAt) : 0;
+  const intervalSeconds = previousMetrics && currentMetrics && Number.isFinite(currentTime) && Number.isFinite(previousTime)
+    ? Math.max((currentTime - previousTime) / 1000, 1) : 0;
+  const readRate = previousMetrics && currentMetrics ? Math.max(0, (currentMetrics.readBytes - previousMetrics.readBytes) / intervalSeconds) : 0;
+  const writeRate = previousMetrics && currentMetrics ? Math.max(0, (currentMetrics.writeBytes - previousMetrics.writeBytes) / intervalSeconds) : 0;
+
+  return <PageContainer title={t('proxy.title')} extra={<Button icon={<ReloadOutlined />} onClick={() => refresh()}>{t('proxy.refresh')}</Button>}>
     <Alert showIcon type="info" message={t('proxy.notice')} style={{ marginBottom: 16 }} />
     <List loading={loading} grid={{ gutter: 16, xs: 1, md: 2 }} dataSource={items} renderItem={item => {
-      const m = metrics[item.id];
       const state = item.status?.state || 'unknown';
-      return <List.Item><Card title={<Space><Typography.Text strong>{item.name}</Typography.Text><Tag color={stateColor[state]}>{state}</Tag></Space>} extra={<Tag>{item.engine}</Tag>}>
+      const running = isRunning(state);
+      const busy = !!actionLoading[item.id];
+      return <List.Item><Card title={<Space><Typography.Text strong>{item.name}</Typography.Text><Tag color={stateColor[state] || 'gold'}>{state}</Tag></Space>} extra={<Tag>{item.engine}</Tag>}>
         <Descriptions size="small" column={1}>
           <Descriptions.Item label={t('proxy.unit')}>{item.unit}</Descriptions.Item>
           <Descriptions.Item label={t('proxy.configPath')}>{item.configPath}</Descriptions.Item>
           <Descriptions.Item label="PID">{item.status?.mainPid || '-'}</Descriptions.Item>
         </Descriptions>
-        {m && <Row gutter={12} style={{ margin: '12px 0' }}>
-          <Col span={8}><Statistic title={t('proxy.connections')} value={m.connections} /></Col>
-          <Col span={8}><Statistic title={t('proxy.read')} value={m.readBytes} suffix="B" /></Col>
-          <Col span={8}><Statistic title={t('proxy.write')} value={m.writeBytes} suffix="B" /></Col>
-        </Row>}
         {item.status?.error && <Alert type="warning" showIcon message={item.status.error} style={{ marginBottom: 12 }} />}
         <Space wrap>
-          <Button icon={<PlayCircleOutlined />} onClick={() => runAction(item, 'start')}>{t('proxy.start')}</Button>
-          <Button icon={<PauseCircleOutlined />} onClick={() => runAction(item, 'stop')}>{t('proxy.stop')}</Button>
-          <Button icon={<ReloadOutlined />} onClick={() => runAction(item, 'restart')}>{t('proxy.restart')}</Button>
+          <Button icon={<PlayCircleOutlined />} onClick={() => runAction(item, 'start')} disabled={running || busy} loading={actionLoading[item.id] === 'start'}>{t('proxy.start')}</Button>
+          <Button icon={<PauseCircleOutlined />} onClick={() => runAction(item, 'stop')} disabled={!running || busy} loading={actionLoading[item.id] === 'stop'}>{t('proxy.stop')}</Button>
+          <Button icon={<ReloadOutlined />} onClick={() => runAction(item, 'restart')} disabled={!running || busy} loading={actionLoading[item.id] === 'restart'}>{t('proxy.restart')}</Button>
+          <Button icon={<LineChartOutlined />} onClick={() => setMonitoring(item)}>{t('proxy.monitor')}</Button>
           <Button icon={<CodeOutlined />} onClick={() => openConfig(item)}>{t('proxy.config')}</Button>
         </Space>
       </Card></List.Item>;
     }} />
+    <Drawer open={!!monitoring} title={monitorItem ? t('proxy.monitor') + ' · ' + monitorItem.name : ''} width={820} onClose={() => setMonitoring(undefined)}>
+      {monitorItem && <Space direction="vertical" size={18} style={{ width: '100%' }}>
+        <Alert showIcon type="info" message={t('proxy.monitorNotice')} />
+        <Descriptions size="small" column={2}>
+          <Descriptions.Item label={t('proxy.unit')}>{monitorItem.unit}</Descriptions.Item>
+          <Descriptions.Item label={t('proxy.status')}>{monitorItem.status?.state || 'unknown'}</Descriptions.Item>
+        </Descriptions>
+        {currentMetrics ? <Row gutter={[12, 12]}>
+          <Col xs={24} sm={8}><Statistic title={t('proxy.connections')} value={currentMetrics.connections} /></Col>
+          <Col xs={24} sm={8}><Statistic title={t('proxy.readRate')} value={formatBytes(readRate)} suffix="/s" /></Col>
+          <Col xs={24} sm={8}><Statistic title={t('proxy.writeRate')} value={formatBytes(writeRate)} suffix="/s" /></Col>
+        </Row> : <Empty description={t('proxy.monitorNoData')} />}
+        {monitorHistory.length > 0 && <Card size="small" title={t('proxy.trends')}>
+          <Sparkline label={t('proxy.connectionsTrend')} samples={monitorHistory} color="#1677ff" value={sample => sample.metrics.connections} />
+          <Sparkline label={t('proxy.readTrend')} samples={monitorHistory} color="#13c2c2" value={sample => sample.metrics.readBytes} />
+          <Sparkline label={t('proxy.writeTrend')} samples={monitorHistory} color="#722ed1" value={sample => sample.metrics.writeBytes} />
+        </Card>}
+      </Space>}
+    </Drawer>
     <Modal open={!!editing} title={editing ? t('proxy.config') + ' · ' + editing.name : ''} width={900} onCancel={() => setEditing(undefined)} footer={<Space>
       <Button icon={<CheckCircleOutlined />} onClick={validate}>{t('proxy.validate')}</Button>
       <Button icon={<RollbackOutlined />} onClick={rollback} disabled={saving}>{t('proxy.rollback')}</Button>
