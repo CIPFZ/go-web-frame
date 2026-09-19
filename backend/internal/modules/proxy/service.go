@@ -60,9 +60,29 @@ type Metrics struct {
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
+// InstanceView is the public proxy instance shape. The shared BaseModel uses
+// an uppercase ID for legacy APIs, while this module exposes the lower camel
+// case contract consumed by the proxy manager UI.
 type InstanceView struct {
-	Instance
-	Status Status `json:"status"`
+	ID          uint   `json:"id"`
+	Name        string `json:"name"`
+	Engine      string `json:"engine"`
+	Scope       string `json:"scope"`
+	Unit        string `json:"unit"`
+	BinaryPath  string `json:"binaryPath"`
+	ConfigPath  string `json:"configPath"`
+	Enabled     bool   `json:"enabled"`
+	Description string `json:"description"`
+	Status      Status `json:"status"`
+}
+
+func instanceView(instance Instance, status Status) InstanceView {
+	return InstanceView{
+		ID: instance.ID, Name: instance.Name, Engine: instance.Engine,
+		Scope: instance.Scope, Unit: instance.Unit, BinaryPath: instance.BinaryPath,
+		ConfigPath: instance.ConfigPath, Enabled: instance.Enabled,
+		Description: instance.Description, Status: status,
+	}
 }
 
 type ConfigSnapshot struct {
@@ -125,7 +145,7 @@ func (s *Service) List(ctx context.Context) ([]InstanceView, error) {
 	}
 	views := make([]InstanceView, 0, len(instances))
 	for _, instance := range instances {
-		views = append(views, InstanceView{Instance: instance, Status: s.Status(ctx, instance)})
+		views = append(views, instanceView(instance, s.Status(ctx, instance)))
 	}
 	return views, nil
 }

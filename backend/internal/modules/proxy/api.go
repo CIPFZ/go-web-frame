@@ -51,7 +51,7 @@ func (a *API) Get(c *gin.Context) {
 		response.FailWithMessage("实例不存在", c)
 		return
 	}
-	response.OkWithData(InstanceView{Instance: item, Status: a.service.Status(c.Request.Context(), item)}, c)
+	response.OkWithData(instanceView(item, a.service.Status(c.Request.Context(), item)), c)
 }
 
 func (a *API) Create(c *gin.Context) {

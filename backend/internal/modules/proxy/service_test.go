@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -47,5 +48,20 @@ func TestDigest(t *testing.T) {
 	}
 	if got == digest([]byte("other")) {
 		t.Fatal("different content has the same digest")
+	}
+}
+
+func TestInstanceViewUsesLowercaseID(t *testing.T) {
+	instance := Instance{Name: "sing-box"}
+	instance.ID = 42
+	data, err := json.Marshal(instanceView(instance, Status{State: "active"}))
+	if err != nil {
+		t.Fatalf("marshal instance view: %v", err)
+	}
+	if string(data) == "" || !strings.Contains(string(data), `"id":42`) {
+		t.Fatalf("instance view did not expose lowercase id: %s", data)
+	}
+	if strings.Contains(string(data), `"ID"`) {
+		t.Fatalf("instance view leaked legacy uppercase ID: %s", data)
 	}
 }
