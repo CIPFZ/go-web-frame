@@ -6,21 +6,22 @@ import (
 
 // Config 全局配置
 type Config struct {
-	MagnetPreview MagnetPreview   `mapstructure:"magnet_preview" yaml:"magnet_preview" json:"magnet_preview"`
-	System        System          `mapstructure:"system" json:"system" yaml:"system"`
-	Logger        Logger          `mapstructure:"logger" json:"logger" yaml:"logger"`
-	I18n          I18n            `mapstructure:"i18n" json:"i18n" yaml:"i18n"`
-	JWT           JWT             `mapstructure:"jwt" json:"jwt" yaml:"jwt"`
-	Database      Database        `mapstructure:"database" json:"database" yaml:"database"`
-	Mysql         MySQL           `mapstructure:"mysql" json:"mysql" yaml:"mysql"`
-	Mongo         Mongo           `mapstructure:"mongo" json:"mongo" yaml:"mongo"`
-	Redis         Redis           `mapstructure:"redis" json:"redis" yaml:"redis"`
-	File          FileConfig      `mapstructure:"file" json:"file" yaml:"file"`
-	Email         Email           `mapstructure:"email" json:"email" yaml:"email"`
-	Captcha       Captcha         `mapstructure:"captcha" json:"captcha" yaml:"captcha"`
-	Cors          CORS            `mapstructure:"cors" json:"cors" yaml:"cors"`
-	Observable    Observability   `mapstructure:"observable" json:"observable" yaml:"observable"`
-	RateLimit     RateLimitConfig `mapstructure:"rate_limit" json:"rate_limit" yaml:"rate_limit"`
+	MagnetPreview MagnetPreview      `mapstructure:"magnet_preview" yaml:"magnet_preview" json:"magnet_preview"`
+	ProxyManager  ProxyManagerConfig `mapstructure:"proxy_manager" yaml:"proxy_manager" json:"proxy_manager"`
+	System        System             `mapstructure:"system" json:"system" yaml:"system"`
+	Logger        Logger             `mapstructure:"logger" json:"logger" yaml:"logger"`
+	I18n          I18n               `mapstructure:"i18n" json:"i18n" yaml:"i18n"`
+	JWT           JWT                `mapstructure:"jwt" json:"jwt" yaml:"jwt"`
+	Database      Database           `mapstructure:"database" json:"database" yaml:"database"`
+	Mysql         MySQL              `mapstructure:"mysql" json:"mysql" yaml:"mysql"`
+	Mongo         Mongo              `mapstructure:"mongo" json:"mongo" yaml:"mongo"`
+	Redis         Redis              `mapstructure:"redis" json:"redis" yaml:"redis"`
+	File          FileConfig         `mapstructure:"file" json:"file" yaml:"file"`
+	Email         Email              `mapstructure:"email" json:"email" yaml:"email"`
+	Captcha       Captcha            `mapstructure:"captcha" json:"captcha" yaml:"captcha"`
+	Cors          CORS               `mapstructure:"cors" json:"cors" yaml:"cors"`
+	Observable    Observability      `mapstructure:"observable" json:"observable" yaml:"observable"`
+	RateLimit     RateLimitConfig    `mapstructure:"rate_limit" json:"rate_limit" yaml:"rate_limit"`
 }
 
 type Database struct {
@@ -146,6 +147,13 @@ type RateLimitConfig struct {
 	Enabled bool `mapstructure:"enabled" json:"enabled" yaml:"enabled"`
 	QPS     int  `mapstructure:"qps" json:"qps" yaml:"qps"`       // 每秒并发数 (放入桶的速度)
 	Burst   int  `mapstructure:"burst" json:"burst" yaml:"burst"` // 突发大小 (桶容量)
+}
+
+type ProxyManagerConfig struct {
+	Enabled        bool     `mapstructure:"enabled" yaml:"enabled" json:"enabled"`
+	BackupDir      string   `mapstructure:"backup_dir" yaml:"backup_dir" json:"backup_dir"`
+	ConfigRoots    []string `mapstructure:"config_roots" yaml:"config_roots" json:"config_roots"`
+	CommandTimeout int      `mapstructure:"command_timeout_sec" yaml:"command_timeout_sec" json:"command_timeout_sec"`
 }
 
 type MagnetPreview struct {

@@ -6,6 +6,7 @@ import (
 	"github.com/CIPFZ/gowebframe/internal/core/session"
 	"github.com/CIPFZ/gowebframe/internal/migrations"
 	"github.com/CIPFZ/gowebframe/internal/modules/magnet"
+	"github.com/CIPFZ/gowebframe/internal/modules/proxy"
 	"path/filepath"
 	"time"
 
@@ -201,6 +202,20 @@ func Initialize(path string, serviceCtx *svc.ServiceContext) (shutdowns []utils.
 
 	// Step 9: 初始化 OSS
 	serviceCtx.OSS = file.NewFileService(serviceCtx.Config.File, serviceCtx.Logger)
+
+	if cfg.ProxyManager.Enabled {
+		pc := cfg.ProxyManager
+		serviceCtx.ProxyManager, err = proxy.NewService(proxy.Config{
+			DB: serviceCtx.DB, BackupDir: pc.BackupDir, ConfigRoots: pc.ConfigRoots,
+			CommandTimeout: time.Duration(pc.CommandTimeout) * time.Second,
+		})
+		if err != nil {
+			return shutdowns, fmt.Errorf("proxy manager init: %w", err)
+		}
+		if err := serviceCtx.ProxyManager.Seed(context.Background()); err != nil {
+			return shutdowns, fmt.Errorf("proxy manager seed: %w", err)
+		}
+	}
 
 	if cfg.MagnetPreview.Enabled {
 		mc := cfg.MagnetPreview

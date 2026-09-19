@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"github.com/CIPFZ/gowebframe/internal/modules/magnet"
+	"github.com/CIPFZ/gowebframe/internal/modules/proxy"
 	"net/http"
 	"strings"
 
@@ -53,6 +54,21 @@ func InitRouters(svcCtx *svc.ServiceContext) *gin.Engine {
 		magnetAPI := magnet.NewAPI(svcCtx.MagnetPreview)
 		privateGroup.POST("/magnet/preview", magnetAPI.Preview)
 		privateGroup.GET("/magnet/cover/:hash", magnetAPI.Cover)
+	}
+
+	if svcCtx.ProxyManager != nil {
+		proxyAPI := proxy.NewAPI(svcCtx.ProxyManager)
+		privateGroup.GET("/proxy/instances", proxyAPI.List)
+		privateGroup.GET("/proxy/instances/:id", proxyAPI.Get)
+		proxyWrite := privateGroup.Group("/proxy/instances", middleware.OperationRecord(svcCtx))
+		proxyWrite.POST("", proxyAPI.Create)
+		proxyWrite.PUT("/:id", proxyAPI.Update)
+		proxyWrite.POST("/:id/action", proxyAPI.Action)
+		proxyWrite.POST("/:id/config/validate", proxyAPI.Validate)
+		proxyWrite.PUT("/:id/config", proxyAPI.SaveConfig)
+		proxyWrite.POST("/:id/config/rollback", proxyAPI.Rollback)
+		privateGroup.GET("/proxy/instances/:id/config", proxyAPI.ReadConfig)
+		privateGroup.GET("/proxy/instances/:id/metrics", proxyAPI.Metrics)
 	}
 	svcCtx.Routers = r.Routes()
 	svcCtx.Logger.Info("all routes initialized")

@@ -146,6 +146,16 @@ rate_limit:
   qps: 100
   burst: 200
 
+# Proxy runtime management. Configuration edits are validated before atomic replacement.
+proxy_manager:
+  enabled: true
+  backup_dir: /var/lib/base-frame/proxy-backups
+  config_roots:
+    - /etc/sing-box
+    - /etc/xray
+    - /home/claude/agsbx
+  command_timeout_sec: 15
+
 # Optional magnet metadata preview (requires the magnet menu migration).
 magnet_preview:
   enabled: false

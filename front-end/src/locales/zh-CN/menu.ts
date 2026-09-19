@@ -1,5 +1,6 @@
 ﻿export default {
   'menu.magnetPreview': '磁力预览',
+  'menu.proxyManager': '代理管理',
   'menu.welcome': '欢迎',
   'menu.more-blocks': '更多区块',
   'menu.home': '首页',

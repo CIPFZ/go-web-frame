@@ -3,6 +3,7 @@ package svc
 import (
 	"github.com/CIPFZ/gowebframe/internal/core/file"
 	"github.com/CIPFZ/gowebframe/internal/modules/magnet"
+	"github.com/CIPFZ/gowebframe/internal/modules/proxy"
 	"net/http"
 	"sync"
 	"time"
@@ -26,6 +27,7 @@ import (
 
 type ServiceContext struct {
 	MagnetPreview      *magnet.Service
+	ProxyManager       *proxy.Service
 	SRV                *http.Server
 	Config             *config.Config
 	Viper              *viper.Viper

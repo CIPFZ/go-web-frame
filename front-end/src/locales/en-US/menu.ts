@@ -1,5 +1,6 @@
 ﻿export default {
   'menu.magnetPreview': 'Magnet preview',
+  'menu.proxyManager': 'Proxy management',
   'menu.welcome': 'Welcome',
   'menu.more-blocks': 'More Blocks',
   'menu.home': 'Home',
