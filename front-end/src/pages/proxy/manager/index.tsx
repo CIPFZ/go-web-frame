@@ -34,7 +34,11 @@ function MetricChart({ label, samples, color, value, formatValue }: {
   const values = samples.map(value);
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const range = max - min || 1;
+  const flat = min === max;
+  const padding = flat ? (max === 0 ? 1 : Math.max(Math.abs(max) * 0.05, 1)) : 0;
+  const axisMin = flat ? Math.max(0, min - padding) : min;
+  const axisMax = flat ? max + padding : max;
+  const axisRange = axisMax - axisMin || 1;
   const width = 640;
   const height = 190;
   const left = 62;
@@ -44,12 +48,12 @@ function MetricChart({ label, samples, color, value, formatValue }: {
   const plotWidth = width - left - right;
   const plotHeight = height - top - bottom;
   const xAt = (index: number) => left + (samples.length === 1 ? plotWidth / 2 : (index / (samples.length - 1)) * plotWidth);
-  const yAt = (item: number) => top + plotHeight - ((item - min) / range) * plotHeight;
+  const yAt = (item: number) => top + plotHeight - ((item - axisMin) / axisRange) * plotHeight;
   const points = values.map((item, index) => xAt(index).toFixed(2) + ',' + yAt(item).toFixed(2)).join(' ');
   const latestIndex = values.length - 1;
   const latestX = xAt(latestIndex);
   const latestY = yAt(values[latestIndex]);
-  const tickValues = Array.from({ length: 5 }, (_, index) => max - (range * index) / 4);
+  const tickValues = flat ? [min] : Array.from({ length: 5 }, (_, index) => axisMax - (axisRange * index) / 4);
   const timeIndexes = Array.from(new Set([0, Math.floor(latestIndex / 2), latestIndex]));
   const formatTime = (valueAt: number) => new Date(valueAt).toLocaleTimeString('zh-CN', { hour12: false });
   return <div style={{ marginBottom: 22 }}>
