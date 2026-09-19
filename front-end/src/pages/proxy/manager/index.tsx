@@ -23,27 +23,52 @@ const formatBytes = (value?: number) => {
   return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB';
 };
 
-function Sparkline({ label, samples, color, value }: {
+function MetricChart({ label, samples, color, value, formatValue }: {
   label: string;
   samples: MetricSample[];
   color: string;
   value: (sample: MetricSample) => number;
+  formatValue: (value: number) => string;
 }) {
   if (!samples.length) return <Typography.Text type="secondary">-</Typography.Text>;
   const values = samples.map(value);
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = max - min || 1;
-  const points = values.map((item, index) => {
-    const x = values.length === 1 ? 50 : (index / (values.length - 1)) * 100;
-    const y = 96 - ((item - min) / range) * 84;
-    return x.toFixed(2) + ',' + y.toFixed(2);
-  }).join(' ');
-  return <div style={{ marginBottom: 20 }}>
-    <Typography.Text type="secondary">{label}</Typography.Text>
-    <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: 'block', width: '100%', height: 86, marginTop: 6, background: 'rgba(0,0,0,0.02)', borderRadius: 6 }}>
-      <line x1="0" y1="96" x2="100" y2="96" stroke="rgba(0,0,0,0.12)" strokeWidth="0.6" />
+  const width = 640;
+  const height = 190;
+  const left = 62;
+  const right = 18;
+  const top = 24;
+  const bottom = 36;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+  const xAt = (index: number) => left + (samples.length === 1 ? plotWidth / 2 : (index / (samples.length - 1)) * plotWidth);
+  const yAt = (item: number) => top + plotHeight - ((item - min) / range) * plotHeight;
+  const points = values.map((item, index) => xAt(index).toFixed(2) + ',' + yAt(item).toFixed(2)).join(' ');
+  const latestIndex = values.length - 1;
+  const latestX = xAt(latestIndex);
+  const latestY = yAt(values[latestIndex]);
+  const tickValues = Array.from({ length: 5 }, (_, index) => max - (range * index) / 4);
+  const timeIndexes = Array.from(new Set([0, Math.floor(latestIndex / 2), latestIndex]));
+  const formatTime = (valueAt: number) => new Date(valueAt).toLocaleTimeString('zh-CN', { hour12: false });
+  return <div style={{ marginBottom: 22 }}>
+    <Typography.Text strong>{label}</Typography.Text>
+    <svg role="img" aria-label={label} viewBox={'0 0 ' + width + ' ' + height} style={{ display: 'block', width: '100%', height: 190, marginTop: 6, background: 'rgba(0,0,0,0.02)', borderRadius: 6 }}>
+      <title>{label}</title>
+      {tickValues.map((tick, index) => {
+        const y = yAt(tick);
+        return <g key={'y-' + index}>
+          <line x1={left} y1={y} x2={width - right} y2={y} stroke="rgba(0,0,0,0.12)" strokeDasharray="3 3" />
+          <text x={left - 8} y={y + 4} textAnchor="end" fontSize="10" fill="rgba(0,0,0,0.55)">{formatValue(tick)}</text>
+        </g>;
+      })}
+      <line x1={left} y1={top} x2={left} y2={height - bottom} stroke="rgba(0,0,0,0.35)" />
+      <line x1={left} y1={height - bottom} x2={width - right} y2={height - bottom} stroke="rgba(0,0,0,0.35)" />
+      {timeIndexes.map(index => <text key={'x-' + index} x={xAt(index)} y={height - 12} textAnchor="middle" fontSize="10" fill="rgba(0,0,0,0.55)">{formatTime(samples[index].at)}</text>)}
       <polyline fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" points={points} />
+      <circle cx={latestX} cy={latestY} r="3.5" fill={color} />
+      <text x={Math.min(latestX + 8, width - right - 42)} y={Math.max(latestY - 8, top + 10)} fontSize="11" fill={color}>{formatValue(values[latestIndex])}</text>
     </svg>
   </div>;
 }
@@ -182,8 +207,8 @@ export default function ProxyManagerPage() {
   const previousTime = previousMetrics ? Date.parse(previousMetrics.updatedAt) : 0;
   const intervalSeconds = previousMetrics && currentMetrics && Number.isFinite(currentTime) && Number.isFinite(previousTime)
     ? Math.max((currentTime - previousTime) / 1000, 1) : 0;
-  const readRate = previousMetrics && currentMetrics ? Math.max(0, (currentMetrics.readBytes - previousMetrics.readBytes) / intervalSeconds) : 0;
-  const writeRate = previousMetrics && currentMetrics ? Math.max(0, (currentMetrics.writeBytes - previousMetrics.writeBytes) / intervalSeconds) : 0;
+  const readRate = intervalSeconds > 0 && previousMetrics && currentMetrics ? Math.max(0, (currentMetrics.readBytes - previousMetrics.readBytes) / intervalSeconds) : 0;
+  const writeRate = intervalSeconds > 0 && previousMetrics && currentMetrics ? Math.max(0, (currentMetrics.writeBytes - previousMetrics.writeBytes) / intervalSeconds) : 0;
 
   return <PageContainer title={t('proxy.title')} extra={<Button icon={<ReloadOutlined />} onClick={() => refresh()}>{t('proxy.refresh')}</Button>}>
     <Alert showIcon type="info" message={t('proxy.notice')} style={{ marginBottom: 16 }} />
@@ -220,9 +245,9 @@ export default function ProxyManagerPage() {
           <Col xs={24} sm={8}><Statistic title={t('proxy.writeRate')} value={formatBytes(writeRate)} suffix="/s" /></Col>
         </Row> : <Empty description={t('proxy.monitorNoData')} />}
         {monitorHistory.length > 0 && <Card size="small" title={t('proxy.trends')}>
-          <Sparkline label={t('proxy.connectionsTrend')} samples={monitorHistory} color="#1677ff" value={sample => sample.metrics.connections} />
-          <Sparkline label={t('proxy.readTrend')} samples={monitorHistory} color="#13c2c2" value={sample => sample.metrics.readBytes} />
-          <Sparkline label={t('proxy.writeTrend')} samples={monitorHistory} color="#722ed1" value={sample => sample.metrics.writeBytes} />
+          <MetricChart label={t('proxy.connectionsTrend')} samples={monitorHistory} color="#1677ff" value={sample => sample.metrics.connections} formatValue={value => Math.round(value).toString()} />
+          <MetricChart label={t('proxy.readTrend')} samples={monitorHistory} color="#13c2c2" value={sample => sample.metrics.readBytes} formatValue={formatBytes} />
+          <MetricChart label={t('proxy.writeTrend')} samples={monitorHistory} color="#722ed1" value={sample => sample.metrics.writeBytes} formatValue={formatBytes} />
         </Card>}
       </Space>}
     </Drawer>
