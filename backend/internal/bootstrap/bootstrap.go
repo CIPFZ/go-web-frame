@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/CIPFZ/gowebframe/internal/core/session"
 	"github.com/CIPFZ/gowebframe/internal/migrations"
+	"github.com/CIPFZ/gowebframe/internal/modules/browserproxy"
 	"github.com/CIPFZ/gowebframe/internal/modules/magnet"
 	"github.com/CIPFZ/gowebframe/internal/modules/proxy"
 	"path/filepath"
@@ -215,6 +216,11 @@ func Initialize(path string, serviceCtx *svc.ServiceContext) (shutdowns []utils.
 		if err := serviceCtx.ProxyManager.Seed(context.Background()); err != nil {
 			return shutdowns, fmt.Errorf("proxy manager seed: %w", err)
 		}
+	}
+
+	serviceCtx.BrowserProxy, err = browserproxy.NewService(cfg.BrowserProxy)
+	if err != nil {
+		return shutdowns, fmt.Errorf("browser proxy init: %w", err)
 	}
 
 	if cfg.MagnetPreview.Enabled {

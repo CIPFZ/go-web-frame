@@ -159,6 +159,15 @@ proxy_manager:
     - /home/claude/agsbx
   command_timeout_sec: 15
 
+# Browser extension control plane. Keep disabled until a dedicated proxy listener
+# and a scoped API token are configured on the server.
+browser_proxy:
+  enabled: false
+  default_mode: rule
+  default_node_id: ""
+  nodes: []
+  rule_sets: []
+
 # Optional magnet metadata preview (requires the magnet menu migration).
 magnet_preview:
   enabled: false

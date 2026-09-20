@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"github.com/CIPFZ/gowebframe/internal/modules/browserproxy"
 	"github.com/CIPFZ/gowebframe/internal/modules/magnet"
 	"github.com/CIPFZ/gowebframe/internal/modules/proxy"
 	"net/http"
@@ -46,6 +47,14 @@ func InitRouters(svcCtx *svc.ServiceContext) *gin.Engine {
 	r.GET(tokenCore.TokenInfoPath(routerPrefix), middleware.ApiTokenAuth(svcCtx), func(c *gin.Context) {
 		response.OkWithData(gin.H{"tokenId": c.GetUint(middleware.CtxKeyAPITokenID)}, c)
 	})
+
+	if svcCtx.BrowserProxy != nil {
+		browserProxyAPI := browserproxy.NewAPI(svcCtx.BrowserProxy)
+		browserProxyGroup := r.Group(routerPrefix + "/proxy/browser")
+		browserProxyGroup.Use(middleware.ApiTokenAuth(svcCtx))
+		browserProxyGroup.GET("/bootstrap", browserProxyAPI.Bootstrap)
+		browserProxyGroup.GET("/health", browserProxyAPI.Health)
+	}
 
 	sysRouter := wireSystemModule(svcCtx)
 	sysRouter.InitSystemRoutes(privateGroup, publicGroup)

@@ -8,6 +8,7 @@ import (
 type Config struct {
 	MagnetPreview MagnetPreview      `mapstructure:"magnet_preview" yaml:"magnet_preview" json:"magnet_preview"`
 	ProxyManager  ProxyManagerConfig `mapstructure:"proxy_manager" yaml:"proxy_manager" json:"proxy_manager"`
+	BrowserProxy  BrowserProxyConfig `mapstructure:"browser_proxy" yaml:"browser_proxy" json:"browser_proxy"`
 	System        System             `mapstructure:"system" json:"system" yaml:"system"`
 	Logger        Logger             `mapstructure:"logger" json:"logger" yaml:"logger"`
 	I18n          I18n               `mapstructure:"i18n" json:"i18n" yaml:"i18n"`
@@ -154,6 +155,36 @@ type ProxyManagerConfig struct {
 	BackupDir      string   `mapstructure:"backup_dir" yaml:"backup_dir" json:"backup_dir"`
 	ConfigRoots    []string `mapstructure:"config_roots" yaml:"config_roots" json:"config_roots"`
 	CommandTimeout int      `mapstructure:"command_timeout_sec" yaml:"command_timeout_sec" json:"command_timeout_sec"`
+}
+
+// BrowserProxyConfig contains the read-only control-plane data consumed by the
+// browser extension. Proxy listeners remain owned by sing-box/Xray.
+type BrowserProxyConfig struct {
+	Enabled       bool                        `mapstructure:"enabled" yaml:"enabled" json:"enabled"`
+	DefaultMode   string                      `mapstructure:"default_mode" yaml:"default_mode" json:"default_mode"`
+	DefaultNodeID string                      `mapstructure:"default_node_id" yaml:"default_node_id" json:"default_node_id"`
+	Nodes         []BrowserProxyNodeConfig    `mapstructure:"nodes" yaml:"nodes" json:"nodes"`
+	RuleSets      []BrowserProxyRuleSetConfig `mapstructure:"rule_sets" yaml:"rule_sets" json:"rule_sets"`
+}
+
+type BrowserProxyNodeConfig struct {
+	ID        string `mapstructure:"id" yaml:"id" json:"id"`
+	Name      string `mapstructure:"name" yaml:"name" json:"name"`
+	Scheme    string `mapstructure:"scheme" yaml:"scheme" json:"scheme"`
+	Host      string `mapstructure:"host" yaml:"host" json:"host"`
+	Port      int    `mapstructure:"port" yaml:"port" json:"port"`
+	Username  string `mapstructure:"username" yaml:"username" json:"username"`
+	Password  string `mapstructure:"password" yaml:"password" json:"password"`
+	Enabled   bool   `mapstructure:"enabled" yaml:"enabled" json:"enabled"`
+	Status    string `mapstructure:"status" yaml:"status" json:"status"`
+	LatencyMs int    `mapstructure:"latency_ms" yaml:"latency_ms" json:"latencyMs"`
+}
+
+type BrowserProxyRuleSetConfig struct {
+	ID      string   `mapstructure:"id" yaml:"id" json:"id"`
+	Name    string   `mapstructure:"name" yaml:"name" json:"name"`
+	Version string   `mapstructure:"version" yaml:"version" json:"version"`
+	Domains []string `mapstructure:"domains" yaml:"domains" json:"domains"`
 }
 
 type MagnetPreview struct {
