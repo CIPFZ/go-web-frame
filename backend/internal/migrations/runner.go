@@ -156,18 +156,20 @@ func applyTokenNotice(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error
 	if err := applyI18n(db, cfg, logger); err != nil {
 		return err
 	}
+	// Keep the external API catalog idempotently in sync so new token-scoped
+	// endpoints become available even when the original migration is complete.
+	if err := db.AutoMigrate(&sysModel.SysNotice{}); err != nil {
+		return err
+	}
+	if err := seed.EnsureTokenEndpoints(db, cfg.System.RouterPrefix); err != nil {
+		return err
+	}
 	var count int64
 	if err := db.Model(&schemaMigration{}).Where("name = ?", tokenNoticeVersion).Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
 		return nil
-	}
-	if err := db.AutoMigrate(&sysModel.SysNotice{}); err != nil {
-		return err
-	}
-	if err := seed.EnsureTokenEndpoints(db, cfg.System.RouterPrefix); err != nil {
-		return err
 	}
 	return db.Create(&schemaMigration{Name: tokenNoticeVersion, AppliedAt: time.Now()}).Error
 }

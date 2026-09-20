@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
+	"time"
 
 	"github.com/CIPFZ/gowebframe/internal/core/config"
 )
@@ -163,10 +165,27 @@ func (s *Service) Bootstrap(context.Context) Bootstrap {
 	return s.bootstrap
 }
 
-func (s *Service) Health(context.Context) []NodeHealth {
+func (s *Service) Health(ctx context.Context) []NodeHealth {
 	items := make([]NodeHealth, 0, len(s.bootstrap.Nodes))
 	for _, node := range s.bootstrap.Nodes {
-		items = append(items, NodeHealth{ID: node.ID, Status: node.Status, LatencyMs: node.LatencyMs})
+		health := NodeHealth{ID: node.ID, Status: node.Status, LatencyMs: node.LatencyMs}
+		if !node.Enabled {
+			health.Status = "disabled"
+			items = append(items, health)
+			continue
+		}
+		start := time.Now()
+		dialer := net.Dialer{Timeout: 2 * time.Second}
+		conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("%s:%d", node.Host, node.Port))
+		if err != nil {
+			health.Status = "offline"
+			health.LatencyMs = 0
+		} else {
+			_ = conn.Close()
+			health.Status = "ready"
+			health.LatencyMs = int(time.Since(start).Milliseconds())
+		}
+		items = append(items, health)
 	}
 	return items
 }
