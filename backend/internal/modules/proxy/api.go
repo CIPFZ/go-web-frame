@@ -14,14 +14,15 @@ type API struct{ service *Service }
 func NewAPI(service *Service) *API { return &API{service: service} }
 
 type instanceRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Engine      string `json:"engine" binding:"required"`
-	Scope       string `json:"scope" binding:"required"`
-	Unit        string `json:"unit" binding:"required"`
-	BinaryPath  string `json:"binaryPath" binding:"required"`
-	ConfigPath  string `json:"configPath" binding:"required"`
-	Enabled     bool   `json:"enabled"`
-	Description string `json:"description"`
+	Name            string `json:"name" binding:"required"`
+	Engine          string `json:"engine" binding:"required"`
+	Scope           string `json:"scope" binding:"required"`
+	Unit            string `json:"unit" binding:"required"`
+	BinaryPath      string `json:"binaryPath" binding:"required"`
+	ConfigPath      string `json:"configPath" binding:"required"`
+	Enabled         bool   `json:"enabled"`
+	Description     string `json:"description"`
+	SubscriptionURL string `json:"subscriptionUrl"`
 }
 
 type actionRequest struct {
@@ -63,6 +64,7 @@ func (a *API) Create(c *gin.Context) {
 	item, err := a.service.Create(c.Request.Context(), Instance{
 		Name: req.Name, Engine: req.Engine, Scope: req.Scope, Unit: req.Unit,
 		BinaryPath: req.BinaryPath, ConfigPath: req.ConfigPath, Enabled: req.Enabled, Description: req.Description,
+		SubscriptionURL: req.SubscriptionURL,
 	})
 	if err != nil {
 		response.FailWithMessage("创建失败: "+err.Error(), c)
@@ -85,7 +87,7 @@ func (a *API) Update(c *gin.Context) {
 	item, err := a.service.Update(c.Request.Context(), Instance{
 		BaseModel: common.BaseModel{ID: id}, Name: req.Name, Engine: req.Engine, Scope: req.Scope,
 		Unit: req.Unit, BinaryPath: req.BinaryPath, ConfigPath: req.ConfigPath,
-		Enabled: req.Enabled, Description: req.Description,
+		Enabled: req.Enabled, Description: req.Description, SubscriptionURL: req.SubscriptionURL,
 	})
 	if err != nil {
 		response.FailWithMessage("更新失败: "+err.Error(), c)

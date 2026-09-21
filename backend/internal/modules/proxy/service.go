@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -64,16 +65,17 @@ type Metrics struct {
 // an uppercase ID for legacy APIs, while this module exposes the lower camel
 // case contract consumed by the proxy manager UI.
 type InstanceView struct {
-	ID          uint   `json:"id"`
-	Name        string `json:"name"`
-	Engine      string `json:"engine"`
-	Scope       string `json:"scope"`
-	Unit        string `json:"unit"`
-	BinaryPath  string `json:"binaryPath"`
-	ConfigPath  string `json:"configPath"`
-	Enabled     bool   `json:"enabled"`
-	Description string `json:"description"`
-	Status      Status `json:"status"`
+	ID              uint   `json:"id"`
+	Name            string `json:"name"`
+	Engine          string `json:"engine"`
+	Scope           string `json:"scope"`
+	Unit            string `json:"unit"`
+	BinaryPath      string `json:"binaryPath"`
+	ConfigPath      string `json:"configPath"`
+	Enabled         bool   `json:"enabled"`
+	Description     string `json:"description"`
+	SubscriptionURL string `json:"subscriptionUrl,omitempty"`
+	Status          Status `json:"status"`
 }
 
 func instanceView(instance Instance, status Status) InstanceView {
@@ -81,7 +83,7 @@ func instanceView(instance Instance, status Status) InstanceView {
 		ID: instance.ID, Name: instance.Name, Engine: instance.Engine,
 		Scope: instance.Scope, Unit: instance.Unit, BinaryPath: instance.BinaryPath,
 		ConfigPath: instance.ConfigPath, Enabled: instance.Enabled,
-		Description: instance.Description, Status: status,
+		Description: instance.Description, SubscriptionURL: instance.SubscriptionURL, Status: status,
 	}
 }
 
@@ -179,7 +181,7 @@ func (s *Service) Update(ctx context.Context, instance Instance) (Instance, erro
 	if err := s.db.WithContext(ctx).Model(&current).Updates(map[string]any{
 		"name": instance.Name, "engine": instance.Engine, "scope": instance.Scope,
 		"unit": instance.Unit, "binary_path": instance.BinaryPath, "config_path": instance.ConfigPath,
-		"enabled": instance.Enabled, "description": instance.Description,
+		"enabled": instance.Enabled, "description": instance.Description, "subscription_url": instance.SubscriptionURL,
 	}).Error; err != nil {
 		return instance, err
 	}
@@ -502,6 +504,12 @@ func validateInstance(instance Instance) error {
 	}
 	if !filepath.IsAbs(instance.BinaryPath) || !filepath.IsAbs(instance.ConfigPath) {
 		return errors.New("binary and config paths must be absolute")
+	}
+	if subscription := strings.TrimSpace(instance.SubscriptionURL); subscription != "" {
+		parsed, err := url.ParseRequestURI(subscription)
+		if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+			return errors.New("subscription URL must be an absolute HTTP or HTTPS URL")
+		}
 	}
 	switch instance.Engine {
 	case EngineSingBox:

@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useIntl } from '@umijs/max';
 import { PageContainer } from '@ant-design/pro-components';
 import { Alert, Button, Card, Col, Descriptions, Drawer, Empty, Input, List, Modal, Row, Space, Statistic, Tag, Typography, message } from 'antd';
-import { CheckCircleOutlined, CodeOutlined, LineChartOutlined, PauseCircleOutlined, PlayCircleOutlined, ReloadOutlined, RollbackOutlined, SaveOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, CodeOutlined, CopyOutlined, LineChartOutlined, PauseCircleOutlined, PlayCircleOutlined, ReloadOutlined, RollbackOutlined, SaveOutlined, SettingOutlined } from '@ant-design/icons';
 import {
-  actionProxy, listProxyInstances, readProxyConfig, readProxyMetrics, rollbackProxyConfig, saveProxyConfig, validateProxyConfig,
+  actionProxy, listProxyInstances, readProxyConfig, readProxyMetrics, rollbackProxyConfig, saveProxyConfig, updateProxyInstance, validateProxyConfig,
   type ProxyInstance, type ProxyMetrics,
 } from '@/services/proxy';
 
@@ -83,12 +83,15 @@ export default function ProxyManagerPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<ProxyInstance>();
   const [monitoring, setMonitoring] = useState<ProxyInstance>();
+  const [instanceSettings, setInstanceSettings] = useState<ProxyInstance>();
+  const [subscriptionUrl, setSubscriptionUrl] = useState('');
   const [config, setConfig] = useState('');
   const [configDigest, setConfigDigest] = useState('');
   const [metrics, setMetrics] = useState<Record<number, ProxyMetrics>>({});
   const [metricHistory, setMetricHistory] = useState<Record<number, MetricSample[]>>({});
   const [actionLoading, setActionLoading] = useState<Record<number, string | undefined>>({});
   const [saving, setSaving] = useState(false);
+  const [instanceSaving, setInstanceSaving] = useState(false);
 
   const t = (id: string) => intl.formatMessage({ id });
   const refresh = async (showLoading = true) => {
@@ -167,6 +170,59 @@ export default function ProxyManagerPage() {
     } catch { message.error(t('proxy.configReadFailed')); }
   };
 
+  const openInstanceSettings = (item: ProxyInstance) => {
+    setInstanceSettings(item);
+    setSubscriptionUrl(item.subscriptionUrl || '');
+  };
+
+  const copySubscription = async (item: ProxyInstance) => {
+    const value = (item.subscriptionUrl || '').trim();
+    if (!value) { message.warning(t('proxy.subscriptionEmpty')); return; }
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = value;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      textarea.remove();
+    }
+    message.success(t('proxy.subscriptionCopied'));
+  };
+
+  const saveInstanceSettings = async () => {
+    if (!instanceSettings) return;
+    const value = subscriptionUrl.trim();
+    if (value) {
+      try {
+        const parsed = new URL(value);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('invalid protocol');
+      } catch { message.error(t('proxy.subscriptionInvalid')); return; }
+    }
+    setInstanceSaving(true);
+    try {
+      const res = await updateProxyInstance(instanceSettings.id, {
+        name: instanceSettings.name,
+        engine: instanceSettings.engine,
+        scope: instanceSettings.scope,
+        unit: instanceSettings.unit,
+        binaryPath: instanceSettings.binaryPath,
+        configPath: instanceSettings.configPath,
+        enabled: instanceSettings.enabled,
+        description: instanceSettings.description || '',
+        subscriptionUrl: value,
+      });
+      if (res.code !== 0) { message.error(res.msg || t('proxy.instanceSaveFailed')); return; }
+      message.success(t('proxy.instanceSaved'));
+      setInstanceSettings(undefined);
+      await refresh(false);
+    } catch { message.error(t('proxy.instanceSaveFailed')); }
+    finally { setInstanceSaving(false); }
+  };
+
   const validate = async () => {
     if (!editing) return;
     try {
@@ -232,6 +288,8 @@ export default function ProxyManagerPage() {
           <Button icon={<PauseCircleOutlined />} onClick={() => runAction(item, 'stop')} disabled={!running || busy} loading={actionLoading[item.id] === 'stop'}>{t('proxy.stop')}</Button>
           <Button icon={<ReloadOutlined />} onClick={() => runAction(item, 'restart')} disabled={!running || busy} loading={actionLoading[item.id] === 'restart'}>{t('proxy.restart')}</Button>
           <Button icon={<LineChartOutlined />} onClick={() => setMonitoring(item)}>{t('proxy.monitor')}</Button>
+          <Button icon={<CopyOutlined />} onClick={() => copySubscription(item)} disabled={!item.subscriptionUrl}>{t('proxy.copySubscription')}</Button>
+          <Button icon={<SettingOutlined />} onClick={() => openInstanceSettings(item)}>{t('proxy.instanceSettings')}</Button>
           <Button icon={<CodeOutlined />} onClick={() => openConfig(item)}>{t('proxy.config')}</Button>
         </Space>
       </Card></List.Item>;
@@ -255,6 +313,21 @@ export default function ProxyManagerPage() {
         </Card>}
       </Space>}
     </Drawer>
+    <Modal open={!!instanceSettings} title={instanceSettings ? t('proxy.instanceSettings') + ' · ' + instanceSettings.name : ''} width={640} onCancel={() => setInstanceSettings(undefined)} footer={<Space>
+      <Button onClick={() => setInstanceSettings(undefined)}>{t('proxy.cancel')}</Button>
+      <Button type="primary" onClick={saveInstanceSettings} loading={instanceSaving}>{t('proxy.saveInstance')}</Button>
+    </Space>}>
+      {instanceSettings && <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Alert showIcon type="info" message={t('proxy.subscriptionHint')} />
+        <Descriptions size="small" column={1}>
+          <Descriptions.Item label={t('proxy.engine')}>{instanceSettings.engine}</Descriptions.Item>
+          <Descriptions.Item label={t('proxy.unit')}>{instanceSettings.unit}</Descriptions.Item>
+          <Descriptions.Item label={t('proxy.configPath')}>{instanceSettings.configPath}</Descriptions.Item>
+        </Descriptions>
+        <Typography.Text strong>{t('proxy.subscriptionUrl')}</Typography.Text>
+        <Input value={subscriptionUrl} maxLength={2048} placeholder="https://" onChange={e => setSubscriptionUrl(e.target.value)} />
+      </Space>}
+    </Modal>
     <Modal open={!!editing} title={editing ? t('proxy.config') + ' · ' + editing.name : ''} width={900} onCancel={() => setEditing(undefined)} footer={<Space>
       <Button icon={<CheckCircleOutlined />} onClick={validate}>{t('proxy.validate')}</Button>
       <Button icon={<RollbackOutlined />} onClick={rollback} disabled={saving}>{t('proxy.rollback')}</Button>

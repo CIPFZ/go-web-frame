@@ -17,6 +17,7 @@ export type ProxyInstance = {
   configPath: string;
   enabled: boolean;
   description?: string;
+  subscriptionUrl?: string;
   status: ProxyStatus;
 };
 export type ProxyMetrics = {
@@ -29,11 +30,14 @@ export type ProxyMetrics = {
   updatedAt: string;
 };
 export type ProxyConfig = { content: string; digest: string; size: number; modified: string };
+export type ProxyInstanceUpdate = Omit<ProxyInstance, 'id' | 'status'>;
 type API<T> = { code: number; msg?: string; data: T };
 
 const base = '/api/v1/proxy/instances';
 const pathFor = (id: number, suffix: string) => base + '/' + id + suffix;
 export const listProxyInstances = () => request<API<ProxyInstance[]>>(base);
+export const updateProxyInstance = (id: number, data: ProxyInstanceUpdate) =>
+  request<API<ProxyInstance>>(pathFor(id, ''), { method: 'PUT', data });
 export const actionProxy = (id: number, action: string) =>
   request<API<ProxyStatus>>(pathFor(id, '/action'), { method: 'POST', data: { action } });
 export const readProxyConfig = (id: number) => request<API<ProxyConfig>>(pathFor(id, '/config'));
