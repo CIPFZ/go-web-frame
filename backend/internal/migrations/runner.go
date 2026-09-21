@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const Latest = "20260919_proxy_manager_v2"
+const Latest = "20260921_proxy_subscription_url_v1"
 const tokenNoticeVersion = "20260910_token_notice_v1"
 const i18nVersion = "20260910_cms_i18n_v1"
 const baselineVersion = "20260910_sessions_policy_bootstrap_v1"
