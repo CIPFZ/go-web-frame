@@ -1,113 +1,27 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
-import { Button, Card, Col, Divider, Drawer, Empty, Image, Input, List, Row, Skeleton, Space, Tag, Typography, message } from 'antd';
-import { LinkOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons';
+import { Button, Card, Col, Collapse, Divider, Drawer, Empty, Image, Input, List, Row, Segmented, Select, Skeleton, Space, Spin, Tabs, Tag, Typography, message } from 'antd';
+import { AppstoreOutlined, BarsOutlined, LinkOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons';
 import { getMediaItem, listMediaItems, refreshMediaItem, type MediaDetail, type MediaItem, type PlayEpisode } from '@/services/media';
+import { Cover, MediaHeading } from '../shared';
 
-const typeColor: Record<string, string> = { 电影: 'blue', 电视剧: 'purple', 动漫: 'cyan', 综艺: 'gold' };
-const textOrDash = (value?: string) => value?.trim() || '-';
-
-export default function MediaLibraryPage() {
-  const [rows, setRows] = useState<MediaItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState('');
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detail, setDetail] = useState<MediaDetail>();
-  const [refreshing, setRefreshing] = useState(false);
-
-  const load = async (page = 1) => {
-    setLoading(true);
-    try {
-      const result = await listMediaItems(page, query);
-      if (result.code === 0) { setRows(result.data.list || []); setTotal(result.data.total || 0); }
-      else message.error(result.msg || '加载影视库失败');
-    } catch { message.error('加载影视库失败'); }
-    finally { setLoading(false); }
-  };
-  useEffect(() => { load(); }, []);
-
-  const openDetail = async (item: MediaItem) => {
-    setDetailOpen(true); setDetailLoading(true); setDetail(undefined);
-    try {
-      const result = await getMediaItem(item.id);
-      if (result.code === 0) setDetail(result.data);
-      else message.error(result.msg || '加载资源详情失败');
-    } catch { message.error('加载资源详情失败'); }
-    finally { setDetailLoading(false); }
-  };
-  const refreshDetail = async () => {
-    if (!detail) return;
-    setRefreshing(true);
-    try {
-      const result = await refreshMediaItem(detail.item.id);
-      if (result.code !== 0) { message.error(result.msg || '刷新播放链接失败'); return; }
-      const latest = await getMediaItem(detail.item.id);
-      if (latest.code === 0) setDetail(latest.data);
-      message.success('播放链接已刷新');
-    } catch { message.error('刷新播放链接失败'); }
-    finally { setRefreshing(false); }
-  };
-  const goPlayer = (id: number) => { window.location.href = '/media/player?id=' + id; };
-
-  return <PageContainer
-    title="影视库"
-    subTitle="按统一资源浏览，详情中会列出所有资源站、播放线路和剧集链接"
-    extra={<Space><Input allowClear placeholder="搜索标题" value={query} onChange={event => setQuery(event.target.value)} onPressEnter={() => load()} style={{ width: 260 }} /><Button icon={<ReloadOutlined />} onClick={() => load()}>刷新</Button></Space>}
-  >
-    <List
-      loading={loading}
-      grid={{ gutter: [16, 16], xs: 1, sm: 2, md: 3, lg: 4, xl: 5 }}
-      dataSource={rows}
-      pagination={{ total, pageSize: 20, showSizeChanger: false, onChange: load }}
-      locale={{ emptyText: <Empty description="还没有采集到影视资源" /> }}
-      renderItem={item => <List.Item>
-        <Card hoverable onClick={() => openDetail(item)} cover={item.coverUrl ? <Image preview={false} height={250} style={{ objectFit: 'cover' }} src={item.coverUrl} fallback="/default_avatar.jpg" /> : <div style={{ height: 250, display: 'grid', placeItems: 'center', background: 'linear-gradient(135deg,#eef2ff,#f8fafc)', color: '#94a3b8' }}>暂无封面</div>} bodyStyle={{ padding: 14 }}>
-          <Typography.Title level={5} ellipsis={{ tooltip: item.title }} style={{ margin: 0 }}>{item.title}</Typography.Title>
-          <Space size={6} style={{ marginTop: 8 }} wrap>
-            <Tag color={typeColor[item.mediaType] || 'default'}>{item.mediaType || '未分类'}</Tag>
-            {item.year && <Tag>{item.year}</Tag>}
-            {item.area && <Typography.Text type="secondary">{item.area}</Typography.Text>}
-          </Space>
-          <Typography.Paragraph type="secondary" ellipsis={{ rows: 2 }} style={{ margin: '10px 0 0', minHeight: 42 }}>{item.description || '暂无简介，点击查看可用来源。'}</Typography.Paragraph>
-        </Card>
-      </List.Item>}
-    />
-    <Drawer
-      title={detail?.item.title || '资源详情'}
-      width={920}
-      open={detailOpen}
-      onClose={() => setDetailOpen(false)}
-      extra={detail && <Space><Button size="small" icon={<SyncOutlined />} loading={refreshing} onClick={refreshDetail}>刷新链接</Button><Button size="small" type="primary" onClick={() => goPlayer(detail.item.id)}>播放测试</Button></Space>}
-    >
-      {detailLoading ? <Skeleton active paragraph={{ rows: 8 }} /> : detail ? <Space direction="vertical" size={18} style={{ width: '100%' }}>
-        <Row gutter={24}>
-          <Col flex="180px">{detail.item.coverUrl ? <Image width={180} height={250} style={{ objectFit: 'cover', borderRadius: 8 }} src={detail.item.coverUrl} /> : <div style={{ width: 180, height: 250, display: 'grid', placeItems: 'center', background: '#f1f5f9', borderRadius: 8, color: '#94a3b8' }}>暂无封面</div>}</Col>
-          <Col flex="auto">
-            <Typography.Title level={3} style={{ marginTop: 0 }}>{detail.item.title}</Typography.Title>
-            <Space wrap><Tag color={typeColor[detail.item.mediaType] || 'default'}>{detail.item.mediaType || '未分类'}</Tag><Typography.Text>年份：{textOrDash(detail.item.year)}</Typography.Text><Typography.Text>地区：{textOrDash(detail.item.area)}</Typography.Text><Typography.Text>语言：{textOrDash(detail.item.language)}</Typography.Text></Space>
-            <DescriptionsBlock label="导演" value={detail.item.director} />
-            <DescriptionsBlock label="主演" value={detail.item.actors} />
-            <Typography.Paragraph style={{ marginTop: 16, whiteSpace: 'pre-wrap' }}>{detail.item.description || '暂无介绍内容。'}</Typography.Paragraph>
-          </Col>
-        </Row>
-        <Divider orientation="left">资源站与播放链接（{detail.playbacks.length} 个来源）</Divider>
-        {detail.playbacks.length === 0 ? <Empty description="当前没有可用播放来源" /> : detail.playbacks.map(playback => <Card key={playback.sourceItem.id} size="small" title={<Space><Typography.Text strong>{playback.source.name}</Typography.Text><Tag>外部 ID：{playback.sourceItem.externalId || '-'}</Tag></Space>} bordered>
-          {playback.lines.length === 0 ? <Typography.Text type="secondary">该来源暂时没有播放线路</Typography.Text> : <Space direction="vertical" size={14} style={{ width: '100%' }}>
-            {playback.lines.map(line => <div key={line.id}>
-              <Space><Tag color="blue">{line.lineName}</Tag><Typography.Text type="secondary">{line.episodes.length} 集</Typography.Text></Space>
-              <List<PlayEpisode> size="small" dataSource={line.episodes} renderItem={episode => <List.Item actions={[<Typography.Link key="link" href={episode.streamUrl} target="_blank" rel="noreferrer"><LinkOutlined /> 打开链接</Typography.Link>]}>
-                <Space wrap><Tag>{episode.episodeName || `第 ${episode.episodeNo} 集`}</Tag><Typography.Text copyable={{ text: episode.streamUrl }} ellipsis style={{ maxWidth: 620 }}>{episode.streamUrl}</Typography.Text></Space>
-              </List.Item>} />
-            </div>)}
-          </Space>}
-        </Card>)}
-      </Space> : <Empty description="未找到资源详情" />}
-    </Drawer>
-  </PageContainer>;
+const typeColor: Record<string,string>={电影:'blue',电视剧:'purple',动漫:'cyan',综艺:'gold'};
+const text=(v?:string)=>v?.trim()||'暂无';
+export default function Library() {
+ const [rows,setRows]=useState<MediaItem[]>([]),[total,setTotal]=useState(0),[loading,setLoading]=useState(false),[query,setQuery]=useState(''),[kind,setKind]=useState(''),[view,setView]=useState<'card'|'list'>('card'),[selected,setSelected]=useState<MediaItem>(),[detail,setDetail]=useState<MediaDetail>(),[detailLoading,setDetailLoading]=useState(false),[refreshing,setRefreshing]=useState(false);
+ const load=async()=>{setLoading(true);try{const r=await listMediaItems(1,query,kind);if(r.code!==0)throw Error(r.msg);setRows(r.data.list||[]);setTotal(r.data.total||0)}catch{message.error('加载影视库失败')}finally{setLoading(false)}};
+ useEffect(()=>{void load()},[kind]);
+ const open=async(item:MediaItem)=>{setSelected(item);setDetail(undefined);setDetailLoading(true);try{const r=await getMediaItem(item.id);if(r.code!==0)throw Error(r.msg);setDetail(r.data)}catch{message.error('加载资源详情失败')}finally{setDetailLoading(false)}};
+ const refresh=async()=>{if(!detail)return;setRefreshing(true);try{const r=await refreshMediaItem(detail.item.id);if(r.code!==0)throw Error(r.msg);const latest=await getMediaItem(detail.item.id);if(latest.code===0)setDetail(latest.data);message.success('播放链接已刷新')}catch(e){message.error(e instanceof Error?e.message:'刷新失败')}finally{setRefreshing(false)}};
+ return <PageContainer title={false}><div className="media-workspace"><MediaHeading eyebrow="MEDIA / LIBRARY" title="影视库" description="统一浏览采集到的影视资源，按来源查看可用线路和选集。" extra={<Space><Segmented value={view} onChange={v=>setView(v as 'card'|'list')} options={[{value:'card',icon:<AppstoreOutlined/>,label:'卡片'},{value:'list',icon:<BarsOutlined/>,label:'列表'}]}/><Button icon={<ReloadOutlined/>} onClick={load}>刷新</Button></Space>}/>
+ <Card className="media-panel" bodyStyle={{padding:'18px 22px'}}><div className="media-toolbar" style={{marginBottom:0}}><Space wrap><Input.Search allowClear value={query} onChange={e=>setQuery(e.target.value)} onSearch={load} placeholder="搜索片名、别名" style={{width:300}}/><Select allowClear placeholder="全部类型" style={{width:140}} value={kind||undefined} onChange={v=>setKind(v||'')} options={['电影','电视剧','动漫','综艺'].map(v=>({value:v,label:v}))}/></Space><Typography.Text type="secondary">共 {total} 部</Typography.Text></div></Card>
+ <Spin spinning={loading}><div style={{marginTop:24}}>{!rows.length&&!loading?<Empty description="还没有采集到影视资源"/>:view==='card'?<div className="media-library-grid">{rows.map(item=><button className="media-poster" key={item.id} onClick={()=>open(item)}><Cover url={item.coverUrl} title={item.title}/><span className="media-poster-title">{item.title}</span><Space size={5}><Tag color={typeColor[item.mediaType]||'default'}>{item.mediaType||'未分类'}</Tag>{item.year&&<Typography.Text type="secondary">{item.year}</Typography.Text>}</Space></button>)}</div>:<Card className="media-panel"><List dataSource={rows} renderItem={item=><List.Item key={item.id} actions={[<Button type="link" onClick={()=>open(item)}>查看详情</Button>]}><List.Item.Meta avatar={<Cover url={item.coverUrl} title={item.title} small/>} title={<Typography.Text strong>{item.title}</Typography.Text>} description={<Space wrap><Tag color={typeColor[item.mediaType]||'default'}>{item.mediaType||'未分类'}</Tag><span>{text(item.year)}</span><span>{text(item.area)}</span><Typography.Text type="secondary">{item.description||'暂无简介'}</Typography.Text></Space>}/></List.Item>}/></Card>}</div></Spin>
+ <Drawer width={920} title={null} open={!!selected} onClose={()=>{setSelected(undefined);setDetail(undefined)}} extra={detail&&<Space><Button icon={<SyncOutlined/>} loading={refreshing} onClick={refresh}>刷新播放链接</Button><Button type="primary" onClick={()=>{window.location.href='/media/player?id='+detail.item.id}}>播放测试</Button></Space>}>
+ {detailLoading?<Skeleton active paragraph={{rows:10}}/>:detail?<Detail detail={detail}/>:<Empty description="未找到详情"/>}
+ </Drawer></div></PageContainer>;
 }
-
-function DescriptionsBlock({ label, value }: { label: string; value?: string }) {
-  return <Typography.Paragraph type="secondary" style={{ margin: '14px 0 0' }}><Typography.Text strong>{label}：</Typography.Text>{textOrDash(value)}</Typography.Paragraph>;
+function Detail({detail}:{detail:MediaDetail}) {
+ const item=detail.item; const [tab,setTab]=useState(detail.playbacks[0]?.sourceItem.id?.toString()); const playback=detail.playbacks.find(p=>p.sourceItem.id.toString()===tab)||detail.playbacks[0];
+ return <div><div className="media-detail-hero"><Cover url={item.coverUrl} title={item.title}/><div><Typography.Title level={2}>{item.title}</Typography.Title><Space wrap><Tag color={typeColor[item.mediaType]||'default'}>{item.mediaType||'未分类'}</Tag><Tag>{text(item.year)}</Tag><Tag>{text(item.area)}</Tag><Tag>{text(item.language)}</Tag></Space><Typography.Paragraph type="secondary" style={{marginTop:18}}>导演：{text(item.director)}<br/>主演：{text(item.actors)}</Typography.Paragraph><Typography.Paragraph style={{whiteSpace:'pre-wrap'}}>{item.description||'暂无介绍内容。'}</Typography.Paragraph></div></div><Divider/><Typography.Title level={4}>播放来源</Typography.Title>{!detail.playbacks.length?<Empty description="没有可用播放来源"/>:<Tabs activeKey={tab} onChange={setTab} items={detail.playbacks.map(p=>({key:p.sourceItem.id.toString(),label:<Space>{p.source.name}<Tag>{p.lines.length} 条线路</Tag></Space>,children:<div><Typography.Text type="secondary">来源条目：{p.sourceItem.externalTitle||p.sourceItem.externalId||'—'}</Typography.Text><Collapse style={{marginTop:16}} items={p.lines.map(line=>({key:String(line.id),label:<Space><Typography.Text strong>{line.lineName}</Typography.Text><Tag>{line.episodes.length} 集</Tag></Space>,children:<div className="media-episodes">{line.episodes.map(e=><Episode key={e.id} episode={e}/>)}</div>}))}/></div>}))}/>}</div>;
 }
+function Episode({episode}:{episode:PlayEpisode}){return <Card size="small" hoverable title={episode.episodeName||'第 '+episode.episodeNo+' 集'} extra={<Tag color={episode.lastStatus==='ok'?'green':'default'}>{episode.streamType||'播放'}</Tag>} actions={[<Typography.Link key="copy" copyable={{text:episode.streamUrl}}><LinkOutlined/> 复制链接</Typography.Link>,<Typography.Link key="open" href={episode.streamUrl} target="_blank" rel="noreferrer">打开</Typography.Link>]}><Typography.Text type="secondary" ellipsis={{tooltip:episode.streamUrl}} style={{display:'block'}}>{episode.streamUrl}</Typography.Text></Card>}

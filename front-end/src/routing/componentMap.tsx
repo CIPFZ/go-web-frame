@@ -3,6 +3,9 @@ import React from 'react';
 export const componentMap: Record<string, React.LazyExoticComponent<any>> = {
   'magnet/preview': React.lazy(() => import('@/pages/magnet/preview')),
   'proxy/manager': React.lazy(() => import('@/pages/proxy/manager')),
+  'media/schedules': React.lazy(() => import('@/pages/media/schedules')),
+  'media/runs': React.lazy(() => import('@/pages/media/runs')),
+  'media/health': React.lazy(() => import('@/pages/media/health')),
   'media/sources': React.lazy(() => import('@/pages/media/sources')),
   'media/player': React.lazy(() => import('@/pages/media/player')),
   'media/library': React.lazy(() => import('@/pages/media/library')),

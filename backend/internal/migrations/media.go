@@ -31,29 +31,34 @@ func ensureMediaModule(tx *gorm.DB, prefix string) error {
 	if err := tx.Model(&model.SysAuthority{}).Where("authority_id = ?", 1).Count(&adminCount).Error; err != nil {
 		return err
 	}
-	menu := model.SysMenu{
-		Path: "/media/sources", Name: "影视采集", NameEn: "Media collection",
-		Component: "media/sources", Locale: "menu.mediaSources", Icon: "ScheduleOutlined", Sort: 1, ParentId: parent.ID,
+	menus := []model.SysMenu{
+		{Path: "/media/sources", Name: "资源站点", NameEn: "Media sources", Component: "media/sources", Icon: "DatabaseOutlined", Sort: 1, ParentId: parent.ID},
+		{Path: "/media/schedules", Name: "采集计划", NameEn: "Collection schedules", Component: "media/schedules", Icon: "ScheduleOutlined", Sort: 2, ParentId: parent.ID},
+		{Path: "/media/runs", Name: "采集日志", NameEn: "Collection logs", Component: "media/runs", Icon: "FileSearchOutlined", Sort: 3, ParentId: parent.ID},
+		{Path: "/media/health", Name: "连通性检查", NameEn: "Source health", Component: "media/health", Icon: "ApiOutlined", Sort: 4, ParentId: parent.ID},
+		{Path: "/media/library", Name: "影视库", NameEn: "Media library", Component: "media/library", Icon: "AppstoreOutlined", Sort: 5, ParentId: parent.ID},
+		{Path: "/media/player", Name: "影视播放", NameEn: "Media player", Component: "media/player", HideInMenu: true, Sort: 99, ParentId: parent.ID},
 	}
-	if err := tx.Where("path = ?", menu.Path).FirstOrCreate(&menu).Error; err != nil {
-		return err
-	}
-	player := model.SysMenu{Path: "/media/player", Name: "影视播放", NameEn: "Media player", Component: "media/player", HideInMenu: true, Sort: 99, ParentId: parent.ID}
-	if err := tx.Where("path = ?", player.Path).FirstOrCreate(&player).Error; err != nil {
-		return err
-	}
-	library := model.SysMenu{Path: "/media/library", Name: "影视库", NameEn: "Media library", Component: "media/library", Locale: "menu.mediaLibrary", Icon: "AppstoreOutlined", Sort: 2, ParentId: parent.ID}
-	if err := tx.Where("path = ?", library.Path).FirstOrCreate(&library).Error; err != nil {
-		return err
-	}
-	if err := tx.Model(&model.SysMenu{}).Where("path IN ?", []string{menu.Path, player.Path, library.Path}).Update("parent_id", parent.ID).Error; err != nil {
-		return err
-	}
-	if adminCount > 0 {
-		for _, entry := range []*model.SysMenu{&parent, &menu, &player, &library} {
+	for _, desired := range menus {
+		entry := desired
+		if err := tx.Where("path = ?", desired.Path).FirstOrCreate(&entry).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&entry).Updates(map[string]any{
+			"name": desired.Name, "name_en": desired.NameEn, "component": desired.Component, "locale": desired.Locale,
+			"icon": desired.Icon, "sort": desired.Sort, "parent_id": parent.ID, "hide_in_menu": desired.HideInMenu,
+		}).Error; err != nil {
+			return err
+		}
+		if adminCount > 0 {
 			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.SysAuthorityMenu{MenuId: entry.ID, AuthorityId: 1}).Error; err != nil {
 				return err
 			}
+		}
+	}
+	if adminCount > 0 {
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.SysAuthorityMenu{MenuId: parent.ID, AuthorityId: 1}).Error; err != nil {
+			return err
 		}
 	}
 	endpoints := []struct {
