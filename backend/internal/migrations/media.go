@@ -14,9 +14,17 @@ import (
 func ensureMediaModule(tx *gorm.DB, prefix string) error {
 	parent := model.SysMenu{
 		Path: "/media", Name: "影视资源", NameEn: "Media resources",
-		Locale: "menu.media", Icon: "VideoCameraOutlined", Sort: 17,
+		Component: "components/RouterLayout", Locale: "menu.media", Icon: "VideoCameraOutlined", Sort: 17,
 	}
 	if err := tx.Where("path = ?", parent.Path).FirstOrCreate(&parent).Error; err != nil {
+		return err
+	}
+	if err := tx.Model(&model.SysMenu{}).Where("path = ?", parent.Path).Updates(map[string]any{
+		"component": "components/RouterLayout",
+		"name":      parent.Name,
+		"name_en":   parent.NameEn,
+		"locale":    parent.Locale,
+	}).Error; err != nil {
 		return err
 	}
 	var adminCount int64

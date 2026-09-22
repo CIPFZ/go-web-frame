@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const Latest = "20260922_media_collection_v5"
+const Latest = "20260922_media_collection_v6"
 const tokenNoticeVersion = "20260910_token_notice_v1"
 const i18nVersion = "20260910_cms_i18n_v1"
 const baselineVersion = "20260910_sessions_policy_bootstrap_v1"
@@ -197,5 +197,9 @@ func apply(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error {
 	if err := db.AutoMigrate(&proxyModel.Instance{}); err != nil {
 		return err
 	}
-	return db.Create(&schemaMigration{Name: Latest, AppliedAt: time.Now()}).Error
+	if err := db.Create(&schemaMigration{Name: Latest, AppliedAt: time.Now()}).Error; err != nil {
+		return err
+	}
+	// Media migrations are rolling checkpoints; keep only the current checkpoint.
+	return db.Where("name LIKE ? AND name <> ?", "20260922_media_collection_%", Latest).Delete(&schemaMigration{}).Error
 }
