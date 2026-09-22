@@ -12,38 +12,40 @@ import (
 )
 
 func ensureMediaModule(tx *gorm.DB, prefix string) error {
-	menu := model.SysMenu{
-		Path: "/media/sources", Name: "影视采集", NameEn: "Media collection",
-		Component: "media/sources", Locale: "menu.mediaSources", Icon: "VideoCameraOutlined", Sort: 17,
+	parent := model.SysMenu{
+		Path: "/media", Name: "影视资源", NameEn: "Media resources",
+		Locale: "menu.media", Icon: "VideoCameraOutlined", Sort: 17,
 	}
-	if err := tx.Where("path = ?", menu.Path).FirstOrCreate(&menu).Error; err != nil {
+	if err := tx.Where("path = ?", parent.Path).FirstOrCreate(&parent).Error; err != nil {
 		return err
 	}
 	var adminCount int64
 	if err := tx.Model(&model.SysAuthority{}).Where("authority_id = ?", 1).Count(&adminCount).Error; err != nil {
 		return err
 	}
-	if adminCount > 0 {
-		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.SysAuthorityMenu{MenuId: menu.ID, AuthorityId: 1}).Error; err != nil {
-			return err
-		}
+	menu := model.SysMenu{
+		Path: "/media/sources", Name: "影视采集", NameEn: "Media collection",
+		Component: "media/sources", Locale: "menu.mediaSources", Icon: "ScheduleOutlined", Sort: 1, ParentId: parent.ID,
 	}
-	player := model.SysMenu{Path: "/media/player", Name: "影视播放", NameEn: "Media player", Component: "media/player", HideInMenu: true, Sort: 18}
+	if err := tx.Where("path = ?", menu.Path).FirstOrCreate(&menu).Error; err != nil {
+		return err
+	}
+	player := model.SysMenu{Path: "/media/player", Name: "影视播放", NameEn: "Media player", Component: "media/player", HideInMenu: true, Sort: 99, ParentId: parent.ID}
 	if err := tx.Where("path = ?", player.Path).FirstOrCreate(&player).Error; err != nil {
 		return err
 	}
-	if adminCount > 0 {
-		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.SysAuthorityMenu{MenuId: player.ID, AuthorityId: 1}).Error; err != nil {
-			return err
-		}
-	}
-	library := model.SysMenu{Path: "/media/library", Name: "影视库", NameEn: "Media library", Component: "media/library", Locale: "menu.mediaLibrary", Icon: "AppstoreOutlined", Sort: 18}
+	library := model.SysMenu{Path: "/media/library", Name: "影视库", NameEn: "Media library", Component: "media/library", Locale: "menu.mediaLibrary", Icon: "AppstoreOutlined", Sort: 2, ParentId: parent.ID}
 	if err := tx.Where("path = ?", library.Path).FirstOrCreate(&library).Error; err != nil {
 		return err
 	}
+	if err := tx.Model(&model.SysMenu{}).Where("path IN ?", []string{menu.Path, player.Path, library.Path}).Update("parent_id", parent.ID).Error; err != nil {
+		return err
+	}
 	if adminCount > 0 {
-		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.SysAuthorityMenu{MenuId: library.ID, AuthorityId: 1}).Error; err != nil {
-			return err
+		for _, entry := range []*model.SysMenu{&parent, &menu, &player, &library} {
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.SysAuthorityMenu{MenuId: entry.ID, AuthorityId: 1}).Error; err != nil {
+				return err
+			}
 		}
 	}
 	endpoints := []struct {

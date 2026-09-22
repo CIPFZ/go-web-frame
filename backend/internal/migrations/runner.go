@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const Latest = "20260922_media_collection_v4"
+const Latest = "20260922_media_collection_v5"
 const tokenNoticeVersion = "20260910_token_notice_v1"
 const i18nVersion = "20260910_cms_i18n_v1"
 const baselineVersion = "20260910_sessions_policy_bootstrap_v1"
