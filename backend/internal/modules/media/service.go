@@ -158,7 +158,9 @@ func (s *Service) ListItems(ctx context.Context, page, size int, query, kind str
 		db = db.Where("title LIKE ?", "%"+query+"%")
 	}
 	if kind != "" {
-		db = db.Where("media_type = ?", kind)
+		// Media type values may contain multiple canonical tags (for example movie,anime).
+		// Match a selected tag without requiring the UI to know the storage delimiter.
+		db = db.Where("media_type = ? OR media_type LIKE ? OR media_type LIKE ? OR media_type LIKE ?", kind, kind+",%", "%,"+kind+",%", "%,"+kind)
 	}
 	if err := db.Count(&total).Error; err != nil {
 		return nil, err

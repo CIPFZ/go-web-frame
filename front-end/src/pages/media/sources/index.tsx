@@ -16,7 +16,7 @@ export default function Sources() {
  return <PageContainer title={false}><div className="media-workspace">
  <MediaHeading eyebrow="MEDIA / SOURCES" title="资源站点" description="管理内容来源、分类范围与访问策略。" extra={<Button type="primary" icon={<PlusOutlined/>} onClick={()=>edit()}>添加站点</Button>}/>
  <Card className="media-panel"><div className="media-toolbar"><Input.Search allowClear placeholder="搜索站点名称或接口" value={query} onChange={e=>setQuery(e.target.value)} style={{maxWidth:340}}/><Space><Typography.Text type="secondary">{rows.length} 个站点</Typography.Text><Button icon={<ReloadOutlined/>} onClick={load}>刷新</Button></Space></div>
- <Table<MediaSource> rowKey="id" loading={loading} dataSource={rows.filter(s=>(s.name+s.apiUrl).toLowerCase().includes(query.toLowerCase()))} pagination={false} scroll={{x:850}} columns={[
+ <Table<MediaSource> rowKey="id" loading={loading} dataSource={rows.filter(s=>(s.name+s.apiUrl).toLowerCase().includes(query.toLowerCase()))} pagination={{ pageSize: 10, showSizeChanger: false }} scroll={{x:850}} columns={[
  {title:'站点',render:(_,s)=><Space size={14}><span className="media-source-dot">{s.name.slice(0,1)}</span><div><Typography.Text strong>{s.name}</Typography.Text><div className="media-muted">JSON 资源接口</div></div></Space>},
  {title:'接口地址',dataIndex:'apiUrl',render:v=><Typography.Text copyable ellipsis={{tooltip:v}} style={{maxWidth:330}}>{v}</Typography.Text>},
  {title:'状态',render:(_,s)=><Tag color={s.suspended?'orange':s.enabled?'green':'default'}>{s.suspended?'自动暂挂':s.enabled?'启用':'停用'}</Tag>},
