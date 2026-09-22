@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
 import { Button, Card, Divider, Drawer, Empty, Input, List, Pagination, Segmented, Select, Skeleton, Space, Spin, Tag, Typography, message } from 'antd';
-import { AppstoreOutlined, BarsOutlined, LinkOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, BarsOutlined, CopyOutlined, LinkOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons';
 import { getMediaItem, listMediaItems, refreshMediaItem, type MediaDetail, type MediaItem, type PlayEpisode, type PlayLine } from '@/services/media';
 import { Cover, MediaHeading } from '../shared';
 
@@ -65,9 +65,15 @@ function Detail({ detail }: { detail: MediaDetail }) {
 }
 function PlayLineBlock({ line }: { line: PlayLine }) {
   const [page, setPage] = useState(1); const pageSize = 12; const start = (page - 1) * pageSize;
-  return <div className="media-line-block"><Space><Typography.Text strong>{line.lineName}</Typography.Text><Tag>{line.episodes.length} 集</Tag></Space><div className="media-episodes">{line.episodes.slice(start, start + pageSize).map(episode => <Episode key={episode.id} episode={episode} />)}</div>{line.episodes.length > pageSize && <div className="media-pagination"><Pagination size="small" current={page} total={line.episodes.length} pageSize={pageSize} showSizeChanger={false} onChange={setPage} /></div>}</div>;
+  return <div className="media-line-block"><Space><Typography.Text strong>{line.lineName}</Typography.Text><Tag>{line.episodes.length} 集</Tag></Space><div className="media-episodes"><List className="media-episode-list" size="small" dataSource={line.episodes.slice(start, start + pageSize)} renderItem={episode => <Episode key={episode.id} episode={episode} />} /></div>{line.episodes.length > pageSize && <div className="media-pagination"><Pagination size="small" current={page} total={line.episodes.length} pageSize={pageSize} showSizeChanger={false} onChange={setPage} /></div>}</div>;
 }
 function Episode({ episode }: { episode: PlayEpisode }) {
   const title = episode.episodeName && !/^(m3u8|mp4|hls|播放)$/i.test(episode.episodeName.trim()) ? episode.episodeName : '第 ' + episode.episodeNo + ' 集';
-  return <Card size="small" hoverable title={title} extra={<Tag color={episode.lastStatus === 'ok' ? 'green' : 'default'}>{episode.streamType || '播放'}</Tag>} actions={[<Typography.Link key="copy" copyable={{ text: episode.streamUrl }}><LinkOutlined /> 复制链接</Typography.Link>, <Typography.Link key="open" href={episode.streamUrl} target="_blank" rel="noreferrer">打开</Typography.Link>]}><Typography.Text type="secondary" ellipsis={{ tooltip: episode.streamUrl }} style={{ display: 'block' }}>{episode.streamUrl}</Typography.Text></Card>;
+  const copy = () => {
+    if (!navigator.clipboard) { message.error('当前浏览器不支持复制，请手动复制链接'); return; }
+    void navigator.clipboard.writeText(episode.streamUrl).then(() => message.success('播放链接已复制')).catch(() => message.error('复制失败，请手动复制链接'));
+  };
+  return <List.Item className="media-episode-row" actions={[<Button key="copy" type="link" size="small" icon={<CopyOutlined />} onClick={copy}>复制</Button>, <Typography.Link key="play" href={episode.streamUrl} target="_blank" rel="noreferrer"><LinkOutlined /> 播放</Typography.Link>]}>
+    <List.Item.Meta title={<Space><Typography.Text strong>{title}</Typography.Text><Tag color={episode.lastStatus === 'ok' ? 'green' : 'default'}>{episode.streamType || '播放'}</Tag></Space>} description={<Typography.Text type="secondary" ellipsis={{ tooltip: episode.streamUrl }}>{episode.streamUrl}</Typography.Text>} />
+  </List.Item>;
 }
