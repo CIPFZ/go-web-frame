@@ -1,0 +1,26 @@
+
+import {request} from '@umijs/max';
+export type MediaSource={id:number;name:string;apiUrl:string;apiType:'json';enabled:boolean;priority:number;allowCategories?:string;denyCategories?:string;requestIntervalSeconds:number;timeoutSeconds:number;lastOkAt?:string;lastError?:string;suspended:boolean;failures:number;successes:number;fullEnabled:boolean;nextPage:number};
+export type MediaSourceInput=Partial<MediaSource>;
+export type MediaItem={id:number;title:string;mediaType:string;year?:string;area?:string;coverUrl?:string;status:string;description?:string;actors?:string};
+export type PlayEpisode={id:number;episodeNo:number;episodeName?:string;streamUrl:string;streamType:string;lastStatus?:string};
+export type PlayLine={id:number;lineName:string;sourceName?:string;episodes:PlayEpisode[];lastStatus?:string};
+export type MediaDetail={item:MediaItem;playbacks:{source:MediaSource;sourceItem:{id:number};lines:PlayLine[]}[]};
+export type CollectionRun={id:number;sourceId:number;mode:string;status:string;startedAt:string;finishedAt?:string;pages:number;nextPage:number;fetched:number;insertedCount:number;updatedCount:number;skippedCount:number;errorCount:number;errorMessage?:string};
+export type Schedule={id:number;sourceId:number;kind:string;enabled:boolean;cron:string;nextRunAt:string;lastStatus?:string;lastError?:string};
+type API<T>={code:number;msg?:string;data:T};
+const base='/api/v1/media';
+export const listMediaSources=()=>request<API<MediaSource[]>>(base+'/sources');
+export const createMediaSource=(data:MediaSourceInput)=>request<API<MediaSource>>(base+'/sources',{method:'POST',data});
+export const updateMediaSource=(id:number,data:MediaSourceInput)=>request<API<MediaSource>>(base+'/sources/'+id,{method:'PUT',data});
+export const checkMediaSource=(id:number)=>request<API<{result:string;latencyMs:number;errorMessage?:string}>>(base+'/sources/'+id+'/health',{method:'POST'});
+export const collectMediaSource=(id:number,mode='sample',maxItems=100)=>request<API<CollectionRun>>(base+'/sources/'+id+'/collect',{method:'POST',data:{mode,maxItems,maxPages:10}});
+export const listMediaItems=(page=1,query='',mediaType='')=>request<API<{list:MediaItem[];total:number}>>(base+'/items',{params:{page,pageSize:20,query,mediaType}});
+export const getMediaItem=(id:number)=>request<API<MediaDetail>>(base+'/items/'+id);
+export const listCollectionRuns=()=>request<API<CollectionRun[]>>(base+'/runs');
+export const cancelCollectionRun=(id:number)=>request<API<null>>(base+'/runs/'+id+'/cancel',{method:'POST'});
+export const listMediaSchedules=()=>request<API<Schedule[]>>(base+'/schedules');
+export const updateMediaSchedule=(id:number,data:Pick<Schedule,'cron'|'enabled'>)=>request<API<null>>(base+'/schedules/'+id,{method:'PUT',data});
+export const refreshMediaItem=(id:number)=>request<API<null>>(base+'/items/'+id+'/refresh',{method:'POST'});
+export const checkMediaEpisode=(id:number)=>request<API<{status:string;latencyMs:number}>>(base+'/episodes/'+id+'/check',{method:'POST'});
+export const listSourceHealth=(id:number)=>request<API<{id:number;checkedAt:string;result:string;httpStatus:number;latencyMs:number;errorMessage?:string}[]>>(base+'/sources/'+id+'/health-history');

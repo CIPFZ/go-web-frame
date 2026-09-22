@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/CIPFZ/gowebframe/internal/modules/browserproxy"
 	"github.com/CIPFZ/gowebframe/internal/modules/magnet"
+	"github.com/CIPFZ/gowebframe/internal/modules/media"
 	"github.com/CIPFZ/gowebframe/internal/modules/proxy"
 	"net/http"
 	"strings"
@@ -63,6 +64,25 @@ func InitRouters(svcCtx *svc.ServiceContext) *gin.Engine {
 		magnetAPI := magnet.NewAPI(svcCtx.MagnetPreview)
 		privateGroup.POST("/magnet/preview", magnetAPI.Preview)
 		privateGroup.GET("/magnet/cover/:hash", magnetAPI.Cover)
+	}
+
+	if svcCtx.MediaCollector != nil {
+		mediaAPI := media.NewAPI(svcCtx.MediaCollector)
+		privateGroup.GET("/media/sources", mediaAPI.ListSources)
+		mediaWrite := privateGroup.Group("/media/sources", middleware.OperationRecord(svcCtx))
+		mediaWrite.POST("", mediaAPI.CreateSource)
+		mediaWrite.PUT("/:id", mediaAPI.UpdateSource)
+		mediaWrite.POST("/:id/health", mediaAPI.Health)
+		mediaWrite.POST("/:id/collect", mediaAPI.Enqueue)
+		privateGroup.GET("/media/runs", mediaAPI.ListRuns)
+		privateGroup.POST("/media/runs/:id/cancel", mediaAPI.CancelRun)
+		privateGroup.GET("/media/schedules", mediaAPI.ListSchedules)
+		privateGroup.PUT("/media/schedules/:id", mediaAPI.UpdateSchedule)
+		privateGroup.GET("/media/sources/:id/health-history", mediaAPI.ListHealth)
+		privateGroup.GET("/media/items", mediaAPI.ListItems)
+		privateGroup.GET("/media/items/:id", mediaAPI.GetItem)
+		privateGroup.POST("/media/items/:id/refresh", mediaAPI.RefreshItem)
+		privateGroup.POST("/media/episodes/:id/check", mediaAPI.CheckEpisode)
 	}
 
 	if svcCtx.ProxyManager != nil {

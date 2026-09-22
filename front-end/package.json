@@ -38,6 +38,7 @@
     "antd-style": "^3.7.1",
     "classnames": "^2.5.1",
     "dayjs": "^1.11.23",
+    "hls.js": "1.6.13",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
