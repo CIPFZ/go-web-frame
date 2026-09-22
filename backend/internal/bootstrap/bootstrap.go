@@ -209,6 +209,10 @@ func Initialize(path string, serviceCtx *svc.ServiceContext) (shutdowns []utils.
 	if err != nil {
 		return shutdowns, fmt.Errorf("media collector init: %w", err)
 	}
+	if err := serviceCtx.MediaCollector.Start(context.Background()); err != nil {
+		return shutdowns, fmt.Errorf("media collector scheduler: %w", err)
+	}
+	shutdowns = append(shutdowns, func(ctx context.Context) error { return serviceCtx.MediaCollector.Close(ctx) })
 
 	if cfg.ProxyManager.Enabled {
 		pc := cfg.ProxyManager

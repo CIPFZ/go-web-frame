@@ -63,10 +63,10 @@ export default function MediaSourcesPage() {
 
   const collect = async (item: MediaSource) => {
     try {
-      const result = await collectMediaSource(item.id, 100);
+      const result = await collectMediaSource(item.id, 'sample', 100);
       if (result.code === 0) {
         const data = result.data;
-        message.success(`采集完成：新增 ${data.insertedCount}，更新 ${data.updatedCount}，跳过 ${data.skippedCount}`);
+        message.success(`任务已排队：#${data.id}（后台执行）`);
       } else message.error(result.msg || '采集失败');
     } catch { message.error('采集失败'); }
   };

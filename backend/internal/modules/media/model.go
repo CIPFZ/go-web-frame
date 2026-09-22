@@ -14,13 +14,16 @@ type Base struct {
 // Source is a reviewed upstream MacCMS-compatible API.
 type Source struct {
 	Base
-	Suspended     bool       `json:"suspended"`
-	Failures      int        `json:"failures"`
-	Successes     int        `json:"successes"`
-	LeaseToken    string     `json:"-" gorm:"size:64"`
-	LeaseUntil    *time.Time `json:"-"`
-	FullStartedAt *time.Time `json:"fullStartedAt"`
-	NextPage      int        `json:"nextPage"`
+	Suspended         bool       `json:"suspended"`
+	Failures          int        `json:"failures"`
+	Successes         int        `json:"successes"`
+	LeaseToken        string     `json:"-" gorm:"size:64"`
+	LeaseUntil        *time.Time `json:"-"`
+	FullStartedAt     *time.Time `json:"fullStartedAt"`
+	FullHadErrors     bool       `json:"fullHadErrors"`
+	LastIncrementalAt *time.Time `json:"lastIncrementalAt"`
+	FullEnabled       bool       `json:"fullEnabled"`
+	NextPage          int        `json:"nextPage"`
 
 	Name                   string     `json:"name" gorm:"size:100;not null"`
 	APIURL                 string     `json:"apiUrl" gorm:"size:500;uniqueIndex:uk_media_source_api;not null"`
@@ -38,22 +41,22 @@ type Source struct {
 
 func (Source) TableName() string { return "media_sources" }
 
-// Item is the unified CMS media record. The host CMS can map CMSMediaID later.
+// Item is the module-owned unified media record.
 type Item struct {
 	Base
-	CMSMediaID    *uint  `json:"cmsMediaId"`
-	Title         string `json:"title" gorm:"size:500;not null"`
-	OriginalTitle string `json:"originalTitle,omitempty" gorm:"size:500"`
-	MediaType     string `json:"mediaType" gorm:"size:20;index;not null"`
-	Year          string `json:"year,omitempty" gorm:"size:20;index"`
-	Area          string `json:"area,omitempty" gorm:"size:100"`
-	Language      string `json:"language,omitempty" gorm:"size:100"`
-	Director      string `json:"director,omitempty" gorm:"type:text"`
-	Actors        string `json:"actors,omitempty" gorm:"type:text"`
-	Description   string `json:"description,omitempty" gorm:"type:text"`
-	CoverURL      string `json:"coverUrl,omitempty" gorm:"size:1000"`
-	NormalizedKey string `json:"normalizedKey" gorm:"size:700;uniqueIndex:uk_media_item_key;not null"`
-	Status        string `json:"status" gorm:"size:20;default:active;index"`
+	MetadataSourceID uint   `json:"metadataSourceId"`
+	Title            string `json:"title" gorm:"size:500;not null"`
+	OriginalTitle    string `json:"originalTitle,omitempty" gorm:"size:500"`
+	MediaType        string `json:"mediaType" gorm:"size:20;index;not null"`
+	Year             string `json:"year,omitempty" gorm:"size:20;index"`
+	Area             string `json:"area,omitempty" gorm:"size:100"`
+	Language         string `json:"language,omitempty" gorm:"size:100"`
+	Director         string `json:"director,omitempty" gorm:"type:text"`
+	Actors           string `json:"actors,omitempty" gorm:"type:text"`
+	Description      string `json:"description,omitempty" gorm:"type:text"`
+	CoverURL         string `json:"coverUrl,omitempty" gorm:"size:1000"`
+	NormalizedKey    string `json:"normalizedKey" gorm:"size:700;uniqueIndex:uk_media_item_key;not null"`
+	Status           string `json:"status" gorm:"size:20;default:active;index"`
 }
 
 func (Item) TableName() string { return "media_items" }
@@ -68,6 +71,7 @@ type SourceItem struct {
 	SourceUpdatedAt *time.Time `json:"sourceUpdatedAt"`
 	FirstSeenAt     time.Time  `json:"firstSeenAt"`
 	LastSeenAt      time.Time  `json:"lastSeenAt"`
+	ListHash        string     `json:"-" gorm:"size:64"`
 	RawHash         string     `json:"rawHash,omitempty" gorm:"size:64"`
 	DetailURL       string     `json:"detailUrl,omitempty" gorm:"size:1000"`
 	State           string     `json:"state" gorm:"size:20;default:active;index"`
@@ -113,7 +117,11 @@ func (PlayEpisode) TableName() string { return "media_play_episodes" }
 
 type CollectionRun struct {
 	Base
-	NextPage int `json:"nextPage"`
+	NextPage        int  `json:"nextPage"`
+	MaxItems        int  `json:"maxItems"`
+	MaxPages        int  `json:"maxPages"`
+	Hours           int  `json:"hours"`
+	CancelRequested bool `json:"cancelRequested"`
 
 	SourceID      uint       `json:"sourceId" gorm:"index;not null"`
 	Mode          string     `json:"mode" gorm:"size:20;not null"`
@@ -143,3 +151,22 @@ type HealthCheck struct {
 }
 
 func (HealthCheck) TableName() string { return "media_source_health_checks" }
+
+// CollectionSchedule stores the CMS-owned cron-like schedule for one source.
+type CollectionSchedule struct {
+	Base
+	SourceID   uint       `json:"sourceId" gorm:"index;not null;uniqueIndex:uk_media_schedule"`
+	Kind       string     `json:"kind" gorm:"size:20;not null;uniqueIndex:uk_media_schedule"`
+	Enabled    bool       `json:"enabled" gorm:"default:true;index"`
+	Cron       string     `json:"cron" gorm:"size:100;not null"`
+	NextRunAt  time.Time  `json:"nextRunAt" gorm:"index;not null"`
+	LeaseToken string     `json:"-" gorm:"size:64"`
+	LeaseUntil *time.Time `json:"-"`
+	LastRunAt  *time.Time `json:"lastRunAt"`
+	LastStatus string     `json:"lastStatus" gorm:"size:20"`
+	LastError  string     `json:"lastError,omitempty" gorm:"type:text"`
+}
+
+func (CollectionSchedule) TableName() string { return "media_collection_schedules" }
+
+// ListHash avoids refetching unchanged detail responses.
