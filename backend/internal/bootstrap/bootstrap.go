@@ -7,6 +7,7 @@ import (
 	"github.com/CIPFZ/gowebframe/internal/migrations"
 	"github.com/CIPFZ/gowebframe/internal/modules/browserproxy"
 	"github.com/CIPFZ/gowebframe/internal/modules/magnet"
+	"github.com/CIPFZ/gowebframe/internal/modules/media"
 	"github.com/CIPFZ/gowebframe/internal/modules/proxy"
 	"path/filepath"
 	"time"
@@ -203,6 +204,11 @@ func Initialize(path string, serviceCtx *svc.ServiceContext) (shutdowns []utils.
 
 	// Step 9: 初始化 OSS
 	serviceCtx.OSS = file.NewFileService(serviceCtx.Config.File, serviceCtx.Logger)
+
+	serviceCtx.MediaCollector, err = media.NewService(media.Config{DB: serviceCtx.DB})
+	if err != nil {
+		return shutdowns, fmt.Errorf("media collector init: %w", err)
+	}
 
 	if cfg.ProxyManager.Enabled {
 		pc := cfg.ProxyManager

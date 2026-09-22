@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const Latest = "20260921_proxy_subscription_url_v1"
+const Latest = "20260922_media_collection_v2"
 const tokenNoticeVersion = "20260910_token_notice_v1"
 const i18nVersion = "20260910_cms_i18n_v1"
 const baselineVersion = "20260910_sessions_policy_bootstrap_v1"
@@ -189,6 +189,9 @@ func apply(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error {
 		return err
 	}
 	if err := ensureProxyModule(db, cfg.System.RouterPrefix); err != nil {
+		return err
+	}
+	if err := ensureMediaModule(db, cfg.System.RouterPrefix); err != nil {
 		return err
 	}
 	if err := db.AutoMigrate(&proxyModel.Instance{}); err != nil {

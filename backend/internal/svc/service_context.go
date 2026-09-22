@@ -4,6 +4,7 @@ import (
 	"github.com/CIPFZ/gowebframe/internal/core/file"
 	"github.com/CIPFZ/gowebframe/internal/modules/browserproxy"
 	"github.com/CIPFZ/gowebframe/internal/modules/magnet"
+	"github.com/CIPFZ/gowebframe/internal/modules/media"
 	"github.com/CIPFZ/gowebframe/internal/modules/proxy"
 	"net/http"
 	"sync"
@@ -27,6 +28,7 @@ import (
 )
 
 type ServiceContext struct {
+	MediaCollector     *media.Service
 	MagnetPreview      *magnet.Service
 	ProxyManager       *proxy.Service
 	BrowserProxy       *browserproxy.Service
