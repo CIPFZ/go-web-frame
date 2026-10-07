@@ -79,6 +79,7 @@ export default function AgentPage() {
       {task.result?.stdout && <Typography.Paragraph><pre style={{ whiteSpace: 'pre-wrap' }}>{task.result.stdout}</pre></Typography.Paragraph>}
       {task.result?.stderr && <Typography.Paragraph type="danger">{task.result.stderr}</Typography.Paragraph>}
       {task.result?.error_message && <Typography.Paragraph type="danger">{task.result.error_message}</Typography.Paragraph>}
+      {task.result?.artifacts?.map((artifact) => artifact.data_base64 && artifact.media_type?.startsWith('image/') ? <img key={artifact.artifact_id} src={'data:' + artifact.media_type + ';base64,' + artifact.data_base64} alt={artifact.name || 'artifact'} style={{ maxWidth: '100%' }} /> : null)}
       {task.status === 'succeeded' ? <CheckCircleOutlined style={{ color: 'green' }} /> : task.status === 'failed' ? <CloseCircleOutlined style={{ color: 'red' }} /> : null}
     </Card>}
   </PageContainer>;

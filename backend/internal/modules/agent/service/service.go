@@ -47,13 +47,22 @@ type Task struct {
 	FinishedAt *time.Time     `json:"finished_at,omitempty"`
 	Result     *TaskResult    `json:"result,omitempty"`
 }
+type Artifact struct {
+	ArtifactID string `json:"artifact_id"`
+	Name       string `json:"name,omitempty"`
+	MediaType  string `json:"media_type,omitempty"`
+	SizeBytes  int64  `json:"size_bytes,omitempty"`
+	SHA256     string `json:"sha256,omitempty"`
+	DataBase64 string `json:"data_base64,omitempty"`
+}
 type TaskResult struct {
-	Status       string `json:"status"`
-	ErrorCode    string `json:"error_code,omitempty"`
-	ErrorMessage string `json:"error_message,omitempty"`
-	Stdout       string `json:"stdout,omitempty"`
-	Stderr       string `json:"stderr,omitempty"`
-	ExitCode     int    `json:"exit_code,omitempty"`
+	Status       string     `json:"status"`
+	ErrorCode    string     `json:"error_code,omitempty"`
+	ErrorMessage string     `json:"error_message,omitempty"`
+	Stdout       string     `json:"stdout,omitempty"`
+	Stderr       string     `json:"stderr,omitempty"`
+	ExitCode     int        `json:"exit_code,omitempty"`
+	Artifacts    []Artifact `json:"artifacts,omitempty"`
 }
 type taskResponse struct {
 	Envelope
