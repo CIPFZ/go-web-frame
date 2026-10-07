@@ -7,43 +7,8 @@ x-logging: &logging
     max-file: '3'
 
 services:
-  mysql:
-    image: mysql:8.0
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: nexus_cms
-      MYSQL_USER: nexus_cms
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Run init.py first}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Run init.py first}
-      TZ: Asia/Shanghai
-    command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
-    volumes:
-      - mysql-data:/var/lib/mysql
-    healthcheck:
-      test: ['CMD-SHELL', 'MYSQL_PWD="$$MYSQL_PASSWORD" mysql -h 127.0.0.1 -unexus_cms -D nexus_cms -e "SELECT 1" >/dev/null 2>&1']
-      interval: 5s
-      timeout: 5s
-      start_period: 45s
-      retries: 30
-    logging: *logging
-
-  redis:
-    image: redis:7.4-alpine
-    restart: unless-stopped
-    environment:
-      REDISCLI_AUTH: ${REDIS_PASSWORD:?Run init.py first}
-    command: ['sh', '-c', 'exec redis-server --appendonly yes --requirepass "$$REDISCLI_AUTH"']
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ['CMD-SHELL', 'redis-cli ping | grep -q PONG']
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    logging: *logging
-
   migrator:
-    image: nexus-cms-backend:local
+    image: my-cms-backend:latest
     entrypoint: ["./migrate", "-f", "/app/configs/local.yaml"]
     environment:
       CMS_CONFIG_PATH: /app/configs/local.yaml
@@ -55,13 +20,10 @@ services:
       TZ: Asia/Shanghai
     volumes:
       - ./runtime/backend.yaml:/app/configs/local.yaml:ro
-    depends_on:
-      mysql:
-        condition: service_healthy
     logging: *logging
 
   backend:
-    image: nexus-cms-backend:local
+    image: my-cms-backend:latest
     build:
       context: ../../backend
     restart: unless-stopped
@@ -69,23 +31,26 @@ services:
     environment:
       CMS_CONFIG_PATH: /app/configs/local.yaml
       TZ: Asia/Shanghai
+      LIBVIRT_URI: qemu:///system
+      AGENT_GATEWAY_URL: ${AGENT_GATEWAY_URL:-}
+      AGENT_GATEWAY_TOKEN: ${AGENT_GATEWAY_TOKEN:-}
     ports:
       - '127.0.0.1:${CMS_API_PORT:-18081}:8080'
     volumes:
       - ./runtime/backend.yaml:/app/configs/local.yaml:ro
       - uploads:/app/uploads
+      - /run/libvirt/libvirt-sock:/run/libvirt/libvirt-sock
     depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       migrator:
         condition: service_completed_successfully
+    networks:
+      - default
+      - common-services
     stop_grace_period: 30s
     logging: *logging
 
   frontend:
-    image: nexus-cms-frontend:local
+    image: my-cms-frontend:latest
     build:
       context: ../../front-end
     restart: unless-stopped
@@ -99,6 +64,8 @@ services:
     logging: *logging
 
 volumes:
-  mysql-data:
-  redis-data:
   uploads:
+
+networks:
+  common-services:
+    external: true

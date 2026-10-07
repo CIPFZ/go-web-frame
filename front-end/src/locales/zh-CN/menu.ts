@@ -59,4 +59,8 @@
   'menu.system.apiToken': 'API Token',
   'menu.system.operation': '操作日志',
   'menu.system.notice': '通知公告',
+  'menu.novel.books': '小说库',
+  'menu.virtualization.vms': '虚拟机管理',
+  'menu.virtualization.storage': '存储管理',
+  'menu.virtualization.agent': 'Agent 联动',
 };

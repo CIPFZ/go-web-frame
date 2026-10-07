@@ -1,7 +1,7 @@
 FROM golang:1.27.1-alpine AS builder
 
 WORKDIR /app
-ENV GOPROXY=https://proxy.golang.org,direct GOMAXPROCS=2 CGO_ENABLED=0
+ENV GOPROXY=https://goproxy.cn,direct GOMAXPROCS=2 CGO_ENABLED=0
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -14,6 +14,7 @@ FROM alpine:3.23
 WORKDIR /app
 
 # Required for timezones and ca-certs
+RUN sed -i "s#https://dl-cdn.alpinelinux.org/alpine#https://mirrors.aliyun.com/alpine#g" /etc/apk/repositories
 RUN apk --no-cache add tzdata ca-certificates
 
 COPY --from=builder /app/main .

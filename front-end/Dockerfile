@@ -3,7 +3,7 @@ FROM node:24.21.0-bookworm-slim AS build-stage
 WORKDIR /app
 ENV HUSKY=0
 COPY package.json package-lock.json ./
-RUN npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+RUN npm config set registry https://registry.npmmirror.com && npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
 COPY . .
 RUN npm run postinstall && npm run build
 

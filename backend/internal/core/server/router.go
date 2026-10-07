@@ -2,16 +2,24 @@ package server
 
 import (
 	"fmt"
+	agentApi "github.com/CIPFZ/gowebframe/internal/modules/agent/api"
+	agentRouter "github.com/CIPFZ/gowebframe/internal/modules/agent/router"
+	agentService "github.com/CIPFZ/gowebframe/internal/modules/agent/service"
 	"net/http"
 	"strings"
 
 	tokenCore "github.com/CIPFZ/gowebframe/internal/core/token"
 	"github.com/CIPFZ/gowebframe/internal/docs"
 	"github.com/CIPFZ/gowebframe/internal/middleware"
+	novelApi "github.com/CIPFZ/gowebframe/internal/modules/novel/api"
+	novelRouter "github.com/CIPFZ/gowebframe/internal/modules/novel/router"
 	systemApi "github.com/CIPFZ/gowebframe/internal/modules/system/api"
 	systemRepo "github.com/CIPFZ/gowebframe/internal/modules/system/repository"
 	systemRouter "github.com/CIPFZ/gowebframe/internal/modules/system/router"
 	systemService "github.com/CIPFZ/gowebframe/internal/modules/system/service"
+	virtualizationApi "github.com/CIPFZ/gowebframe/internal/modules/virtualization/api"
+	virtualizationRouter "github.com/CIPFZ/gowebframe/internal/modules/virtualization/router"
+	virtualizationService "github.com/CIPFZ/gowebframe/internal/modules/virtualization/service"
 	"github.com/CIPFZ/gowebframe/internal/svc"
 	"github.com/CIPFZ/gowebframe/pkg/response"
 
@@ -47,6 +55,10 @@ func InitRouters(svcCtx *svc.ServiceContext) *gin.Engine {
 
 	sysRouter := wireSystemModule(svcCtx)
 	sysRouter.InitSystemRoutes(privateGroup, publicGroup)
+	svcCtx.Virtualization = virtualizationService.NewFromEnv(svcCtx.Logger)
+	virtualizationRouter.New(virtualizationApi.NewVirtualMachineAPI(svcCtx.Virtualization), virtualizationApi.NewStorageAPI(svcCtx.Virtualization), svcCtx).Init(privateGroup)
+	agentRouter.New(agentApi.NewAgentAPI(agentService.NewFromEnv(svcCtx.Logger), svcCtx.Virtualization), svcCtx).Init(privateGroup)
+	novelRouter.New(novelApi.NewBookAPI(svcCtx)).Init(privateGroup)
 
 	svcCtx.Routers = r.Routes()
 	svcCtx.Logger.Info("all routes initialized")

@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const Latest = "20260910_token_notice_v1"
+const Latest = "20261007_agent_gateway_link_v1"
 const i18nVersion = "20260910_cms_i18n_v1"
 const baselineVersion = "20260910_sessions_policy_bootstrap_v1"
 
@@ -161,10 +161,22 @@ func apply(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error {
 	if count > 0 {
 		return nil
 	}
+	if err := migrateNovelBooks(db, cfg, logger); err != nil {
+		return err
+	}
+	if err := dropNovelBookLevel(db); err != nil {
+		return err
+	}
+	if err := dropNovelBookDescription(db); err != nil {
+		return err
+	}
 	if err := db.AutoMigrate(&sysModel.SysNotice{}); err != nil {
 		return err
 	}
 	if err := seed.EnsureTokenEndpoints(db, cfg.System.RouterPrefix); err != nil {
+		return err
+	}
+	if err := migrateVirtualizationAccess(db, cfg, logger); err != nil {
 		return err
 	}
 	return db.Create(&schemaMigration{Name: Latest, AppliedAt: time.Now()}).Error

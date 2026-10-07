@@ -14,6 +14,7 @@ import (
 
 	"github.com/CIPFZ/gowebframe/internal/core/claims"
 	"github.com/CIPFZ/gowebframe/internal/core/session"
+	virtualizationService "github.com/CIPFZ/gowebframe/internal/modules/virtualization/service"
 	"github.com/gin-gonic/gin"
 	"github.com/qiniu/qmgo"
 	"github.com/redis/go-redis/v9"
@@ -42,6 +43,7 @@ type ServiceContext struct {
 	lock               sync.RWMutex
 	AuditRecorder      *audit.AuditRecorder
 	OSS                file.OSS
+	Virtualization     *virtualizationService.Service
 }
 
 func NewServiceContext() *ServiceContext {

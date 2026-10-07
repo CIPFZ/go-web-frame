@@ -1,0 +1,34 @@
+name: common-infra
+
+services:
+  redis-common:
+    image: redis:7.4-alpine
+    container_name: redis-common
+    restart: unless-stopped
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    user: "999:1000"
+    command: ['sh', '-c', 'exec redis-server --appendonly yes --requirepass "$$REDISCLI_AUTH"']
+    volumes:
+      - common-redis-data:/data
+    networks:
+      common-services:
+        aliases:
+          - redis-common
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+volumes:
+  common-redis-data:
+
+networks:
+  common-services:
+    name: common-services

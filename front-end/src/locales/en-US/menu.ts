@@ -59,4 +59,8 @@
   'menu.system.apiToken': 'API Tokens',
   'menu.system.operation': 'Operation Logs',
   'menu.system.notice': 'Notices',
+  'menu.novel.books': 'Novel Library',
+  'menu.virtualization.vms': 'Virtual Machines',
+  'menu.virtualization.storage': 'Storage',
+  'menu.virtualization.agent': 'Agent Tasks',
 };
