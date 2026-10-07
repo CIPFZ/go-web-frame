@@ -82,3 +82,14 @@ python3 deploy/local/db-matrix.py
 `systemd/nexus-cms-backup.{service,timer}` 提供每天北京时间 03:15（最多延后 5 分钟）的计划，部署路径改变时先修改 service。安装后用 `systemctl list-timers nexus-cms-backup.timer` 查看时间，`journalctl -u nexus-cms-backup.service` 查看结果。当前主机只保留本地副本；要覆盖整机磁盘损坏，需要再配置异机备份目标。
 
 可观测部署、数据范围和 8080 入口见 [观测说明](../observability/README.md)。配置静态加载，变更 JWT、注册开关或代理信任范围后重启。Nginx 覆盖转发 IP 头，后端仅信任部署指定的代理网段；其他环境应缩小为实际代理地址。
+## Agent Gateway 联动
+
+CMS 后端通过 AGENT_GATEWAY_URL 和 AGENT_GATEWAY_TOKEN 连接 Agent Gateway；未配置时，虚拟机 Agent 状态接口会返回未配置/不可达，不会伪造在线状态。Compose 启动时注入这两个环境变量：
+
+    export AGENT_GATEWAY_URL=http://gateway-host:8081
+    export AGENT_GATEWAY_TOKEN=<与 Gateway auth-token 相同的凭据>
+    docker compose --env-file deploy/local/.env -f deploy/local/compose.yaml up -d --build --wait --wait-timeout 180
+
+虚拟机页面下的 Agent 联动菜单由迁移自动创建。后端按虚拟机 UUID 解析目标 Agent，页面支持状态检查、受控 command.exec 提交、任务刷新和取消；命令不会经过 CMS Shell 执行。Gateway 应使用 TLS 终止或反向代理，并为 CMS 与 Agent 使用独立的 Bearer 凭据。
+
+Agent Gateway 独立部署时可使用 task-store、agent-store、audit-log 持久化任务、注册表和审计事件，并用 tls-cert/tls-key 开启 HTTPS。升级前先备份这些文件，回滚时保留同一份状态文件。
