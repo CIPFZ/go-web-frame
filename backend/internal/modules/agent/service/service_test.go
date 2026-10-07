@@ -68,3 +68,35 @@ func TestGatewayClientRequiresConfiguration(t *testing.T) {
 		t.Fatal("expected missing gateway configuration error")
 	}
 }
+
+func TestGatewayClientRotatingTokenFile(t *testing.T) {
+	var authorization string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authorization = r.Header.Get("Authorization")
+		_ = json.NewEncoder(w).Encode(agentResponse{Agent: Agent{AgentID: "vm-a", Status: "online"}})
+	}))
+	defer server.Close()
+	tokenFile := t.TempDir() + "/gateway.token"
+	t.Setenv("AGENT_GATEWAY_URL", server.URL)
+	t.Setenv("AGENT_GATEWAY_TOKEN", "fallback-must-not-be-used")
+	t.Setenv("AGENT_GATEWAY_TOKEN_FILE", tokenFile)
+	client := NewFromEnv(nil)
+	if _, err := client.Agent(context.Background(), "vm-a"); err == nil {
+		t.Fatal("missing token file must fail closed")
+	}
+	if err := os.WriteFile(tokenFile, []byte("first\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Agent(context.Background(), "vm-a"); err != nil || authorization != "Bearer first" {
+		t.Fatalf("first token authorization=%q err=%v", authorization, err)
+	}
+	if err := os.WriteFile(tokenFile+".next", []byte("second\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(tokenFile+".next", tokenFile); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Agent(context.Background(), "vm-a"); err != nil || authorization != "Bearer second" {
+		t.Fatalf("rotated token authorization=%q err=%v", authorization, err)
+	}
+}

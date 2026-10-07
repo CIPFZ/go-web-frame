@@ -133,7 +133,11 @@ func (c *GatewayClient) do(ctx context.Context, method, path string, body any, o
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if token := c.authToken(); token != "" {
+	token, tokenErr := c.authToken()
+	if tokenErr != nil {
+		return tokenErr
+	}
+	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	res, err := c.httpClient.Do(req)
@@ -151,13 +155,17 @@ func (c *GatewayClient) do(ctx context.Context, method, path string, body any, o
 	return nil
 }
 
-func (c *GatewayClient) authToken() string {
+func (c *GatewayClient) authToken() (string, error) {
 	if c.tokenFile != "" {
 		data, err := os.ReadFile(c.tokenFile)
 		if err != nil {
-			return ""
+			return "", errors.New("AGENT_GATEWAY_TOKEN_FILE is unavailable")
 		}
-		return strings.TrimSpace(string(data))
+		token := strings.TrimSpace(string(data))
+		if token == "" || strings.ContainsAny(token, "\r\n") || len(token) > 4096 {
+			return "", errors.New("AGENT_GATEWAY_TOKEN_FILE is invalid")
+		}
+		return token, nil
 	}
-	return c.token
+	return c.token, nil
 }
