@@ -19,6 +19,7 @@ import (
 type GatewayClient struct {
 	baseURL    string
 	token      string
+	tokenFile  string
 	httpClient *http.Client
 	logger     *zap.Logger
 }
@@ -83,7 +84,7 @@ type createTaskRequest struct {
 }
 
 func NewFromEnv(logger *zap.Logger) *GatewayClient {
-	return &GatewayClient{baseURL: strings.TrimRight(strings.TrimSpace(os.Getenv("AGENT_GATEWAY_URL")), "/"), token: strings.TrimSpace(os.Getenv("AGENT_GATEWAY_TOKEN")), httpClient: &http.Client{Timeout: 15 * time.Second}, logger: logger}
+	return &GatewayClient{baseURL: strings.TrimRight(strings.TrimSpace(os.Getenv("AGENT_GATEWAY_URL")), "/"), token: strings.TrimSpace(os.Getenv("AGENT_GATEWAY_TOKEN")), tokenFile: strings.TrimSpace(os.Getenv("AGENT_GATEWAY_TOKEN_FILE")), httpClient: &http.Client{Timeout: 15 * time.Second}, logger: logger}
 }
 func (c *GatewayClient) configured() error {
 	if c.baseURL == "" {
@@ -132,8 +133,8 @@ func (c *GatewayClient) do(ctx context.Context, method, path string, body any, o
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
+	if token := c.authToken(); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	res, err := c.httpClient.Do(req)
 	if err != nil {
@@ -148,4 +149,15 @@ func (c *GatewayClient) do(ctx context.Context, method, path string, body any, o
 		return json.NewDecoder(io.LimitReader(res.Body, 4<<20)).Decode(out)
 	}
 	return nil
+}
+
+func (c *GatewayClient) authToken() string {
+	if c.tokenFile != "" {
+		data, err := os.ReadFile(c.tokenFile)
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSpace(string(data))
+	}
+	return c.token
 }

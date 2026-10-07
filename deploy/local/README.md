@@ -84,10 +84,12 @@ python3 deploy/local/db-matrix.py
 可观测部署、数据范围和 8080 入口见 [观测说明](../observability/README.md)。配置静态加载，变更 JWT、注册开关或代理信任范围后重启。Nginx 覆盖转发 IP 头，后端仅信任部署指定的代理网段；其他环境应缩小为实际代理地址。
 ## Agent Gateway 联动
 
-CMS 后端通过 AGENT_GATEWAY_URL 和 AGENT_GATEWAY_TOKEN 连接 Agent Gateway；未配置时，虚拟机 Agent 状态接口会返回未配置/不可达，不会伪造在线状态。Compose 启动时注入这两个环境变量：
+CMS 后端通过 AGENT_GATEWAY_URL 和 AGENT_GATEWAY_TOKEN（或 AGENT_GATEWAY_TOKEN_FILE）连接 Agent Gateway；未配置时，虚拟机 Agent 状态接口会返回未配置/不可达，不会伪造在线状态。Compose 启动时注入这些环境变量：
 
     export AGENT_GATEWAY_URL=http://gateway-host:8081
     export AGENT_GATEWAY_TOKEN=<与 Gateway auth-token 相同的凭据>
+    # 或改为文件路径，CMS 会在每次请求时读取最新凭据
+    export AGENT_GATEWAY_TOKEN_FILE=/run/secrets/agent-gateway-token
     docker compose --env-file deploy/local/.env -f deploy/local/compose.yaml up -d --build --wait --wait-timeout 180
 
 虚拟机页面下的 Agent 联动菜单由迁移自动创建。后端按虚拟机 UUID 解析目标 Agent，页面支持状态检查、受控 command.exec 提交、任务刷新和取消；命令不会经过 CMS Shell 执行。Gateway 应使用 TLS 终止或反向代理，并为 CMS 与 Agent 使用独立的 Bearer 凭据。

@@ -34,6 +34,7 @@ services:
       LIBVIRT_URI: qemu:///system
       AGENT_GATEWAY_URL: ${AGENT_GATEWAY_URL:-}
       AGENT_GATEWAY_TOKEN: ${AGENT_GATEWAY_TOKEN:-}
+      AGENT_GATEWAY_TOKEN_FILE: ${AGENT_GATEWAY_TOKEN_FILE:-}
     ports:
       - '127.0.0.1:${CMS_API_PORT:-18081}:8080'
     volumes:
