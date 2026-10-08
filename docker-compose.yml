@@ -74,6 +74,9 @@ services:
       SEED_ADMIN_PASSWORD: "Admin@123456"
       SEED_ADMIN_AUTHORITY_ID: "1"
       SEED_ADMIN_DEFAULT_ROUTER: "dashboard/workplace"
+      AGENT_GATEWAY_URL: ${AGENT_GATEWAY_URL:-}
+      AGENT_GATEWAY_TOKEN: ${AGENT_GATEWAY_TOKEN:-}
+      AGENT_GATEWAY_TOKEN_FILE: ${AGENT_GATEWAY_TOKEN_FILE:-}
     ports:
       - "8080:8080"
     depends_on:
