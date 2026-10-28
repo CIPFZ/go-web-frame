@@ -3,7 +3,7 @@ import { PageContainer } from '@ant-design/pro-components';
 import { Alert, Button, Card, Empty, Pagination, Select, Space, Spin, Tag, Typography, message } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { listMediaSchedules, listMediaSources, type MediaSource, type Schedule } from '@/services/media';
-import { MediaHeading, modeNames, StatusTag, timeText } from '../shared';
+import { modeNames, StatusTag, timeText } from '../shared';
 import ScheduleEditor from '../ScheduleEditor';
 
 export default function Schedules() {
@@ -11,9 +11,8 @@ export default function Schedules() {
  const load=async()=>{setLoading(true);try{const [a,b]=await Promise.all([listMediaSources(),listMediaSchedules()]);if(a.code!==0||b.code!==0)throw Error();setSources(a.data||[]);setPlans(b.data||[])}catch{message.error('加载采集计划失败')}finally{setLoading(false)}};
  useEffect(()=>{void load()},[]);
  return <PageContainer title={false}><div className="media-workspace">
- <MediaHeading eyebrow="MEDIA / SCHEDULES" title="采集计划" description="每个站点独立选择采集类型和周期，由 CMS 自动执行。" extra={<Button icon={<ReloadOutlined/>} onClick={load}>刷新</Button>}/>
  <Alert type="info" showIcon message="增量用于日常更新，全量用于完整建库与周期校准" description={<div>增量首次读取最近 24 小时；之后根据上次成功时间扩大更新窗口，跳过未变化条目。全量遍历整个目录，可从断点继续，完整且无错误后才标记已下架资源。</div>} style={{marginBottom:24}}/>
- <div className="media-toolbar"><Select allowClear placeholder="全部站点" style={{width:240}} value={filter} onChange={value=>{setFilter(value);setPage(1)}} options={sources.map(s=>({value:s.id,label:s.name}))}/><Typography.Text type="secondary">所有时间均为北京时间</Typography.Text></div>
+ <div className="media-toolbar"><Select allowClear placeholder="全部站点" style={{width:240}} value={filter} onChange={value=>{setFilter(value);setPage(1)}} options={sources.map(s=>({value:s.id,label:s.name}))}/><Space><Typography.Text type="secondary">所有时间均为北京时间</Typography.Text><Button icon={<ReloadOutlined/>} loading={loading} onClick={load}>刷新</Button></Space></div>
  <Spin spinning={loading}><Space direction="vertical" size={20} style={{width:'100%'}}>
  {sources.filter(s=>!filter||s.id===filter).slice((page-1)*10,page*10).map(source=><Card className="media-panel" key={source.id} title={<Space><span className="media-source-dot">{source.name.slice(0,1)}</span>{source.name}</Space>} extra={<Tag color={source.enabled?'green':'default'}>{source.enabled?'站点已启用':'站点已停用'}</Tag>}>
  {!source.enabled&&<Alert message="站点停用期间，定时任务将被跳过。" type="warning" style={{marginBottom:16}}/>}

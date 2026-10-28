@@ -48,6 +48,7 @@ type Item struct {
 	Title            string `json:"title" gorm:"size:500;not null"`
 	OriginalTitle    string `json:"originalTitle,omitempty" gorm:"size:500"`
 	MediaType        string `json:"mediaType" gorm:"size:20;index;not null"`
+	Genres           string `json:"genres,omitempty" gorm:"type:text"`
 	Year             string `json:"year,omitempty" gorm:"size:20;index"`
 	Area             string `json:"area,omitempty" gorm:"size:100"`
 	Language         string `json:"language,omitempty" gorm:"size:100"`
@@ -123,21 +124,35 @@ type CollectionRun struct {
 	Hours           int  `json:"hours"`
 	CancelRequested bool `json:"cancelRequested"`
 
-	SourceID      uint       `json:"sourceId" gorm:"index;not null"`
-	Mode          string     `json:"mode" gorm:"size:20;not null"`
-	StartedAt     time.Time  `json:"startedAt" gorm:"index;not null"`
-	FinishedAt    *time.Time `json:"finishedAt"`
-	Status        string     `json:"status" gorm:"size:20;index;not null"`
-	Pages         int        `json:"pages"`
-	Fetched       int        `json:"fetched"`
-	InsertedCount int        `json:"insertedCount"`
-	UpdatedCount  int        `json:"updatedCount"`
-	SkippedCount  int        `json:"skippedCount"`
-	ErrorCount    int        `json:"errorCount"`
-	ErrorMessage  string     `json:"errorMessage,omitempty" gorm:"type:text"`
+	SourceID      uint                    `json:"sourceId" gorm:"index;not null"`
+	Mode          string                  `json:"mode" gorm:"size:20;not null"`
+	StartedAt     time.Time               `json:"startedAt" gorm:"index;not null"`
+	FinishedAt    *time.Time              `json:"finishedAt"`
+	Status        string                  `json:"status" gorm:"size:20;index;not null"`
+	Pages         int                     `json:"pages"`
+	Fetched       int                     `json:"fetched"`
+	InsertedCount int                     `json:"insertedCount"`
+	UpdatedCount  int                     `json:"updatedCount"`
+	SkippedCount  int                     `json:"skippedCount"`
+	ErrorCount    int                     `json:"errorCount"`
+	ErrorMessage  string                  `json:"errorMessage,omitempty" gorm:"type:text"`
+	PageFailures  []CollectionPageFailure `json:"pageFailures,omitempty" gorm:"foreignKey:CollectionRunID"`
 }
 
 func (CollectionRun) TableName() string { return "media_collection_runs" }
+
+// CollectionPageFailure records a page that exhausted its retries while the
+// surrounding collection continued. It is kept separately so every failed
+// page stays available for later retry.
+type CollectionPageFailure struct {
+	Base
+	CollectionRunID uint   `json:"collectionRunId" gorm:"index;not null"`
+	Page            int    `json:"page" gorm:"not null"`
+	Attempts        int    `json:"attempts" gorm:"not null"`
+	ErrorMessage    string `json:"errorMessage" gorm:"type:text;not null"`
+}
+
+func (CollectionPageFailure) TableName() string { return "media_collection_page_failures" }
 
 type HealthCheck struct {
 	Base

@@ -3,7 +3,7 @@ import { PageContainer } from '@ant-design/pro-components';
 import { Button, Card, Col, Form, Input, InputNumber, Modal, Row, Space, Switch, Table, Tag, Typography, message } from 'antd';
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { createMediaSource, listMediaSources, updateMediaSource, type MediaSource, type MediaSourceInput } from '@/services/media';
-import { MediaHeading } from '../shared';
+import '../style.less';
 
 const defaults: MediaSourceInput = { name: '', apiUrl: '', apiType: 'json', enabled: true, priority: 100, fullEnabled: false, allowCategories: '', denyCategories: '', requestIntervalSeconds: 3, timeoutSeconds: 15 };
 export default function Sources() {
@@ -14,8 +14,7 @@ export default function Sources() {
  const edit=(row?:MediaSource)=>{setEditing(row);form.resetFields();form.setFieldsValue(row||defaults);setOpen(true)};
  const save=async()=>{const values=await form.validateFields();setSaving(true);try{const r=editing?await updateMediaSource(editing.id,values):await createMediaSource({...defaults,...values});if(r.code!==0)throw Error(r.msg);message.success('站点配置已保存');setOpen(false);await load()}catch(e){message.error(e instanceof Error?e.message:'保存失败')}finally{setSaving(false)}};
  return <PageContainer title={false}><div className="media-workspace">
- <MediaHeading eyebrow="MEDIA / SOURCES" title="资源站点" description="管理内容来源、分类范围与访问策略。" extra={<Button type="primary" icon={<PlusOutlined/>} onClick={()=>edit()}>添加站点</Button>}/>
- <Card className="media-panel"><div className="media-toolbar"><Input.Search allowClear placeholder="搜索站点名称或接口" value={query} onChange={e=>setQuery(e.target.value)} style={{maxWidth:340}}/><Space><Typography.Text type="secondary">{rows.length} 个站点</Typography.Text><Button icon={<ReloadOutlined/>} onClick={load}>刷新</Button></Space></div>
+ <Card className="media-panel"><div className="media-toolbar"><Input.Search allowClear placeholder="搜索站点名称或接口" value={query} onChange={e=>setQuery(e.target.value)} style={{maxWidth:340}}/><Space><Typography.Text type="secondary">{rows.length} 个站点</Typography.Text><Button icon={<ReloadOutlined/>} onClick={load}>刷新</Button><Button type="primary" icon={<PlusOutlined/>} onClick={()=>edit()}>添加站点</Button></Space></div>
  <Table<MediaSource> rowKey="id" loading={loading} dataSource={rows.filter(s=>(s.name+s.apiUrl).toLowerCase().includes(query.toLowerCase()))} pagination={{ pageSize: 10, showSizeChanger: false }} scroll={{x:850}} columns={[
  {title:'站点',render:(_,s)=><Space size={14}><span className="media-source-dot">{s.name.slice(0,1)}</span><div><Typography.Text strong>{s.name}</Typography.Text><div className="media-muted">JSON 资源接口</div></div></Space>},
  {title:'接口地址',dataIndex:'apiUrl',render:v=><Typography.Text copyable ellipsis={{tooltip:v}} style={{maxWidth:330}}>{v}</Typography.Text>},

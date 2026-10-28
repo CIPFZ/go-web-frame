@@ -29,6 +29,11 @@ export default [
     ],
   },
   {
+    path: '/media/player',
+    layout: false,
+    component: './media/player',
+  },
+  {
     path: '/',
     id: 'ant-design-pro-layout',
     routes: [

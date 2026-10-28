@@ -29,3 +29,12 @@ func TestValidateSourceRejectsPlainHTTP(t *testing.T) {
 	require.Error(t, validateSource(Source{Name: "bad", APIURL: "http://example.com/api"}))
 	require.NoError(t, validateSource(Source{Name: "good", APIURL: "https://example.com/api"}))
 }
+
+func TestNormalizeGenresFromMacCMSFields(t *testing.T) {
+	record := rawRecord{"vod_class": "动作,爱情，剧情/动作"}
+	require.Equal(t, "动作,爱情,剧情", recordGenres(record))
+}
+
+func TestNormalizeGenresSupportsAlternateFields(t *testing.T) {
+	require.Equal(t, "科幻,冒险", recordGenres(rawRecord{"vod_tags": "科幻、冒险"}))
+}

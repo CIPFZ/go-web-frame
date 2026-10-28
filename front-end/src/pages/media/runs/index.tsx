@@ -1,27 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
-import { Alert, Button, Card, Descriptions, Drawer, Popconfirm, Select, Space, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Descriptions, Drawer, List, Popconfirm, Select, Space, Table, Tag, Typography, message } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { cancelCollectionRun, listCollectionRuns, listMediaSources, type CollectionRun, type MediaSource } from '@/services/media';
-import { MediaHeading, modeNames, StatusTag, statusNames, timeText } from '../shared';
+import { modeNames, StatusTag, statusNames, timeText } from '../shared';
 
 export default function Runs() {
- const [runs,setRuns]=useState<CollectionRun[]>([]),[sources,setSources]=useState<MediaSource[]>([]),[loading,setLoading]=useState(false),[source,setSource]=useState<number>(),[mode,setMode]=useState<string>(),[status,setStatus]=useState<string>(),[selected,setSelected]=useState<number>(),[pollError,setPollError]=useState(false);
- const load=async(silent=false)=>{if(!silent)setLoading(true);try{const r=await listCollectionRuns();if(r.code!==0)throw Error();setRuns(r.data||[]);setPollError(false)}catch{setPollError(true)}finally{if(!silent)setLoading(false)}};
- useEffect(()=>{void load();listMediaSources().then(r=>{if(r.code===0)setSources(r.data||[])}).catch(()=>message.error('站点名称加载失败'));const timer=window.setInterval(()=>void load(true),5000);return()=>clearInterval(timer)},[]);
+ const [runs,setRuns]=useState<CollectionRun[]>([]),[total,setTotal]=useState(0),[summary,setSummary]=useState<Record<string,number>>({}),[page,setPage]=useState(1),[sources,setSources]=useState<MediaSource[]>([]),[loading,setLoading]=useState(false),[source,setSource]=useState<number>(),[mode,setMode]=useState<string|undefined>('collect'),[status,setStatus]=useState<string>(),[selected,setSelected]=useState<number>(),[pollError,setPollError]=useState(false);
+ // Filtering and paging happen on the server; health checks would otherwise crowd out collection runs.
+ const load=async(silent=false)=>{if(!silent)setLoading(true);try{const r=await listCollectionRuns({page,pageSize:10,sourceId:source,mode,status});if(r.code!==0)throw Error();setRuns(r.data?.list||[]);setTotal(r.data?.total||0);setSummary(r.data?.summary||{});setPollError(false)}catch{setPollError(true)}finally{if(!silent)setLoading(false)}};
+ useEffect(()=>{listMediaSources().then(r=>{if(r.code===0)setSources(r.data||[])}).catch(()=>message.error('站点名称加载失败'))},[]);
+ useEffect(()=>{void load();const timer=window.setInterval(()=>void load(true),5000);return()=>clearInterval(timer)},[page,source,mode,status]);
  const active=runs.find(r=>r.id===selected);
  const cancel=async(id:number)=>{try{const r=await cancelCollectionRun(id);if(r.code!==0)throw Error(r.msg);message.success('已请求取消，任务将在当前步骤完成后停止');await load(true)}catch(e){message.error(e instanceof Error?e.message:'取消失败')}};
  const name=(id:number)=>sources.find(s=>s.id===id)?.name||'站点 #'+id;
+ const count=(...keys:string[])=>keys.reduce((n,k)=>n+(summary[k]||0),0);
  return <PageContainer title={false}><div className="media-workspace">
- <MediaHeading eyebrow="MEDIA / ACTIVITY" title="采集日志" description="查看自动任务的执行状态、处理数量与异常原因。" extra={<Space><Tag color="processing">每 5 秒更新</Tag><Button icon={<ReloadOutlined/>} onClick={()=>load()}>刷新</Button></Space>}/>
- <div className="media-stat-grid">{[['运行与排队',runs.filter(r=>['running','queued'].includes(r.status)).length],['已完成',runs.filter(r=>r.status==='success').length],['需要关注',runs.filter(r=>['failed','partial'].includes(r.status)).length],['最近任务',runs.length]].map(([label,value])=><div className="media-stat" key={label}><span className="media-muted">{label}</span><b>{value}</b></div>)}</div>
+ <div className="media-stat-grid">{[['运行与排队',count('running','queued')],['已完成',count('success')],['需要关注',count('failed','partial')],['全部任务',Object.values(summary).reduce((a,b)=>a+b,0)]].map(([label,value])=><div className="media-stat" key={label}><span className="media-muted">{label}</span><b>{value}</b></div>)}</div>
  {pollError&&<Alert type="warning" showIcon message="暂时无法刷新日志，当前显示上次成功加载的数据。" style={{marginBottom:16}}/>}
  <Card className="media-panel"><div className="media-toolbar"><Space wrap>
- <Select allowClear placeholder="全部站点" style={{width:180}} value={source} onChange={setSource} options={sources.map(s=>({value:s.id,label:s.name}))}/>
- <Select allowClear placeholder="全部类型" style={{width:150}} value={mode} onChange={setMode} options={Object.entries(modeNames).map(([value,label])=>({value,label}))}/>
- <Select allowClear placeholder="全部状态" style={{width:150}} value={status} onChange={setStatus} options={['queued','running','success','partial','failed','cancelled'].map(value=>({value,label:statusNames[value]}))}/>
- </Space><Typography.Text type="secondary">最近 {runs.length} 条记录</Typography.Text></div>
- <Table<CollectionRun> rowKey="id" loading={loading} dataSource={runs.filter(r=>(!source||r.sourceId===source)&&(!mode||r.mode===mode)&&(!status||r.status===status))} pagination={{pageSize:10,showSizeChanger:false}} scroll={{x:1050}} columns={[
+ <Select allowClear placeholder="全部站点" style={{width:180}} value={source} onChange={v=>{setSource(v);setPage(1)}} options={sources.map(s=>({value:s.id,label:s.name}))}/>
+ <Select allowClear placeholder="全部类型（含健康检查）" style={{width:200}} value={mode} onChange={v=>{setMode(v);setPage(1)}} options={[{value:'collect',label:'采集任务（不含健康检查）'},...Object.entries(modeNames).map(([value,label])=>({value,label}))]}/>
+ <Select allowClear placeholder="全部状态" style={{width:150}} value={status} onChange={v=>{setStatus(v);setPage(1)}} options={['queued','running','success','partial','failed','cancelled'].map(value=>({value,label:statusNames[value]}))}/>
+ </Space><Space><Typography.Text type="secondary">共 {total} 条记录</Typography.Text><Tag color="processing">每 5 秒更新</Tag><Button icon={<ReloadOutlined/>} onClick={()=>load()}>刷新</Button></Space></div>
+ <Table<CollectionRun> rowKey="id" loading={loading} dataSource={runs} pagination={{current:page,pageSize:10,total,showSizeChanger:false,onChange:setPage}} scroll={{x:1050}} columns={[
  {title:'任务',render:(_,r)=><div><Typography.Text strong>{name(r.sourceId)}</Typography.Text><div className="media-muted">#{r.id} · {modeNames[r.mode]||r.mode}</div></div>},
  {title:'状态',render:(_,r)=><StatusTag value={r.status}/>},
  {title:'采集进度',render:(_,r)=>r.mode==='health'?<Typography.Text type="secondary">接口响应检查</Typography.Text>:<div><Typography.Text>{r.fetched} 条 · {r.pages} 页</Typography.Text><div className="media-muted">{['queued','running'].includes(r.status)?'下一页：'+r.nextPage:'处理结束'}</div></div>},
@@ -34,6 +36,6 @@ export default function Runs() {
  {key:'source',label:'站点',children:name(active.sourceId)},{key:'start',label:'开始时间',children:timeText(active.startedAt)},{key:'end',label:'结束时间',children:timeText(active.finishedAt)},
  {key:'progress',label:'采集进度',children:active.fetched+' 条 / '+active.pages+' 页'},{key:'next',label:'下一页断点',children:active.nextPage||'已结束'},
  {key:'new',label:'新增 / 更新',children:active.insertedCount+' / '+active.updatedCount},{key:'skip',label:'跳过 / 错误',children:active.skippedCount+' / '+active.errorCount}
- ]}/><Typography.Title level={5} style={{marginTop:28}}>执行说明</Typography.Title><Alert showIcon type={active.errorMessage?'warning':'info'} message={active.errorMessage||'暂无异常记录。任务进度按已处理页数与条目数更新。'}/></>}
+ ]}/><Typography.Title level={5} style={{marginTop:28}}>执行说明</Typography.Title><Alert showIcon type={active.errorMessage?'warning':'info'} message={active.errorMessage||'暂无异常记录。任务进度按已处理页数与条目数更新。'}/>{active.pageFailures?.length ? <><Typography.Title level={5} style={{marginTop:28}}>失败分页</Typography.Title><List size="small" bordered dataSource={active.pageFailures} renderItem={failure => <List.Item><Space direction="vertical" size={2}><Typography.Text strong>第 {failure.page} 页 · 已重试 {failure.attempts} 次</Typography.Text><Typography.Text type="secondary">{failure.errorMessage}</Typography.Text></Space></List.Item>} /></> : null}</>}
  </Drawer></div></PageContainer>;
 }

@@ -25,6 +25,7 @@ export type MediaItem = {
   title: string;
   originalTitle?: string;
   mediaType: string;
+  genres?: string;
   year?: string;
   area?: string;
   language?: string;
@@ -38,7 +39,8 @@ export type PlayEpisode = { id: number; episodeNo: number; episodeName?: string;
 export type PlayLine = { id: number; lineName: string; sourceName?: string; episodes: PlayEpisode[]; lastStatus?: string };
 export type SourcePlayback = { source: MediaSource; sourceItem: { id: number; externalId?: string; externalTitle?: string }; lines: PlayLine[] };
 export type MediaDetail = { item: MediaItem; playbacks: SourcePlayback[] };
-export type CollectionRun = { id: number; sourceId: number; mode: string; status: string; startedAt: string; finishedAt?: string; pages: number; nextPage: number; maxItems: number; maxPages: number; fetched: number; insertedCount: number; updatedCount: number; skippedCount: number; errorCount: number; errorMessage?: string };
+export type CollectionPageFailure = { id: number; page: number; attempts: number; errorMessage: string };
+export type CollectionRun = { id: number; sourceId: number; mode: string; status: string; startedAt: string; finishedAt?: string; pages: number; nextPage: number; maxItems: number; maxPages: number; fetched: number; insertedCount: number; updatedCount: number; skippedCount: number; errorCount: number; errorMessage?: string; pageFailures?: CollectionPageFailure[] };
 export type Schedule = { id: number; sourceId: number; kind: string; enabled: boolean; cron: string; nextRunAt: string; lastRunAt?: string; lastStatus?: string; lastError?: string };
 type API<T> = { code: number; msg?: string; data: T };
 const base = '/api/v1/media';
@@ -50,7 +52,8 @@ export const checkMediaSource = (id: number) => request<API<{ result: string; la
 export const collectMediaSource = (id: number, mode = 'sample', maxItems = 100) => request<API<CollectionRun>>(base + '/sources/' + id + '/collect', { method: 'POST', data: { mode, maxItems, maxPages: 10 } });
 export const listMediaItems = (page = 1, query = '', mediaType = '') => request<API<{ list: MediaItem[]; total: number }>>(base + '/items', { params: { page, pageSize: 20, query, mediaType } });
 export const getMediaItem = (id: number) => request<API<MediaDetail>>(base + '/items/' + id);
-export const listCollectionRuns = () => request<API<CollectionRun[]>>(base + '/runs');
+export type RunQuery = { page: number; pageSize: number; sourceId?: number; mode?: string; status?: string };
+export const listCollectionRuns = (params: RunQuery) => request<API<{ list: CollectionRun[]; total: number; summary: Record<string, number> }>>(base + '/runs', { params });
 export const cancelCollectionRun = (id: number) => request<API<null>>(base + '/runs/' + id + '/cancel', { method: 'POST' });
 export const listMediaSchedules = () => request<API<Schedule[]>>(base + '/schedules');
 export const updateMediaSchedule = (id: number, data: Pick<Schedule, 'cron' | 'enabled'>) => request<API<null>>(base + '/schedules/' + id, { method: 'PUT', data });

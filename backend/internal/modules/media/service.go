@@ -155,7 +155,8 @@ func (s *Service) ListItems(ctx context.Context, page, size int, query, kind str
 	var total int64
 	db := s.db.WithContext(ctx).Model(&Item{})
 	if query != "" {
-		db = db.Where("title LIKE ?", "%"+query+"%")
+		pattern := "%" + query + "%"
+		db = db.Where("title LIKE ? OR original_title LIKE ? OR genres LIKE ?", pattern, pattern, pattern)
 	}
 	if kind != "" {
 		// Media type values may contain multiple canonical tags (for example movie,anime).
@@ -168,10 +169,56 @@ func (s *Service) ListItems(ctx context.Context, page, size int, query, kind str
 	err := db.Order("updated_at desc,id desc").Offset((page - 1) * size).Limit(size).Find(&rows).Error
 	return map[string]any{"list": rows, "total": total, "page": page, "pageSize": size}, err
 }
-func (s *Service) ListRuns(ctx context.Context) ([]CollectionRun, error) {
+type RunFilter struct {
+	SourceID uint
+	Mode     string // a concrete mode, "collect" for every non-health run, or empty for all
+	Status   string
+	Page     int
+	PageSize int
+}
+
+// ListRuns filters and paginates in the database. Health checks run every 20 minutes
+// per source, so a fixed "latest N" window would hide the weekly collection runs.
+func (s *Service) ListRuns(ctx context.Context, f RunFilter) (map[string]any, error) {
+	if f.Page < 1 {
+		f.Page = 1
+	}
+	if f.PageSize < 1 || f.PageSize > 100 {
+		f.PageSize = 10
+	}
+	db := s.db.WithContext(ctx).Model(&CollectionRun{})
+	if f.SourceID > 0 {
+		db = db.Where("source_id = ?", f.SourceID)
+	}
+	if f.Mode == "collect" {
+		db = db.Where("mode <> ?", "health")
+	} else if f.Mode != "" {
+		db = db.Where("mode = ?", f.Mode)
+	}
+	// Summary counts ignore the status filter so the cards keep their meaning.
+	var groups []struct {
+		Status string
+		Count  int64
+	}
+	if err := db.Session(&gorm.Session{}).Select("status, COUNT(*) AS count").Group("status").Scan(&groups).Error; err != nil {
+		return nil, err
+	}
+	summary := map[string]int64{}
+	for _, g := range groups {
+		summary[g.Status] = g.Count
+	}
+	if f.Status != "" {
+		db = db.Where("status = ?", f.Status)
+	}
+	var total int64
+	if err := db.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+		return nil, err
+	}
 	var rows []CollectionRun
-	err := s.db.WithContext(ctx).Order("id desc").Limit(100).Find(&rows).Error
-	return rows, err
+	err := db.Preload("PageFailures", func(db *gorm.DB) *gorm.DB {
+		return db.Order("page, id")
+	}).Order("id desc").Offset((f.Page - 1) * f.PageSize).Limit(f.PageSize).Find(&rows).Error
+	return map[string]any{"list": rows, "total": total, "page": f.Page, "pageSize": f.PageSize, "summary": summary}, err
 }
 func (s *Service) ListHealth(ctx context.Context, id uint) ([]HealthCheck, error) {
 	var rows []HealthCheck

@@ -83,6 +83,7 @@ func InitRouters(svcCtx *svc.ServiceContext) *gin.Engine {
 		privateGroup.GET("/media/items/:id", mediaAPI.GetItem)
 		privateGroup.POST("/media/items/:id/refresh", mediaAPI.RefreshItem)
 		privateGroup.POST("/media/episodes/:id/check", mediaAPI.CheckEpisode)
+		privateGroup.GET("/media/episodes/:id/stream", mediaAPI.StreamEpisode)
 	}
 
 	if svcCtx.ProxyManager != nil {

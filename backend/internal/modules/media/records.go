@@ -52,6 +52,38 @@ func normalizeArea(a string) string {
 	}
 	return a
 }
+
+// normalizeGenres keeps the upstream genre order while removing duplicate labels.
+// Most MacCMS-compatible APIs expose this value as vod_class, but a few sources
+// use vod_tag(s) or vod_genre(s), so the mapper accepts all common spellings.
+func normalizeGenres(value string) string {
+	seen := map[string]struct{}{}
+	parts := strings.FieldsFunc(value, func(r rune) bool {
+		return r == ',' || r == '，' || r == '/' || r == '|' || r == '、' || r == ';' || r == '；' || r == '\n'
+	})
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(htmlTags.ReplaceAllString(part, ""))
+		if part == "" {
+			continue
+		}
+		if _, ok := seen[part]; ok {
+			continue
+		}
+		seen[part] = struct{}{}
+		out = append(out, clipped(part, 40))
+	}
+	return strings.Join(out, ",")
+}
+
+func recordGenres(r rawRecord) string {
+	for _, key := range []string{"vod_class", "vod_genres", "vod_genre", "vod_tags", "vod_tag"} {
+		if value := normalizeGenres(firstString(r, key)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
 func mapMediaType(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	for _, word := range []string{"伦理", "成人", "色情", "直播", "短剧", "短视频", "解说", "体育", "足球", "篮球"} {
@@ -113,7 +145,7 @@ func (s *Service) saveRecord(ctx context.Context, src Source, r rawRecord, listH
 		h := sha256.Sum256([]byte(key))
 		key = hex.EncodeToString(h[:])
 	}
-	incoming := Item{Title: title, OriginalTitle: clipped(firstString(r, "vod_sub", "vod_name"), 500), MediaType: kind, Year: year, Area: area,
+	incoming := Item{Title: title, OriginalTitle: clipped(firstString(r, "vod_sub", "vod_name"), 500), MediaType: kind, Genres: recordGenres(r), Year: year, Area: area,
 		Language: clipped(firstString(r, "vod_lang"), 100), Director: clipped(firstString(r, "vod_director"), 2000), Actors: clipped(firstString(r, "vod_actor"), 4000),
 		Description: clipped(htmlTags.ReplaceAllString(firstString(r, "vod_content"), ""), 12000), CoverURL: clipped(firstString(r, "vod_pic"), 1000),
 		NormalizedKey: key, Status: status, MetadataSourceID: src.ID}
@@ -158,7 +190,7 @@ func (s *Service) saveRecord(ctx context.Context, src Source, r rawRecord, listH
 			}
 		}
 		if canUpdate {
-			if e := tx.Model(&item).Updates(map[string]any{"title": incoming.Title, "original_title": incoming.OriginalTitle, "media_type": kind, "year": year, "area": area, "language": incoming.Language, "director": incoming.Director, "actors": incoming.Actors, "description": incoming.Description, "cover_url": incoming.CoverURL, "metadata_source_id": src.ID}).Error; e != nil {
+			if e := tx.Model(&item).Updates(map[string]any{"title": incoming.Title, "original_title": incoming.OriginalTitle, "media_type": kind, "genres": incoming.Genres, "year": year, "area": area, "language": incoming.Language, "director": incoming.Director, "actors": incoming.Actors, "description": incoming.Description, "cover_url": incoming.CoverURL, "metadata_source_id": src.ID}).Error; e != nil {
 				return e
 			}
 		}

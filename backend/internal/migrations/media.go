@@ -104,7 +104,7 @@ func ensureMediaModule(tx *gorm.DB, prefix string) error {
 	}
 	if err := tx.AutoMigrate(
 		&media.Source{}, &media.Item{}, &media.SourceItem{}, &media.PlayLine{},
-		&media.PlayEpisode{}, &media.CollectionRun{}, &media.HealthCheck{},
+		&media.PlayEpisode{}, &media.CollectionRun{}, &media.CollectionPageFailure{}, &media.HealthCheck{},
 		&media.CollectionSchedule{},
 	); err != nil {
 		return err

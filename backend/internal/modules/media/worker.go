@@ -15,6 +15,8 @@ import (
 
 var errBusy = errors.New("来源已有任务正在运行")
 
+const pageRetryAttempts = 3
+
 func leaseToken() string { b := make([]byte, 16); _, _ = rand.Read(b); return hex.EncodeToString(b) }
 func (s *Service) withSource(ctx context.Context, id uint, fn func(context.Context, Source) error) error {
 	token := leaseToken()
@@ -310,7 +312,46 @@ func (s *Service) collectPages(ctx context.Context, src Source, run *CollectionR
 		}
 		page, e := s.retryPage(ctx, src, run.NextPage, run.Hours)
 		if e != nil {
-			return e
+			// A page-level upstream timeout must not abort the entire collection.
+			// Preserve the failure, advance the checkpoint, and continue with the next page.
+			if errors.Is(e, context.Canceled) || errors.Is(e, context.DeadlineExceeded) {
+				return e
+			}
+			failedPage := run.NextPage
+			run.Pages++
+			run.ErrorCount++
+			run.ErrorMessage = e.Error()
+			if saveErr := s.db.WithContext(ctx).Create(&CollectionPageFailure{
+				CollectionRunID: run.ID,
+				Page:            failedPage,
+				Attempts:        pageRetryAttempts,
+				ErrorMessage:    e.Error(),
+			}).Error; saveErr != nil {
+				return saveErr
+			}
+			if run.Mode == "full" {
+				src.FullHadErrors = true
+				if saveErr := s.db.WithContext(ctx).Model(&src).Updates(map[string]any{
+					"next_page": run.NextPage + 1, "full_had_errors": true,
+				}).Error; saveErr != nil {
+					return saveErr
+				}
+			}
+			run.NextPage++
+			if saveErr := s.db.WithContext(ctx).Model(run).Updates(map[string]any{
+				"next_page": run.NextPage, "pages": run.Pages, "error_count": run.ErrorCount,
+				"error_message": run.ErrorMessage,
+			}).Error; saveErr != nil {
+				return saveErr
+			}
+			if run.MaxPages > 0 && run.Pages >= run.MaxPages {
+				*status = "partial"
+				return nil
+			}
+			if e = pause(ctx, time.Duration(src.RequestIntervalSeconds)*time.Second); e != nil {
+				return e
+			}
+			continue
 		}
 		if page.Page > 0 && page.Page != run.NextPage {
 			return errors.New("来源未按请求返回分页")
@@ -438,7 +479,7 @@ func (s *Service) collectPages(ctx context.Context, src Source, run *CollectionR
 func (s *Service) retryPage(ctx context.Context, src Source, page, hours int) (upstreamPage, error) {
 	var out upstreamPage
 	var err error
-	for attempt := 0; attempt < 3; attempt++ {
+	for attempt := 0; attempt < pageRetryAttempts; attempt++ {
 		if attempt > 0 {
 			if e := pause(ctx, time.Duration(src.RequestIntervalSeconds+attempt*2)*time.Second); e != nil {
 				return out, e

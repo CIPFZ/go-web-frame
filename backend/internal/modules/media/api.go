@@ -98,7 +98,10 @@ func (a *API) Enqueue(c *gin.Context) {
 	}
 }
 func (a *API) ListRuns(c *gin.Context) {
-	v, e := a.service.ListRuns(c.Request.Context())
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	size, _ := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
+	sourceID, _ := strconv.ParseUint(c.Query("sourceId"), 10, 64)
+	v, e := a.service.ListRuns(c.Request.Context(), RunFilter{SourceID: uint(sourceID), Mode: c.Query("mode"), Status: c.Query("status"), Page: page, PageSize: size})
 	if e != nil {
 		response.FailWithMessage("获取任务失败", c)
 		return
