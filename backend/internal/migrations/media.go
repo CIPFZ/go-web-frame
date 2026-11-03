@@ -73,8 +73,6 @@ func ensureMediaModule(tx *gorm.DB, prefix string) error {
 		{"/media/sources/:id/collect", "POST", "Collect media source records"},
 		{"/media/items", "GET", "List collected media items"},
 		{"/media/items/:id", "GET", "Get collected media item"},
-	}
-	endpoints = append(endpoints, []struct{ suffix, method, desc string }{
 		{"/media/runs", "GET", "List collection runs"},
 		{"/media/runs/:id/cancel", "POST", "Cancel collection run"},
 		{"/media/schedules", "GET", "List collection schedules"},
@@ -82,7 +80,8 @@ func ensureMediaModule(tx *gorm.DB, prefix string) error {
 		{"/media/sources/:id/health-history", "GET", "List source health history"},
 		{"/media/items/:id/refresh", "POST", "Refresh playback addresses"},
 		{"/media/episodes/:id/check", "POST", "Probe playback address"},
-	}...)
+		{"/media/episodes/:id/stream", "GET", "Stream playback through the CMS"},
+	}
 	for _, endpoint := range endpoints {
 		api := model.SysApi{
 			Path:   strings.TrimRight(prefix, "/") + endpoint.suffix,

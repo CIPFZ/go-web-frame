@@ -42,15 +42,24 @@ def main():
         ('/api/v1/sys/user/getSelfInfo', None),
         ('/api/v1/sys/menu/getMenu', None),
         ('/api/v1/sys/system/getServerInfo', {}),
+        ('/api/v1/media/sources', None),
+        ('/api/v1/media/schedules', None),
+        ('/api/v1/media/runs?mode=collect', None),
+        ('/api/v1/media/items', None),
     ):
         result = request(path, payload, token)
         assert result.get('code') == 0, f'{path}: code {result.get("code")}'
         if path.endswith('getMenu'):
             assert result['data'], 'No menus were seeded'
-            assert not any(word in json.dumps(result['data']) for word in ('plugin', 'poetry'))
+            menus = json.dumps(result['data'])
+            assert '/media/library' in menus and '/media/sources' in menus, 'Missing media menus'
+            assert not any(word in menus for word in ('plugin', 'poetry', '/magnet', '/proxy'))
         print(f'{path}: OK')
 
     for path, method in (
+        ('/api/v1/magnet/preview', 'POST'),
+        ('/api/v1/proxy/instances', 'GET'),
+        ('/api/v1/proxy/browser/bootstrap', 'GET'),
         ('/api/v1/plugin/public/getPublishedPluginList', 'POST'),
         ('/api/v1/plugin/plugin/getPluginList', 'POST'),
         ('/api/v1/plugin/release/claim', 'POST'),

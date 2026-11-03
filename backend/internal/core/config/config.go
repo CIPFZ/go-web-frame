@@ -6,23 +6,20 @@ import (
 
 // Config 全局配置
 type Config struct {
-	MagnetPreview MagnetPreview      `mapstructure:"magnet_preview" yaml:"magnet_preview" json:"magnet_preview"`
-	ProxyManager  ProxyManagerConfig `mapstructure:"proxy_manager" yaml:"proxy_manager" json:"proxy_manager"`
-	BrowserProxy  BrowserProxyConfig `mapstructure:"browser_proxy" yaml:"browser_proxy" json:"browser_proxy"`
-	System        System             `mapstructure:"system" json:"system" yaml:"system"`
-	Logger        Logger             `mapstructure:"logger" json:"logger" yaml:"logger"`
-	I18n          I18n               `mapstructure:"i18n" json:"i18n" yaml:"i18n"`
-	JWT           JWT                `mapstructure:"jwt" json:"jwt" yaml:"jwt"`
-	Database      Database           `mapstructure:"database" json:"database" yaml:"database"`
-	Mysql         MySQL              `mapstructure:"mysql" json:"mysql" yaml:"mysql"`
-	Mongo         Mongo              `mapstructure:"mongo" json:"mongo" yaml:"mongo"`
-	Redis         Redis              `mapstructure:"redis" json:"redis" yaml:"redis"`
-	File          FileConfig         `mapstructure:"file" json:"file" yaml:"file"`
-	Email         Email              `mapstructure:"email" json:"email" yaml:"email"`
-	Captcha       Captcha            `mapstructure:"captcha" json:"captcha" yaml:"captcha"`
-	Cors          CORS               `mapstructure:"cors" json:"cors" yaml:"cors"`
-	Observable    Observability      `mapstructure:"observable" json:"observable" yaml:"observable"`
-	RateLimit     RateLimitConfig    `mapstructure:"rate_limit" json:"rate_limit" yaml:"rate_limit"`
+	System     System          `mapstructure:"system" json:"system" yaml:"system"`
+	Logger     Logger          `mapstructure:"logger" json:"logger" yaml:"logger"`
+	I18n       I18n            `mapstructure:"i18n" json:"i18n" yaml:"i18n"`
+	JWT        JWT             `mapstructure:"jwt" json:"jwt" yaml:"jwt"`
+	Database   Database        `mapstructure:"database" json:"database" yaml:"database"`
+	Mysql      MySQL           `mapstructure:"mysql" json:"mysql" yaml:"mysql"`
+	Mongo      Mongo           `mapstructure:"mongo" json:"mongo" yaml:"mongo"`
+	Redis      Redis           `mapstructure:"redis" json:"redis" yaml:"redis"`
+	File       FileConfig      `mapstructure:"file" json:"file" yaml:"file"`
+	Email      Email           `mapstructure:"email" json:"email" yaml:"email"`
+	Captcha    Captcha         `mapstructure:"captcha" json:"captcha" yaml:"captcha"`
+	Cors       CORS            `mapstructure:"cors" json:"cors" yaml:"cors"`
+	Observable Observability   `mapstructure:"observable" json:"observable" yaml:"observable"`
+	RateLimit  RateLimitConfig `mapstructure:"rate_limit" json:"rate_limit" yaml:"rate_limit"`
 }
 
 type Database struct {
@@ -148,52 +145,4 @@ type RateLimitConfig struct {
 	Enabled bool `mapstructure:"enabled" json:"enabled" yaml:"enabled"`
 	QPS     int  `mapstructure:"qps" json:"qps" yaml:"qps"`       // 每秒并发数 (放入桶的速度)
 	Burst   int  `mapstructure:"burst" json:"burst" yaml:"burst"` // 突发大小 (桶容量)
-}
-
-type ProxyManagerConfig struct {
-	Enabled        bool     `mapstructure:"enabled" yaml:"enabled" json:"enabled"`
-	BackupDir      string   `mapstructure:"backup_dir" yaml:"backup_dir" json:"backup_dir"`
-	ConfigRoots    []string `mapstructure:"config_roots" yaml:"config_roots" json:"config_roots"`
-	CommandTimeout int      `mapstructure:"command_timeout_sec" yaml:"command_timeout_sec" json:"command_timeout_sec"`
-}
-
-// BrowserProxyConfig contains the read-only control-plane data consumed by the
-// browser extension. Proxy listeners remain owned by sing-box/Xray.
-type BrowserProxyConfig struct {
-	Enabled       bool                        `mapstructure:"enabled" yaml:"enabled" json:"enabled"`
-	DefaultMode   string                      `mapstructure:"default_mode" yaml:"default_mode" json:"default_mode"`
-	DefaultNodeID string                      `mapstructure:"default_node_id" yaml:"default_node_id" json:"default_node_id"`
-	Nodes         []BrowserProxyNodeConfig    `mapstructure:"nodes" yaml:"nodes" json:"nodes"`
-	RuleSets      []BrowserProxyRuleSetConfig `mapstructure:"rule_sets" yaml:"rule_sets" json:"rule_sets"`
-}
-
-type BrowserProxyNodeConfig struct {
-	ID        string `mapstructure:"id" yaml:"id" json:"id"`
-	Name      string `mapstructure:"name" yaml:"name" json:"name"`
-	Scheme    string `mapstructure:"scheme" yaml:"scheme" json:"scheme"`
-	Host      string `mapstructure:"host" yaml:"host" json:"host"`
-	Port      int    `mapstructure:"port" yaml:"port" json:"port"`
-	Username  string `mapstructure:"username" yaml:"username" json:"username"`
-	Password  string `mapstructure:"password" yaml:"password" json:"password"`
-	Enabled   bool   `mapstructure:"enabled" yaml:"enabled" json:"enabled"`
-	Status    string `mapstructure:"status" yaml:"status" json:"status"`
-	LatencyMs int    `mapstructure:"latency_ms" yaml:"latency_ms" json:"latencyMs"`
-}
-
-type BrowserProxyRuleSetConfig struct {
-	ID      string   `mapstructure:"id" yaml:"id" json:"id"`
-	Name    string   `mapstructure:"name" yaml:"name" json:"name"`
-	Version string   `mapstructure:"version" yaml:"version" json:"version"`
-	Domains []string `mapstructure:"domains" yaml:"domains" json:"domains"`
-}
-
-type MagnetPreview struct {
-	Enabled            bool   `mapstructure:"enabled" yaml:"enabled" json:"enabled"`
-	CacheDir           string `mapstructure:"cache_dir" yaml:"cache_dir" json:"cache_dir"`
-	CacheTTLSeconds    int    `mapstructure:"cache_ttl_sec" yaml:"cache_ttl_sec" json:"cache_ttl_sec"`
-	MetadataTimeoutSec int    `mapstructure:"metadata_timeout_sec" yaml:"metadata_timeout_sec" json:"metadata_timeout_sec"`
-	MaxFiles           int    `mapstructure:"max_files" yaml:"max_files" json:"max_files"`
-	FetchCover         bool   `mapstructure:"fetch_cover" yaml:"fetch_cover" json:"fetch_cover"`
-	MaxCoverMB         int64  `mapstructure:"max_cover_mb" yaml:"max_cover_mb" json:"max_cover_mb"`
-	MaxConcurrent      int    `mapstructure:"max_concurrent" yaml:"max_concurrent" json:"max_concurrent"`
 }

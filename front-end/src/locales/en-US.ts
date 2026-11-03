@@ -1,5 +1,3 @@
-import magnet from './en-US/magnet';
-import proxy from './en-US/proxy';
 import cms from './en-US/cms';
 import component from './en-US/component';
 import globalHeader from './en-US/globalHeader';
@@ -10,8 +8,6 @@ import settingDrawer from './en-US/settingDrawer';
 import settings from './en-US/settings';
 
 export default {
-  ...magnet,
-  ...proxy,
   ...cms,
   'navBar.lang': 'Languages',
   'layout.user.link.help': 'Help',

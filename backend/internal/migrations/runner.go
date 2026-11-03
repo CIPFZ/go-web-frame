@@ -7,7 +7,6 @@ import (
 	"github.com/CIPFZ/gowebframe/internal/core/claims"
 	"github.com/CIPFZ/gowebframe/internal/core/config"
 	"github.com/CIPFZ/gowebframe/internal/core/session"
-	proxyModel "github.com/CIPFZ/gowebframe/internal/modules/proxy"
 	sysModel "github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/seed"
 	"go.uber.org/zap"
@@ -16,7 +15,7 @@ import (
 	"time"
 )
 
-const Latest = "20260924_media_collection_v9"
+const Latest = "20261103_media_edition_v1"
 const tokenNoticeVersion = "20260910_token_notice_v1"
 const i18nVersion = "20260910_cms_i18n_v1"
 const baselineVersion = "20260910_sessions_policy_bootstrap_v1"
@@ -35,6 +34,9 @@ func Run(ctx context.Context, db *gorm.DB, cfg *config.Config, logger *zap.Logge
 	return db.WithContext(ctx).Connection(func(conn *gorm.DB) error {
 		// Connection pins ConnPool; reset statement state before each operation.
 		conn = conn.Session(&gorm.Session{NewDB: true})
+		if err := checkEditionDatabase(conn); err != nil {
+			return err
+		}
 		switch db.Dialector.Name() {
 		case "mysql":
 			var acquired sql.NullInt64
@@ -83,6 +85,27 @@ func Run(ctx context.Context, db *gorm.DB, cfg *config.Config, logger *zap.Logge
 		}
 	})
 }
+
+// Never migrate the combined CMS database in place. A partially installed
+// combined edition may have created its proxy table before writing a checkpoint.
+func checkEditionDatabase(db *gorm.DB) error {
+	combined := db.Migrator().HasTable("proxy_instances")
+	if !combined && db.Migrator().HasTable(&schemaMigration{}) {
+		var count int64
+		if err := db.Model(&schemaMigration{}).Where("name IN ? OR name LIKE ?", []string{
+			"20260918_magnet_preview_v1", "20260919_proxy_manager_v2",
+			"20260921_proxy_subscription_url_v1", "20260924_media_collection_v9",
+		}, "20260922_media_collection_v%").Count(&count).Error; err != nil {
+			return err
+		}
+		combined = count > 0
+	}
+	if combined {
+		return fmt.Errorf("combined CMS database detected; configure a separate database for media-edition")
+	}
+	return nil
+}
+
 func applyBaseline(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error {
 	if err := db.AutoMigrate(&schemaMigration{}); err != nil {
 		return err
@@ -185,21 +208,8 @@ func apply(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error {
 	if count > 0 {
 		return nil
 	}
-	if err := ensureMagnetModule(db, cfg.System.RouterPrefix); err != nil {
-		return err
-	}
-	if err := ensureProxyModule(db, cfg.System.RouterPrefix); err != nil {
-		return err
-	}
 	if err := ensureMediaModule(db, cfg.System.RouterPrefix); err != nil {
 		return err
 	}
-	if err := db.AutoMigrate(&proxyModel.Instance{}); err != nil {
-		return err
-	}
-	if err := db.Create(&schemaMigration{Name: Latest, AppliedAt: time.Now()}).Error; err != nil {
-		return err
-	}
-	// Media migrations are rolling checkpoints; keep only the current checkpoint.
-	return db.Where("name LIKE ? AND name <> ?", "20260922_media_collection_%", Latest).Delete(&schemaMigration{}).Error
+	return db.Create(&schemaMigration{Name: Latest, AppliedAt: time.Now()}).Error
 }

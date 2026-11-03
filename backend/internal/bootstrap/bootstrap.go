@@ -5,11 +5,7 @@ import (
 	"fmt"
 	"github.com/CIPFZ/gowebframe/internal/core/session"
 	"github.com/CIPFZ/gowebframe/internal/migrations"
-	"github.com/CIPFZ/gowebframe/internal/modules/browserproxy"
-	"github.com/CIPFZ/gowebframe/internal/modules/magnet"
 	"github.com/CIPFZ/gowebframe/internal/modules/media"
-	"github.com/CIPFZ/gowebframe/internal/modules/proxy"
-	"path/filepath"
 	"time"
 
 	"github.com/CIPFZ/gowebframe/internal/core/claims"
@@ -214,44 +210,6 @@ func Initialize(path string, serviceCtx *svc.ServiceContext) (shutdowns []utils.
 	}
 	shutdowns = append(shutdowns, func(ctx context.Context) error { return serviceCtx.MediaCollector.Close(ctx) })
 
-	if cfg.ProxyManager.Enabled {
-		pc := cfg.ProxyManager
-		serviceCtx.ProxyManager, err = proxy.NewService(proxy.Config{
-			DB: serviceCtx.DB, BackupDir: pc.BackupDir, ConfigRoots: pc.ConfigRoots,
-			CommandTimeout: time.Duration(pc.CommandTimeout) * time.Second,
-		})
-		if err != nil {
-			return shutdowns, fmt.Errorf("proxy manager init: %w", err)
-		}
-		if err := serviceCtx.ProxyManager.Seed(context.Background()); err != nil {
-			return shutdowns, fmt.Errorf("proxy manager seed: %w", err)
-		}
-	}
-
-	serviceCtx.BrowserProxy, err = browserproxy.NewService(cfg.BrowserProxy)
-	if err != nil {
-		return shutdowns, fmt.Errorf("browser proxy init: %w", err)
-	}
-
-	if cfg.MagnetPreview.Enabled {
-		mc := cfg.MagnetPreview
-		if mc.CacheDir == "" {
-			mc.CacheDir = filepath.Join(filepath.Dir(path), "magnet-preview")
-		}
-		if !filepath.IsAbs(mc.CacheDir) {
-			mc.CacheDir, _ = filepath.Abs(mc.CacheDir)
-		}
-		serviceCtx.MagnetPreview, err = magnet.NewService(magnet.Config{
-			CacheDir: mc.CacheDir, CacheTTL: time.Duration(mc.CacheTTLSeconds) * time.Second,
-			MetadataTimeout: time.Duration(mc.MetadataTimeoutSec) * time.Second,
-			MaxFiles:        mc.MaxFiles, FetchCover: mc.FetchCover, MaxCoverBytes: mc.MaxCoverMB * 1024 * 1024,
-			MaxConcurrent: mc.MaxConcurrent,
-		})
-		if err != nil {
-			return shutdowns, fmt.Errorf("magnet preview init: %w", err)
-		}
-		shutdowns = append(shutdowns, func(context.Context) error { return serviceCtx.MagnetPreview.Close() })
-	}
 	serviceCtx.Logger.Info("✅ 系统核心组件组装完成")
 	return shutdowns, nil
 }

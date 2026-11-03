@@ -1,4 +1,4 @@
-name: nexus-cms
+name: media-edition
 
 x-logging: &logging
   driver: json-file
@@ -43,7 +43,7 @@ services:
     logging: *logging
 
   migrator:
-    image: nexus-cms-backend:local
+    image: media-edition-backend:local
     entrypoint: ["./migrate", "-f", "/app/configs/local.yaml"]
     environment:
       CMS_CONFIG_PATH: /app/configs/local.yaml
@@ -61,7 +61,7 @@ services:
     logging: *logging
 
   backend:
-    image: nexus-cms-backend:local
+    image: media-edition-backend:local
     build:
       context: ../../backend
     restart: unless-stopped
@@ -85,7 +85,7 @@ services:
     logging: *logging
 
   frontend:
-    image: nexus-cms-frontend:local
+    image: media-edition-frontend:local
     build:
       context: ../../front-end
     restart: unless-stopped

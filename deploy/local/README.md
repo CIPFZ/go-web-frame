@@ -1,6 +1,6 @@
 # 本机 Docker 部署
 
-此配置独立运行前端、后端、MySQL 和 Redis，Compose 项目名为 `nexus-cms`。
+此配置独立运行前端、后端、MySQL 和 Redis，Compose 项目名为 `media-edition`，默认与综合版的容器和持久卷分开。
 文件存储使用本地持久卷，默认 Web 端口为 8080，后端健康接口仅映射到本机 18081。
 
 从仓库根目录执行：
@@ -33,12 +33,12 @@ docker compose --env-file deploy/local/.env -f deploy/local/compose.yaml down
 docker compose --env-file deploy/local/.env -f deploy/local/compose.yaml up -d --wait
 ```
 
-持久卷：`nexus-cms_mysql-data`、`nexus-cms_redis-data`、`nexus-cms_uploads`。
+持久卷：`media-edition_mysql-data`、`media-edition_redis-data`、`media-edition_uploads`。
 Compose 的普通 down 保留数据；`down -v` 会删除这些数据，因此不用于日常停止。
 后端等待数据库健康后执行迁移；迁移失败会退出，成功后再启动服务。
 上传文件由前端 Nginx 通过共享卷提供访问。
 
-`smoke.py` 检查前端代理、管理员登录、菜单、系统信息及图片上传下载。
+`smoke.py` 检查管理员登录、影视菜单、片库与采集接口、已移除的业务路由、系统信息及图片上传下载。
 完整浏览器验证使用 `python3 deploy/local/e2e.py`。它创建独立的临时 Compose 项目、数据库和持久卷，使用随机本机端口；退出时仅删除该测试项目。测试产物保留在私有的 `runtime/nexus-cms-e2e-*/`。
 直接运行 Playwright 时默认跳过创建用户的通知测试；仅隔离测试入口设置 `E2E_ISOLATED=1`。
 

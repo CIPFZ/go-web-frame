@@ -145,33 +145,3 @@ rate_limit:
   enabled: true
   qps: 100
   burst: 200
-
-# Proxy runtime management. Configuration edits are validated before atomic replacement.
-proxy_manager:
-  enabled: true
-  backup_dir: /var/lib/base-frame/proxy-backups
-  config_roots:
-    - /etc/sing-box
-    - /etc/xray
-    - /home/claude/agsbx
-  command_timeout_sec: 15
-
-# Browser extension control plane. Keep disabled until a dedicated proxy listener
-# and a scoped API token are configured on the server.
-browser_proxy:
-  enabled: false
-  default_mode: rule
-  default_node_id: ""
-  nodes: []
-  rule_sets: []
-
-# Optional magnet metadata preview (requires the magnet menu migration).
-magnet_preview:
-  enabled: false
-  cache_dir: ./runtime/magnet-preview
-  cache_ttl_sec: 10800
-  metadata_timeout_sec: 45
-  max_files: 1000
-  fetch_cover: true
-  max_cover_mb: 2
-  max_concurrent: 1
