@@ -64,6 +64,8 @@ services:
     image: media-edition-backend:local
     build:
       context: ../../backend
+      args:
+        GOPROXY: ${GOPROXY:-https://proxy.golang.org,direct}
     restart: unless-stopped
     init: true
     environment:
@@ -88,6 +90,8 @@ services:
     image: media-edition-frontend:local
     build:
       context: ../../front-end
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
     restart: unless-stopped
     ports:
       - '${CMS_BIND_ADDRESS:-0.0.0.0}:${CMS_WEB_PORT:-8080}:80'

@@ -1,7 +1,8 @@
 FROM golang:1.27.1-alpine AS builder
 
 WORKDIR /app
-ENV GOPROXY=https://proxy.golang.org,direct GOMAXPROCS=2 CGO_ENABLED=0
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV GOPROXY=${GOPROXY} GOMAXPROCS=2 CGO_ENABLED=0
 
 COPY go.mod go.sum ./
 RUN go mod download
