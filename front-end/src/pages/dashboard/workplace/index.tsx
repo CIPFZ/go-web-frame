@@ -52,6 +52,7 @@ export default function Workplace() {
     canWidget,
     pathOf,
     resolveItems,
+    toStored,
   } = useDeskPages();
   const statePage = pages.find((menu) => menu.component === 'state');
   const accountPage = allPages.find((menu) => menu.component === 'user/info');
@@ -134,7 +135,7 @@ export default function Workplace() {
   };
   const finish = async () => {
     if (!draft) return;
-    const next: DeskLayout = { v: 1, items: draft };
+    const next: DeskLayout = { v: 1, items: toStored(draft) };
     setSaving(true);
     try {
       await saveDesk(next);

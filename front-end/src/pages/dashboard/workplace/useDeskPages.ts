@@ -64,6 +64,15 @@ export function useDeskPages(only?: WorkplaceMenu[]) {
       return [{ ...i, path }];
     });
   };
+  /** 保存前把页面换成组件标识（组件只对应这一个页面时）：管理员之后改了菜单地址，保存的图标也找得到。 */
+  const toStored = (items: DeskItem[]): DeskItem[] =>
+    items.map((i) => {
+      if (i.kind !== 'app' || !i.path.startsWith('/')) return i;
+      const component = allPages.find((p) => p.path === i.path)?.component;
+      return component && byComponent.get(component)?.path === i.path
+        ? { ...i, path: component }
+        : i;
+    });
   return {
     menus,
     pages,
@@ -73,5 +82,6 @@ export function useDeskPages(only?: WorkplaceMenu[]) {
     canWidget,
     pathOf,
     resolveItems,
+    toStored,
   };
 }

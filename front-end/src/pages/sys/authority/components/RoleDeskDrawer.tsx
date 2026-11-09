@@ -170,6 +170,7 @@ function RoleDeskEditor({
     canWidget,
     pathOf,
     resolveItems,
+    toStored,
   } = useDeskPages(roleMenus);
   // 只留这个角色能用的（存下来的设计里，角色之后被收回的页面也一起去掉）；预置里的组件标识换成实际地址
   const usable = (list: DeskItem[]) =>
@@ -195,7 +196,7 @@ function RoleDeskEditor({
     try {
       await saveRoleDesk(
         role.authorityId,
-        isPreset ? null : { v: 1, items: usable(items) },
+        isPreset ? null : { v: 1, items: toStored(usable(items)) },
       );
       message.success(t('cms.roleDesk.saved'));
       onSaved();

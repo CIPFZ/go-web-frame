@@ -71,3 +71,24 @@ test('widgets and preset icons that point to a component follow the backend menu
     'https://example.com',
   ]);
 });
+
+test('saved desks name pages by component so renamed menu paths keep working', () => {
+  const { result } = renderHook(() => useDeskPages());
+  const { toStored, resolveItems } = result.current;
+  const items = [
+    widgetItem('svc'),
+    appItem('/sys/members'),
+    appItem('/unknown'),
+    appItem('https://example.com'),
+  ];
+  const stored = toStored(items);
+  expect(stored.map((i) => (i.kind === 'app' ? i.path : i.widget))).toEqual([
+    'svc',
+    'sys/user',
+    '/unknown',
+    'https://example.com',
+  ]);
+  expect(
+    resolveItems(stored).map((i) => (i.kind === 'app' ? i.path : i.widget)),
+  ).toEqual(['svc', '/sys/members', '/unknown', 'https://example.com']);
+});
