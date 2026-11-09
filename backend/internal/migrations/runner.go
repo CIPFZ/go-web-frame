@@ -23,6 +23,7 @@ const legacyVersion = "20261007_agent_gateway_link_v1"
 var steps = []step{
 	{Version: multiRoleVersion, Run: applyMultiRole},
 	{Version: personalTokensVersion, Run: applyPersonalTokens},
+	{Version: workplaceVersion, Run: applyWorkplace},
 }
 
 // Latest 是最后一步迁移的版本号：服务启动前用它确认迁移已经完成。

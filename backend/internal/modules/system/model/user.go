@@ -32,6 +32,8 @@ type SysUser struct {
 	// --- 状态与配置 ---
 	Status   int            `json:"status" gorm:"type:smallint;default:1;comment:用户状态 1正常 0禁用"`
 	Settings datatypes.JSON `json:"settings" gorm:"type:json;comment:个性化设置"`
+	// Workplace 是本人的工作台布局（小组件与应用图标），由前端维护内容
+	Workplace datatypes.JSON `json:"workplace" gorm:"type:json;comment:工作台布局"`
 
 	// --- 权限关联 ---
 	AuthorityID uint         `json:"authorityId" gorm:"default:888;comment:主角色ID（决定默认首页；权限取全部角色的并集）"`
