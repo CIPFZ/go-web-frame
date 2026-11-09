@@ -587,4 +587,10 @@ export default {
   'cms.avatarPresets': 'Built-in avatars',
   'cms.avatarPresetOne': 'Built-in avatar {n}',
   'cms.avatarSaved': 'Avatar updated',
+  'cms.extLogin.or': 'or',
+  'cms.extLogin.with': 'Sign in with {name}',
+  'cms.extLogin.failed': 'Sign-in failed; please try again',
+  'cms.extLogin.expired': 'The sign-in expired or did not start here; please try again',
+  'cms.extLogin.notLinked': 'This external account is not linked to an account here; contact an administrator',
+  'cms.extLogin.userDisabled': 'This account is disabled; contact an administrator',
 } satisfies Record<keyof typeof zh, string>;

@@ -8,12 +8,12 @@ import {
   ProFormText,
 } from '@ant-design/pro-components';
 import { FormattedMessage, Helmet, useIntl, useModel } from '@umijs/max';
-import { Alert, App, Tabs } from 'antd';
+import { Alert, App, Button, Divider, Space, Tabs } from 'antd';
 import { createStyles } from 'antd-style';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import { Footer, SelectLang } from '@/components';
-import { login, getPublicConfig } from '@/services/system/user';
+import { extTicket, login, getPublicConfig, type PublicConfig } from '@/services/system/user';
 import Settings from '../../../../config/defaultSettings';
 const useStyles = createStyles(({ token }) => {
   return {
@@ -75,15 +75,39 @@ const LoginMessage: React.FC<{
     />
   );
 };
+// 登录页 hash 路由里的参数（外部登录回调带回 ext_ticket / ext_error / redirect）
+const hashParams = () =>
+  new URLSearchParams(window.location.hash.split('?')[1] ?? '');
+// 登录后要去的站内页面（只接受站内路径）
+const loginRedirect = () => {
+  const redirect =
+    hashParams().get('redirect') ??
+    new URL(window.location.href).searchParams.get('redirect');
+  return redirect?.startsWith('/') &&
+    !redirect.startsWith('//') &&
+    !redirect.includes('\\')
+    ? redirect
+    : '';
+};
+const EXT_ERRORS: Record<string, string> = {
+  unknown: 'cms.extLogin.failed',
+  state: 'cms.extLogin.expired',
+  failed: 'cms.extLogin.failed',
+  not_linked: 'cms.extLogin.notLinked',
+  user_disabled: 'cms.extLogin.userDisabled',
+};
+
 const Login: React.FC = () => {
   const localeFormRef1 = useFormLocale();
   useI18n();
-  const [registrationEnabled, setRegistrationEnabled] = useState(false);
+  const [publicConfig, setPublicConfig] = useState<PublicConfig>();
   useEffect(() => {
     getPublicConfig()
-      .then((r) => setRegistrationEnabled(r.data.registrationEnabled))
-      .catch(() => setRegistrationEnabled(false));
+      .then((r) => setPublicConfig(r.data))
+      .catch(() => setPublicConfig(undefined));
   }, []);
+  const registrationEnabled = !!publicConfig?.registrationEnabled;
+  const externalLogins = publicConfig?.externalLogins || [];
   const [userLoginState, setUserLoginState] = useState<API.LoginResult>({
     msg: '',
     code: -1,
@@ -131,14 +155,7 @@ const Login: React.FC = () => {
         // 获取用户具体信息
         await fetchUserInfo();
         // 路由跳转
-        const urlParams = new URL(window.location.href).searchParams;
-        const redirect = urlParams.get('redirect');
-        window.location.href =
-          redirect?.startsWith('/') &&
-          !redirect.startsWith('//') &&
-          !redirect.includes('\\')
-            ? redirect
-            : '/';
+        window.location.href = loginRedirect() || '/';
         return;
       }
       console.log(response);
@@ -155,6 +172,45 @@ const Login: React.FC = () => {
       console.log(error);
       message.error(defaultLoginFailureMessage);
     }
+  };
+  // 外部登录回调带回的票据换登录凭证；票据只能用一次，先从地址栏去掉
+  const ticketHandled = useRef(false);
+  useEffect(() => {
+    if (ticketHandled.current) return;
+    ticketHandled.current = true;
+    const params = hashParams();
+    const ticket = params.get('ext_ticket');
+    const error = params.get('ext_error');
+    if (!ticket && !error) return;
+    const redirect = loginRedirect();
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}#/user/login${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`,
+    );
+    if (error) {
+      message.error(t((EXT_ERRORS[error] || 'cms.extLogin.failed') as 'cms.extLogin.failed'));
+      return;
+    }
+    void (async () => {
+      const res = await extTicket(ticket as string).catch(() => undefined);
+      if (res?.code !== 0) {
+        message.error(t('cms.extLogin.failed'));
+        return;
+      }
+      const token = (res.data as { token?: string })?.token;
+      if (token) localStorage.setItem('token', token);
+      message.success(intl.formatMessage({ id: 'pages.login.success', defaultMessage: '登录成功！' }));
+      await fetchUserInfo();
+      window.location.href = redirect || '/';
+    })();
+    // 只在打开登录页时处理一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // 外部登录：跳到后端，由后端把浏览器送到提供方的登录页
+  const startExternalLogin = (key: string) => {
+    const redirect = loginRedirect();
+    window.location.href = `/api/v1/user/ext-login/${encodeURIComponent(key)}${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`;
   };
   return (
     <div className={styles.container}>
@@ -191,6 +247,20 @@ const Login: React.FC = () => {
             await handleSubmit(values as API.LoginParams);
           }}
           formRef={localeFormRef1}
+          actions={
+            externalLogins.length ? (
+              <>
+                <Divider plain>{t('cms.extLogin.or')}</Divider>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  {externalLogins.map((p) => (
+                    <Button key={p.key} block onClick={() => startExternalLogin(p.key)}>
+                      {t('cms.extLogin.with', { name: p.name })}
+                    </Button>
+                  ))}
+                </Space>
+              </>
+            ) : undefined
+          }
         >
           <Tabs
             activeKey={type}

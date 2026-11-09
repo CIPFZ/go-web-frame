@@ -58,6 +58,21 @@ func (s *SystemRouter) initPublicRoutes(public *gin.RouterGroup) {
 		userRouter.POST("login", s.apis.UserApi.Login)
 
 		// @Tags User
+		// @Summary 外部登录：跳到提供方的登录页
+		// @Router /user/ext-login/{provider} [get]
+		userRouter.GET("ext-login/:provider", s.apis.UserApi.ExternalLogin)
+
+		// @Tags User
+		// @Summary 外部登录：提供方回调，带一次性票据回登录页
+		// @Router /user/ext-callback/{provider} [get]
+		userRouter.GET("ext-callback/:provider", s.apis.UserApi.ExternalCallback)
+
+		// @Tags User
+		// @Summary 外部登录：一次性票据换登录凭证
+		// @Router /user/ext-ticket [post]
+		userRouter.POST("ext-ticket", s.apis.UserApi.ExternalTicket)
+
+		// @Tags User
 		// @Summary 用户注册
 		// @Router /user/register [post]
 		userRouter.POST("register", s.apis.UserApi.Register)

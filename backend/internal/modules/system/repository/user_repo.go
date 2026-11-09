@@ -25,6 +25,11 @@ type IUserRepository interface {
 	UpdateWithRoles(ctx context.Context, user *model.SysUser, req dto.UpdateUserReq) error
 	DeleteWithAssociations(ctx context.Context, id uint) error
 	ResetPassword(ctx context.Context, id uint, password string) error
+
+	// FindByIdentity 按外部身份找到关联的（未删除的）用户
+	FindByIdentity(ctx context.Context, provider, subject string) (*model.SysUser, error)
+	// LinkIdentity 把外部身份关联到用户
+	LinkIdentity(ctx context.Context, identity *model.SysUserIdentity) error
 }
 
 type UserRepository struct {
@@ -219,8 +224,11 @@ func (r *UserRepository) DeleteWithAssociations(ctx context.Context, id uint) er
 		if user.Username == "admin" {
 			return errors.New("不能删除基础管理员")
 		}
-		// 1. 硬删除关联表
+		// 1. 硬删除关联表（角色、外部登录身份）
 		if err := tx.Table("sys_user_authorities").Where("user_id = ?", id).Delete(nil).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id = ?", id).Delete(&model.SysUserIdentity{}).Error; err != nil {
 			return err
 		}
 		// 2. 软删除用户
@@ -242,4 +250,18 @@ func (r *UserRepository) UpdateColumn(ctx context.Context, uid uuid.UUID, values
 		Model(&model.SysUser{}).
 		Where("uuid = ?", uid).
 		Updates(values).Error
+}
+
+func (r *UserRepository) FindByIdentity(ctx context.Context, provider, subject string) (*model.SysUser, error) {
+	var user model.SysUser
+	err := r.db.WithContext(ctx).Where("id IN (?)", r.db.Model(&model.SysUserIdentity{}).Select("user_id").
+		Where("provider = ? AND subject = ?", provider, subject)).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *UserRepository) LinkIdentity(ctx context.Context, identity *model.SysUserIdentity) error {
+	return r.db.WithContext(ctx).Create(identity).Error
 }

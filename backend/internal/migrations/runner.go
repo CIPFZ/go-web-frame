@@ -26,6 +26,7 @@ var steps = []step{
 	{Version: workplaceVersion, Run: applyWorkplace},
 	{Version: stateAdminOnlyVersion, Run: applyStateAdminOnly},
 	{Version: presetAvatarVersion, Run: applyPresetAvatar},
+	{Version: userIdentitiesVersion, Run: applyUserIdentities},
 }
 
 // Latest 是最后一步迁移的版本号：服务启动前用它确认迁移已经完成。

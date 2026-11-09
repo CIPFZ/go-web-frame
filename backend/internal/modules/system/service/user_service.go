@@ -2,12 +2,17 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"gorm.io/datatypes"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/CIPFZ/gowebframe/internal/core/claims"
+	"github.com/CIPFZ/gowebframe/internal/core/extlogin"
 	logger "github.com/CIPFZ/gowebframe/internal/core/log"
 	"github.com/CIPFZ/gowebframe/internal/core/session"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
@@ -24,6 +29,8 @@ import (
 type IUserService interface {
 	Register(ctx context.Context, req dto.RegisterReq) (*model.SysUser, error)
 	Login(ctx context.Context, req dto.LoginReq) (*dto.LoginResponse, error)
+	ExternalLogin(ctx context.Context, provider string, opt extlogin.Options, identity *extlogin.Identity) (ticket string, err error)
+	RedeemLoginTicket(ctx context.Context, ticket string) (*dto.LoginResponse, error)
 	GetUserInfo(ctx context.Context, userUUID uuid.UUID) (*model.SysUser, error)
 	generateJwtToken(ctx context.Context, user *model.SysUser) (string, claims.CustomClaims, error)
 	Logout(ctx context.Context, token string) error
@@ -41,7 +48,17 @@ type IUserService interface {
 type UserService struct {
 	svcCtx   *svc.ServiceContext
 	userRepo repository.IUserRepository
+	tickets  extlogin.Tickets
 }
+
+var (
+	// ErrUserDisabled 账号已被禁用。
+	ErrUserDisabled = errors.New("此用户已经被禁用")
+	// ErrExternalNotLinked 外部身份没有关联本地账号，提供方也不允许自动关联或建号。
+	ErrExternalNotLinked = errors.New("external account is not linked")
+	// ErrExternalUsernameTaken 要自动建号时，同名的本地用户已经存在（又不允许按用户名关联）。
+	ErrExternalUsernameTaken = errors.New("external account username is taken")
+)
 
 // NewUserService 构造函数
 // 注意：这里我们传入 repo
@@ -49,6 +66,7 @@ func NewUserService(svcCtx *svc.ServiceContext, userRepo repository.IUserReposit
 	return &UserService{
 		svcCtx:   svcCtx,
 		userRepo: userRepo,
+		tickets:  extlogin.NewTickets(svcCtx.Redis),
 	}
 }
 
@@ -112,11 +130,113 @@ func (s *UserService) Login(ctx context.Context, req dto.LoginReq) (*dto.LoginRe
 		return nil, errors.New("用户名或密码错误")
 	}
 
+	return s.issueLogin(ctx, user)
+}
+
+// ExternalLogin 外部登录提供方核验过身份之后：找到关联的本地用户（没有关联时按提供方的选项匹配同名用户或新建），
+// 返回一次性登录票据，由前端换成登录凭证（凭证不出现在回调地址里）。
+func (s *UserService) ExternalLogin(ctx context.Context, provider string, opt extlogin.Options, identity *extlogin.Identity) (string, error) {
+	if identity == nil || strings.TrimSpace(identity.Subject) == "" {
+		return "", errors.New("external identity has no subject")
+	}
+	user, err := s.userRepo.FindByIdentity(ctx, provider, identity.Subject)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		user, err = s.linkExternal(ctx, provider, opt, identity)
+	}
+	if err != nil {
+		return "", err
+	}
 	if user.Status != model.UserActive {
-		return nil, errors.New("此用户已经被禁用")
+		return "", ErrUserDisabled
+	}
+	return s.tickets.Issue(ctx, user.ID)
+}
+
+func (s *UserService) linkExternal(ctx context.Context, provider string, opt extlogin.Options, identity *extlogin.Identity) (*model.SysUser, error) {
+	username := strings.TrimSpace(identity.Username)
+	var user *model.SysUser
+	existing, err := s.userRepo.FindByUsername(ctx, username)
+	switch {
+	case err == nil && opt.MatchUsername:
+		user = existing
+	case err == nil:
+		return nil, ErrExternalUsernameTaken
+	case !errors.Is(err, gorm.ErrRecordNotFound):
+		return nil, err
+	}
+	if user == nil {
+		if !opt.AutoCreate || utf8.RuneCountInString(username) < 3 || utf8.RuneCountInString(username) > 64 {
+			return nil, ErrExternalNotLinked
+		}
+		if user, err = s.createExternalUser(ctx, opt.RoleID, username, identity); err != nil {
+			// 同一身份并发首次登录时，另一个请求可能已经建好并关联
+			if again, findErr := s.userRepo.FindByIdentity(ctx, provider, identity.Subject); findErr == nil {
+				return again, nil
+			}
+			return nil, err
+		}
+	}
+	if err := s.userRepo.LinkIdentity(ctx, &model.SysUserIdentity{Provider: provider, Subject: identity.Subject, UserID: user.ID}); err != nil {
+		if again, findErr := s.userRepo.FindByIdentity(ctx, provider, identity.Subject); findErr == nil {
+			return again, nil
+		}
+		return nil, err
+	}
+	return user, nil
+}
+
+// createExternalUser 为外部身份新建本地用户：随机密码（需要账号密码登录时由管理员重置），角色由提供方的选项决定。
+func (s *UserService) createExternalUser(ctx context.Context, roleID uint, username string, identity *extlogin.Identity) (*model.SysUser, error) {
+	secret := make([]byte, 24)
+	if _, err := rand.Read(secret); err != nil {
+		return nil, err
+	}
+	hashPwd, err := utils.BcryptHash(hex.EncodeToString(secret))
+	if err != nil {
+		return nil, err
+	}
+	nickName := strings.TrimSpace(identity.NickName)
+	if nickName == "" {
+		nickName = username
+	}
+	user := model.SysUser{
+		UUID:        uuid.New(),
+		Username:    username,
+		Password:    hashPwd,
+		NickName:    nickName,
+		Email:       strings.TrimSpace(identity.Email),
+		Avatar:      model.DefaultUserAvatar,
+		Status:      model.UserActive,
+		AuthorityID: roleID,
+		Authorities: []model.SysAuthority{{AuthorityId: roleID}},
+	}
+	if err := s.userRepo.Create(ctx, &user); err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// RedeemLoginTicket 一次性登录票据换登录凭证。
+func (s *UserService) RedeemLoginTicket(ctx context.Context, ticket string) (*dto.LoginResponse, error) {
+	userID, err := s.tickets.Redeem(ctx, ticket)
+	if err != nil {
+		return nil, err
+	}
+	user, err := s.userRepo.FindById(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return s.issueLogin(ctx, user)
+}
+
+// issueLogin 检查用户状态并签发登录凭证，只返回 Token 和过期时间。
+func (s *UserService) issueLogin(ctx context.Context, user *model.SysUser) (*dto.LoginResponse, error) {
+	log := logger.GetLogger(ctx)
+	if user.Status != model.UserActive {
+		return nil, ErrUserDisabled
 	}
 
-	// 2. 签发 Token
+	// 签发 Token
 	token, c, err := s.generateJwtToken(ctx, user)
 	if err != nil {
 		log.Error("generate_token_failed", zap.Error(err))
