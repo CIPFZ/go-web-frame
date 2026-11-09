@@ -24,6 +24,7 @@ Nexus 跑批、阶段 Agent 和多轮进展等功能可在独立业务分支上�
 | `deploy/local` | 开发机 Docker Compose 配置、初始化与验证 |
 
 本机部署使用 MySQL、Redis 和文件持久卷。参见 [Docker 部署说明](deploy/local/README.md)。
+发布到一台服务器见 [deploy/remote](deploy/remote/README.md)。
 
 ## 角色与权限
 
