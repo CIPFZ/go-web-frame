@@ -58,9 +58,10 @@ func applyPersonalTokens(db *gorm.DB, cfg *config.Config, _ *zap.Logger) error {
 		return err
 	}
 	return claims.PolicyTransaction(db.Statement.Context, db, func(tx *gorm.DB) error {
-		// 先确定原来能管理 Token 的角色，再给所有人开放“我的 Token”
-		managers, err := rolesWithAPI(tx, prefix+"/sys/api-token/getApiTokenList", "POST")
-		if err != nil {
+		// 原来能管理 Token 的角色：有“API Token”管理菜单的角色（新装时普通角色也有 getApiTokenList，不能按接口判断）
+		var managers []uint
+		if err := tx.Model(&sysModel.SysAuthorityMenu{}).Joins("JOIN sys_menus ON sys_menus.id = sys_authority_menus.menu_id").
+			Where("sys_menus.component = ?", "sys/api-token").Pluck("sys_authority_menus.authority_id", &managers).Error; err != nil {
 			return err
 		}
 		everyone, err := rolesWithAPI(tx, prefix+"/sys/menu/getMenu", "GET")

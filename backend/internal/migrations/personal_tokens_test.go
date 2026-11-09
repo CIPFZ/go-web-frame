@@ -16,7 +16,10 @@ func TestPersonalTokensGiveOwnersAndSplitManagement(t *testing.T) {
 		"INSERT INTO sys_users (id, username, password, authority_id) VALUES (5, 'admin', 'x', 1), (6, 'member', 'x', 888)",
 		"INSERT INTO sys_user_authorities (user_id, authority_id) VALUES (5, 1), (6, 888)",
 		"INSERT INTO sys_apis (id, path, method) VALUES (1, '/api/v1/sys/api-token/getApiTokenList', 'POST'), (2, '/api/v1/sys/menu/getMenu', 'GET')",
-		"INSERT INTO sys_authority_apis (authority_id, api_id) VALUES (1, 1), (1, 2), (888, 2)",
+		// 新装时普通角色也有 getApiTokenList（我的 Token）；只有 API Token 菜单的角色是管理员
+		"INSERT INTO sys_authority_apis (authority_id, api_id) VALUES (1, 1), (1, 2), (888, 1), (888, 2)",
+		"INSERT INTO sys_menus (id, path, name, component) VALUES (10, '/sys/api-token', 'tokens', 'sys/api-token')",
+		"INSERT INTO sys_authority_menus (authority_id, menu_id) VALUES (1, 10)",
 		"INSERT INTO sys_api_tokens (id, name, token_hash, created_by) VALUES (1, 'legacy', 'h1', 0), (2, 'orphan', 'h2', 404), (3, 'mine', 'h3', 6)",
 	} {
 		require.NoError(t, db.Exec(statement).Error)
@@ -36,7 +39,7 @@ func TestPersonalTokensGiveOwnersAndSplitManagement(t *testing.T) {
 		require.NoError(t, db.Model(&model.SysCasbinRule{}).Where("v0 = ? AND v1 = ? AND v2 = ?", role, path, method).Count(&n).Error)
 		return n > 0
 	}
-	require.True(t, has("1", "/api/v1/sys/api-token/all", "POST"), "former token managers manage everyone's tokens")
+	require.True(t, has("1", "/api/v1/sys/api-token/all", "POST"), "roles with the API Token page manage everyone's tokens")
 	require.True(t, has("1", "/api/v1/sys/api-token/limits/update", "PUT"))
 	require.False(t, has("888", "/api/v1/sys/api-token/all", "POST"))
 	require.True(t, has("888", "/api/v1/sys/api-token/create", "POST"), "everyone manages their own tokens")
@@ -46,4 +49,5 @@ func TestPersonalTokensGiveOwnersAndSplitManagement(t *testing.T) {
 	var grants int64
 	require.NoError(t, db.Model(&model.SysAuthorityMenu{}).Where("menu_id = ?", menu.ID).Count(&grants).Error)
 	require.EqualValues(t, 2, grants)
+	require.False(t, has("888", "/api/v1/sys/api-token/limits/get", "POST"))
 }

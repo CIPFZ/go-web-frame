@@ -61,6 +61,15 @@ func TestSecurityAndMigrationMatrix(t *testing.T) {
 				require.NoError(t, e)
 			}
 			require.NoError(t, migrations.Check(db))
+			// 新装：普通用户管理自己的 Token，但看不到所有人的 Token、改不了申请限制
+			for _, admin := range []string{"/api/v1/sys/api-token/all", "/api/v1/sys/api-token/limits/get", "/api/v1/sys/api-token/limits/update"} {
+				var leaked int64
+				require.NoError(t, db.Model(&model.SysCasbinRule{}).Where("v0 = ? AND v1 = ?", "888", admin).Count(&leaked).Error)
+				require.Zero(t, leaked, admin)
+			}
+			var own int64
+			require.NoError(t, db.Model(&model.SysCasbinRule{}).Where("v0 = ? AND v1 = ?", "888", "/api/v1/sys/api-token/create").Count(&own).Error)
+			require.EqualValues(t, 1, own)
 			var users int64
 			require.NoError(t, db.Model(&model.SysUser{}).Count(&users).Error)
 			require.EqualValues(t, 1, users)
