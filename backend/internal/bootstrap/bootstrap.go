@@ -7,6 +7,7 @@ import (
 	"github.com/CIPFZ/gowebframe/internal/migrations"
 	"time"
 
+	"github.com/CIPFZ/gowebframe/internal/core/apispec"
 	"github.com/CIPFZ/gowebframe/internal/core/claims"
 	"github.com/CIPFZ/gowebframe/internal/core/db"
 	"github.com/CIPFZ/gowebframe/internal/core/file"
@@ -196,6 +197,9 @@ func Initialize(path string, serviceCtx *svc.ServiceContext) (shutdowns []utils.
 	auditRecorder := audit.NewAuditRecorder(serviceCtx.DB, serviceCtx.Logger)
 	serviceCtx.AuditRecorder = auditRecorder
 	shutdowns = append(shutdowns, auditRecorder.Close)
+
+	// 契约接口的分页游标用 JWT 密钥派生的密钥签名
+	apispec.SetPageTokenKey(serviceCtx.Config.JWT.SigningKey)
 
 	// Step 9: 初始化 OSS
 	serviceCtx.OSS = file.NewFileService(serviceCtx.Config.File, serviceCtx.Logger)

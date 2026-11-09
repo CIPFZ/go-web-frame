@@ -17,6 +17,12 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// 业务模块可在记录前写入这两个键，补充操作日志的模块与说明。
+const (
+	CtxKeyAuditModule = "audit.module"
+	CtxKeyAuditRemark = "audit.remark"
+)
+
 // Capture at most one extra byte so oversized bodies can be omitted altogether.
 // Returning len(p) lets TeeReader stream the original body without changing it.
 type boundedCapture struct{ bytes.Buffer }
@@ -69,6 +75,7 @@ func OperationRecord(svcCtx *svc.ServiceContext) gin.HandlerFunc {
 			Body:  audit.SanitizeBody(requestBody.Bytes()), Resp: audit.SanitizeBody(writer.body.Bytes()),
 			Status: c.Writer.Status(), Latency: time.Since(start),
 			UserID: utils.GetUserID(c), TokenID: tokenOf(c), TraceID: traceID, SpanID: spanID, ErrorMsg: errorSummary,
+			Module: truncateString(c.GetString(CtxKeyAuditModule), 64), Remark: truncateString(c.GetString(CtxKeyAuditRemark), 128),
 		})
 	}
 }
