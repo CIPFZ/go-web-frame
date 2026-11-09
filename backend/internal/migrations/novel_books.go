@@ -9,7 +9,6 @@ import (
 	sysModel "github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 const novelSourceSchema = "ebook_treasure_chest"
@@ -94,39 +93,5 @@ func ensureNovelAccess(db *gorm.DB, prefix string) error {
 		{Path: prefix + "/novel/book/list", Method: "POST", ApiGroup: "novel-book", Description: "List novel books"},
 		{Path: prefix + "/novel/book/detail", Method: "GET", ApiGroup: "novel-book", Description: "Get novel book detail"},
 	}
-	apis := make([]sysModel.SysApi, 0, len(apiSpecs))
-	for _, spec := range apiSpecs {
-		var item sysModel.SysApi
-		err := db.Where("path = ? AND method = ?", spec.Path, spec.Method).First(&item).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			item = spec
-			if err := db.Create(&item).Error; err != nil {
-				return fmt.Errorf("create novel api: %w", err)
-			}
-		} else if err != nil {
-			return fmt.Errorf("load novel api: %w", err)
-		}
-		apis = append(apis, item)
-	}
-
-	for _, authorityID := range []uint{1, 9528} {
-		if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&sysModel.SysAuthorityMenu{AuthorityId: authorityID, MenuId: menu.ID}).Error; err != nil {
-			return fmt.Errorf("grant novel menu: %w", err)
-		}
-		for _, item := range apis {
-			if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&sysModel.SysAuthorityApi{AuthorityId: authorityID, ApiId: item.ID}).Error; err != nil {
-				return fmt.Errorf("grant novel api: %w", err)
-			}
-			var count int64
-			if err := db.Model(&sysModel.SysCasbinRule{}).Where("ptype = ? AND v0 = ? AND v1 = ? AND v2 = ?", "p", fmt.Sprint(authorityID), item.Path, item.Method).Count(&count).Error; err != nil {
-				return fmt.Errorf("check novel policy: %w", err)
-			}
-			if count == 0 {
-				if err := db.Create(&sysModel.SysCasbinRule{Ptype: "p", V0: fmt.Sprint(authorityID), V1: item.Path, V2: item.Method}).Error; err != nil {
-					return fmt.Errorf("create novel policy: %w", err)
-				}
-			}
-		}
-	}
-	return nil
+	return grantAccess(db, []uint{1, 9528}, []uint{menu.ID}, apiSpecs)
 }

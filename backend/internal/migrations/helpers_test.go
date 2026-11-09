@@ -136,3 +136,23 @@ func TestSyncAPICatalogGrantsNewKeepsRevocationsAndRemovesStale(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []uint{888}, roles)
 }
+
+func TestGrantAccessPublishesPolicyAndSkipsMissingRoles(t *testing.T) {
+	db := helperTestDB(t)
+	menu, _, err := ensureMenu(db, model.SysMenu{Path: "/reports", Name: "Reports"})
+	require.NoError(t, err)
+	apis := []model.SysApi{{Path: "/api/v1/reports", Method: "GET", ApiGroup: "reports"}, {Path: "/api/v1/reports", Method: "POST", ApiGroup: "reports"}}
+
+	before := policyVersion(t, db)
+	require.NoError(t, grantAccess(db, []uint{1, 9528}, []uint{menu.ID}, apis))
+	require.NoError(t, grantAccess(db, []uint{1, 9528}, []uint{menu.ID}, apis))
+	require.Equal(t, before+2, policyVersion(t, db))
+
+	var rules, menuGrants, missing int64
+	require.NoError(t, db.Model(&model.SysCasbinRule{}).Where("v0 = '1' AND v1 = ?", "/api/v1/reports").Count(&rules).Error)
+	require.NoError(t, db.Model(&model.SysAuthorityMenu{}).Where("menu_id = ? AND authority_id = 1", menu.ID).Count(&menuGrants).Error)
+	require.NoError(t, db.Model(&model.SysCasbinRule{}).Where("v0 = '9528'").Count(&missing).Error)
+	require.Equal(t, int64(2), rules)
+	require.Equal(t, int64(1), menuGrants)
+	require.Zero(t, missing, "roles that do not exist get no grants")
+}

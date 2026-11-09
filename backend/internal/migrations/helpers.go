@@ -115,6 +115,36 @@ func grantAPI(tx *gorm.DB, authorityID uint, api sysModel.SysApi) error {
 	return tx.Where(&rule).FirstOrCreate(&rule).Error
 }
 
+// grantAccess 登记接口，并把菜单与接口授予这些角色（不存在的角色跳过）；授权和策略版本在同一事务里提交。
+func grantAccess(db *gorm.DB, roles []uint, menuIDs []uint, apis []sysModel.SysApi) error {
+	if err := ensurePolicyRevision(db); err != nil {
+		return err
+	}
+	return claims.PolicyTransaction(db.Statement.Context, db, func(tx *gorm.DB) error {
+		registered := make([]sysModel.SysApi, 0, len(apis))
+		for _, want := range apis {
+			api, err := ensureAPI(tx, want)
+			if err != nil {
+				return err
+			}
+			registered = append(registered, api)
+		}
+		for _, role := range roles {
+			for _, id := range menuIDs {
+				if err := grantMenu(tx, id, role); err != nil {
+					return err
+				}
+			}
+			for _, api := range registered {
+				if err := grantAPI(tx, role, api); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+}
+
 // rolesWithAPI 返回已授予某接口的角色，用于“新接口授予能调用某个旧接口的角色”。
 func rolesWithAPI(tx *gorm.DB, path, method string) ([]uint, error) {
 	var roles []uint
@@ -127,6 +157,14 @@ func authorityExists(db *gorm.DB, authorityID uint) (bool, error) {
 	var n int64
 	err := db.Model(&sysModel.SysAuthority{}).Where("authority_id = ?", authorityID).Count(&n).Error
 	return n > 0, err
+}
+
+// ensurePolicyRevision 确保策略版本表与它唯一的一行存在（PolicyTransaction 递增它）。
+func ensurePolicyRevision(db *gorm.DB) error {
+	if err := db.AutoMigrate(&claims.PolicyRevision{}); err != nil {
+		return err
+	}
+	return db.Clauses(clause.OnConflict{DoNothing: true}).Create(&claims.PolicyRevision{ID: 1, Version: 1}).Error
 }
 
 // tokenSeedGroup 是 seed.EnsureTokenEndpoints 登记 Token 可调用接口时使用的分组。
@@ -142,6 +180,9 @@ type catalogEntry struct {
 // 更新分组与说明、删除已下线的接口及其授权。可以每次迁移都执行（幂等），不修改其他模块的接口与授权。
 // 已存在的接口不再补授权：管理员撤销的授权保持撤销。规则与策略版本在同一事务里提交。
 func syncAPICatalog(db *gorm.DB, modulePrefix string, entries []catalogEntry) error {
+	if err := ensurePolicyRevision(db); err != nil {
+		return err
+	}
 	return claims.PolicyTransaction(db.Statement.Context, db, func(tx *gorm.DB) error {
 		current := make(map[string]bool, len(entries))
 		for _, e := range entries {
