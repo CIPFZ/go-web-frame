@@ -24,7 +24,7 @@ for attempt in range(24):
         metric=read(prom+'/api/v1/query?'+urlencode({'query':'http_server_request_duration_seconds_count'}))['data']['result']
         if not metric:
             metric=read(prom+'/api/v1/query?'+urlencode({'query':'http_server_duration_milliseconds_count'}))['data']['result']
-        logs=read(loki+'/loki/api/v1/query_range?'+urlencode({'query':'{service_name="nexus-cms"}','limit':1}))['data']['result']
+        logs=read(loki+'/loki/api/v1/query_range?'+urlencode({'query':'{service_name="base-frame"}','limit':1}))['data']['result']
         spans=read(tempo+'/api/traces/'+trace)
         assert metric and logs and spans, 'Waiting for signals'
         print('Stored metrics: OK; application log streams: OK; propagated trace lookup: OK')

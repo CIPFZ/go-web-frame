@@ -152,7 +152,7 @@
       },
       "targets": [
         {
-          "expr": "{service_name=\"nexus-cms\"}",
+          "expr": "{service_name=\"base-frame\"}",
           "refId": "A"
         }
       ]

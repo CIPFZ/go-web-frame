@@ -1,6 +1,6 @@
 # 本机 Docker 部署
 
-此配置独立运行前端、后端、MySQL 和 Redis，Compose 项目名为 `nexus-cms`。
+此配置独立运行前端、后端、MySQL 和 Redis，Compose 项目名默认为 `base-frame`，可在 `deploy/local/.env` 里用 `COMPOSE_PROJECT_NAME` 改成项目自己的名字。
 文件存储使用本地持久卷，默认 Web 端口为 8080，后端健康接口仅映射到本机 18081。
 
 从仓库根目录执行：
@@ -33,17 +33,22 @@ docker compose --env-file deploy/local/.env -f deploy/local/compose.yaml down
 docker compose --env-file deploy/local/.env -f deploy/local/compose.yaml up -d --wait
 ```
 
-持久卷：`nexus-cms_mysql-data`、`nexus-cms_redis-data`、`nexus-cms_uploads`。
+持久卷：`<项目名>_mysql-data`、`<项目名>_redis-data`、`<项目名>_uploads`。
+数据库名与账号默认 `base_frame`，由 `.env` 的 `MYSQL_DATABASE`、`MYSQL_USER` 决定。
+
+已有部署升级到这些默认名时，为了继续使用原来的卷和数据库，在 `.env` 里写上原来的值：
+`COMPOSE_PROJECT_NAME=<原项目名>`、`MYSQL_DATABASE=<原库名>`、`MYSQL_USER=<原账号>`，再执行 `init.py`。
+JWT 签发方随之变为 `base-frame`，升级后已登录的用户需要重新登录一次。
 Compose 的普通 down 保留数据；`down -v` 会删除这些数据，因此不用于日常停止。
 后端等待数据库健康后执行迁移；迁移失败会退出，成功后再启动服务。
 上传文件由前端 Nginx 通过共享卷提供访问。
 
 `smoke.py` 检查前端代理、管理员登录、菜单、系统信息及图片上传下载。
-完整浏览器验证使用 `python3 deploy/local/e2e.py`。它创建独立的临时 Compose 项目、数据库和持久卷，使用随机本机端口；退出时仅删除该测试项目。测试产物保留在私有的 `runtime/nexus-cms-e2e-*/`。
+完整浏览器验证使用 `python3 deploy/local/e2e.py`。它创建独立的临时 Compose 项目、数据库和持久卷，使用随机本机端口；退出时仅删除该测试项目。测试产物保留在私有的 `runtime/base-frame-e2e-*/`。
 直接运行 Playwright 时默认跳过创建用户的通知测试；仅隔离测试入口设置 `E2E_ISOLATED=1`。
 
 `.env`、运行配置、管理员密码和验证产物已加入 Git 忽略规则。
-该配置用于开发机部署验证，后续 Bench 代码与日志产物应使用带任务权限的独立存储接口。
+该配置用于开发机部署验证；业务模块产生的大文件与日志产物应使用带权限控制的独立存储接口。
 
 ## 基础 CMS 数据迁移
 
@@ -79,7 +84,7 @@ python3 deploy/local/db-matrix.py
 
 备份会短暂停止后端写入，保存 SQL、上传文件、配置和 SHA-256 manifest。成功后恢复之前运行的后端；失败不清理旧备份。备份包含密钥，只存于权限受限的 runtime 目录，不可提交 Git。保留最近 14 份成功备份。恢复演练始终使用随机项目和新卷，核对文件哈希、迁移、就绪状态、登录和动态菜单，结束只删除自身资源。
 
-`systemd/nexus-cms-backup.{service,timer}` 提供每天北京时间 03:15（最多延后 5 分钟）的计划，部署路径改变时先修改 service。安装后用 `systemctl list-timers nexus-cms-backup.timer` 查看时间，`journalctl -u nexus-cms-backup.service` 查看结果。当前主机只保留本地副本；要覆盖整机磁盘损坏，需要再配置异机备份目标。
+`systemd/base-frame-backup.{service,timer}` 提供每天北京时间 03:15（最多延后 5 分钟）的计划，安装前把 service 里的 `/opt/base-frame` 改成实际检出路径。安装后用 `systemctl list-timers base-frame-backup.timer` 查看时间，`journalctl -u base-frame-backup.service` 查看结果。当前主机只保留本地副本；要覆盖整机磁盘损坏，需要再配置异机备份目标。
 
 可观测部署、数据范围和 8080 入口见 [观测说明](../observability/README.md)。配置静态加载，变更 JWT、注册开关或代理信任范围后重启。Nginx 覆盖转发 IP 头，后端仅信任部署指定的代理网段；其他环境应缩小为实际代理地址。
 ## Agent Gateway 联动

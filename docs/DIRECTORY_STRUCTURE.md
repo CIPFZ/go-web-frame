@@ -17,7 +17,7 @@ backend/
 ├── cmd/
 │   ├── server/                 # 参数、HTTP 进程、信号与关停
 │   ├── migrate/                # 独立迁移命令，退出码表示执行结果
-│   └── worker/                 # Nexus 分支新增，独立执行进程
+│   └── worker/                 # 需要后台任务的业务新增，独立执行进程
 ├── internal/
 │   ├── modules/
 │   │   ├── system/
@@ -28,9 +28,8 @@ backend/
 │   │   │   ├── model/          # 当前 GORM 数据模型
 │   │   │   ├── router/         # 本模块路由注册
 │   │   │   └── seed/           # 基础数据默认值
-│   │   ├── bench/             # 下列为业务分支建议新增
-│   │   ├── run/               # 轮次/case 结果先内聚于 run
-│   │   └── agent/             # agent 配置、阶段执行记录
+│   │   ├── order/             # 下列为业务模块示例（按实际业务命名）
+│   │   └── task/              # 任务及其执行记录先内聚于 task
 │   ├── bootstrap/             # 连接池、鉴权、遥测、后台清理组装
 │   ├── migrations/            # 版本脚本、并发锁、schema 校验
 │   ├── core/                  # config/db/file/auth/audit/observability
@@ -46,7 +45,7 @@ backend/
 随业务增长逐步处理：
 
 1. 已将启动组装提取为 `internal/bootstrap`，迁移实现移入 `internal/migrations`，基础数据放在 `system/seed`。新的入口沿用这些边界。
-2. 给新模块显式注入最小依赖。当前 ServiceContext 暂时兼容；不要让新的 run service 随意访问所有数据库、HTTP 服务和其他模块状态。
+2. 给新模块显式注入最小依赖。当前 ServiceContext 暂时兼容；不要让新的业务 service 随意访问所有数据库、HTTP 服务和其他模块状态。
 3. `core` 保持基础设施语义。如果某项需要导入业务 model（例如目前的审计），后续通过接口/独立事件 DTO 收窄依赖。可使用 `platform` 命名，但改目录名称本身不会改变依赖方向。
 4. 只有复杂领域才把业务实体与 GORM model 分开；简单 CRUD 没必要增加转换层。事务涉及同一业务操作时，在明确边界内一次提交。
 5. 当前 `pkg/utils/gin_context.go` 等依赖框架内部类型，实际上不是可独立复用的公共库。新工具优先放到实际使用的 internal 包；若未来对外发布 SDK，单独定义公共 API。
@@ -69,11 +68,10 @@ front-end/
 │   │   └── about/
 │   ├── services/
 │   │   ├── system/            # 当前 CMS API 与类型
-│   │   ├── bench/             # 新业务模块新增时创建
-│   │   ├── run/
-│   │   └── agent/
+│   │   ├── order/             # 新业务模块新增时创建
+│   │   └── task/
 │   ├── features/              # 多页面复用的复杂业务能力；按需创建
-│   │   └── run-progress/      # 例如轮次图、事件订阅与恢复
+│   │   └── task-progress/     # 例如进度图、事件订阅与恢复
 │   ├── components/            # 跨业务通用 UI
 │   ├── utils/                 # 真正通用的纯函数
 │   └── locales/
@@ -81,7 +79,7 @@ front-end/
 └── tests/                     # 测试环境初始化
 ```
 
-`features/bench` 与 `pages/bench` 不应同时放两份完整实现。简单页面把专用组件、hooks、测试放在页面附近即可；只有出现多页面复用的业务能力时，才提取到 features。`components` 不接收所有业务组件，`utils` 不接收状态机或业务服务。
+`features/order` 与 `pages/order` 不应同时放两份完整实现。简单页面把专用组件、hooks、测试放在页面附近即可；只有出现多页面复用的业务能力时，才提取到 features。`components` 不接收所有业务组件，`utils` 不接收状态机或业务服务。
 
 动态路由由 **后端路径/组件标识 → routing/componentMap → pages** 组成。移动源文件时更新 componentMap 的 import，不必改变已有后端菜单记录；因此本轮目录调整不需要菜单数据库迁移。
 

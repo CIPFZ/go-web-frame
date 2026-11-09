@@ -22,7 +22,7 @@ python3 deploy/observability/verify.py
 | 调用链 | HTTP + GORM/Redis instrumentation → Tempo，支持 W3C traceparent |
 | 告警状态 | Prometheus 评估 Collector 不可达、后端未就绪、审计丢弃规则；Grafana 显示 ALERTS |
 
-没有接入主机 node_exporter/cAdvisor，故不承诺整机或所有容器的 CPU、内存、磁盘、网络监控。没有接入 Nexus 业务，因此没有 bench/轮次/case 通过率。没有配置向邮件、聊天工具发送告警。
+没有接入主机 node_exporter/cAdvisor，故不承诺整机或所有容器的 CPU、内存、磁盘、网络监控。不包含任何业务指标，业务模块需要自行接入。没有配置向邮件、聊天工具发送告警。
 
 CMS 的“系统状态”页提供即时服务概览及观测入口。界面中的“观测已启用”表示后端已配置导出；导出链路健康应以仪表盘和 verify.py 的真实查询为准。
 

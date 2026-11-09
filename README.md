@@ -1,7 +1,7 @@
 # Go Web Frame 基础框架
 
-提供账号、权限、菜单与后台管理能力，作为不同业务模块分支的公共基础。
-Nexus 跑批、阶段 Agent 和多轮进展等功能可在独立业务分支上开发。
+提供账号、权限、菜单与后台管理能力，作为各类业务后台的公共基础。
+框架本身不包含任何具体项目的业务，业务功能在各自的模块或分支中开发。
 
 ## 保留的能力
 
@@ -61,7 +61,7 @@ API Token 管理保留为后续 Worker 集成的基础能力；当前系统接�
 ```bash
 git switch base-frame
 git pull --ff-only
-git switch -c nexus-platform
+git switch -c my-project
 ```
 
 业务对象与页面放在各自模块中，基础能力的修复优先回到 `base-frame`，再同步到业务分支。

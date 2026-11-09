@@ -12,7 +12,7 @@ import uuid
 def main():
     local = Path(__file__).resolve().parent
     repo = local.parent.parent
-    project = 'nexus-cms-e2e-' + uuid.uuid4().hex[:10]
+    project = 'base-frame-e2e-' + uuid.uuid4().hex[:10]
     run_dir = local / 'runtime' / project
     run_dir.mkdir(parents=True, mode=0o700)
     spec = importlib.util.spec_from_file_location('cms_init', local / 'init.py')
