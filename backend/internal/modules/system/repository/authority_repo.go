@@ -142,6 +142,15 @@ func (r *AuthorityRepository) SetMenuAuthority(ctx context.Context, authorityId 
 		for id := range unique {
 			menuIds = append(menuIds, id)
 		}
+		allowed, err := parentMenus(tx, role)
+		if err != nil {
+			return err
+		}
+		for _, id := range menuIds {
+			if allowed != nil && !allowed[id] {
+				return errMenusNotInParent
+			}
+		}
 		if len(menuIds) > 0 {
 			var count int64
 			if err := tx.Model(&model.SysMenu{}).Where("id IN ?", menuIds).Count(&count).Error; err != nil {
@@ -171,6 +180,7 @@ func (r *AuthorityRepository) SetMenuAuthority(ctx context.Context, authorityId 
 				return err
 			}
 		}
-		return nil
+		// 父角色收回的菜单，各级子角色一起收回
+		return pruneChildren(tx, authorityId)
 	})
 }

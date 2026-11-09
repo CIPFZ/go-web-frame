@@ -25,9 +25,18 @@ Nexus 跑批、阶段 Agent 和多轮进展等功能可在独立业务分支上�
 
 本机部署使用 MySQL、Redis 和文件持久卷。参见 [Docker 部署说明](deploy/local/README.md)。
 
+## 角色与权限
+
+- 一个用户可以有多个角色，**所有角色同时生效**：接口权限与菜单取并集，不需要切换角色。
+  主角色（`sys_users.authority_id`）只决定默认首页。
+- 超级管理员（角色 1）不经 Casbin 判断，拥有全部接口。
+- 子角色是父角色权限的一部分：分配给子角色的菜单、接口只能从父角色已有的里面选；
+  父角色收回的权限，各级子角色一起收回。子角色**不继承**父角色的权限。
+- 发给某个角色的通知，也会发给它的各级子角色。
+
 ## 动态路由约定
 
-`GET /api/v1/sys/menu/getMenu` 返回当前角色可访问的菜单树，包含 `path`、`component`、
+`GET /api/v1/sys/menu/getMenu` 返回当前用户全部角色可访问的菜单树（多个角色取并集），包含 `path`、`component`、
 `routes`、`hideInMenu` 等字段。前端通过 `fetchMenuData` 获取数据，`buildRoutes` 生成页面路由，
 `patchClientRoutes` 注入布局，`menuDataRender` 渲染导航。
 

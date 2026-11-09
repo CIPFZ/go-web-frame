@@ -178,7 +178,11 @@ export default function Workplace() {
           ? t('cms.goodAfternoon')
           : t('cms.goodEvening.509f35');
   const nickname = user?.nickName || user?.username || t('cms.user');
-  const role = user?.authority?.authorityName || t('cms.noRoleAssigned');
+  // 用户的所有角色同时生效
+  const role =
+    user?.authorities?.map((a) => a.authorityName).filter(Boolean).join(' / ') ||
+    user?.authority?.authorityName ||
+    t('cms.noRoleAssigned');
   const unread =
     notices.data?.list.filter((notice) => !notice.readAt).length || 0;
   const confirmRead = async () => {

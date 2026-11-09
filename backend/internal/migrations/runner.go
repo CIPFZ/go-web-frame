@@ -20,7 +20,9 @@ const legacyVersion = "20261007_agent_gateway_link_v1"
 
 // steps 是 legacyVersion 之后的一次性迁移，按顺序执行，每一步成功后单独记录版本号。
 // 新增迁移追加到末尾，已发布的步骤不要修改或调换顺序。
-var steps = []step{}
+var steps = []step{
+	{Version: multiRoleVersion, Run: applyMultiRole},
+}
 
 // Latest 是最后一步迁移的版本号：服务启动前用它确认迁移已经完成。
 var Latest = latestVersion(steps)

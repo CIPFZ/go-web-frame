@@ -30,7 +30,6 @@ type IUserService interface {
 	GetUserList(ctx context.Context, req dto.SearchUserReq) (list []model.SysUser, total int64, err error)
 	AddUser(ctx context.Context, req dto.AddUserReq) error
 	UpdateUser(ctx context.Context, req dto.UpdateUserReq) error
-	SwitchAuthority(ctx context.Context, uuid uuid.UUID, authorityId uint) (*dto.LoginResponse, error)
 	DeleteUser(ctx context.Context, id uint) error
 	ResetPassword(ctx context.Context, req dto.ResetPasswordReq) error
 	UpdateSelfInfo(ctx context.Context, uid uuid.UUID, req dto.UpdateSelfInfoReq) error
@@ -236,48 +235,6 @@ func (s *UserService) UpdateUser(ctx context.Context, req dto.UpdateUserReq) err
 	}
 
 	return s.userRepo.UpdateWithRoles(ctx, user, req)
-}
-
-// SwitchAuthority 切换角色
-func (s *UserService) SwitchAuthority(ctx context.Context, uuid uuid.UUID, authorityId uint) (*dto.LoginResponse, error) {
-	user, searchErr := s.userRepo.FindByUuid(ctx, uuid)
-	if searchErr != nil {
-		return nil, searchErr
-	}
-
-	// 2. 校验：用户是否真的拥有目标角色？
-	hasAuth := false
-	for _, auth := range user.Authorities {
-		if auth.AuthorityId == authorityId {
-			hasAuth = true
-			break
-		}
-	}
-	if !hasAuth {
-		return nil, errors.New("您未拥有该角色权限")
-	}
-
-	// 3. 更新数据库中的 "当前角色"
-	if err := s.userRepo.Update(ctx, user, map[string]interface{}{"authority_id": authorityId, "token_version": gorm.Expr("token_version + 1")}); err != nil {
-		return nil, err
-	}
-
-	// 4. 更新内存对象以便签发 Token
-	user, searchErr = s.userRepo.FindByUuid(ctx, uuid)
-	if searchErr != nil {
-		return nil, searchErr
-	}
-
-	// 5. 签发新 Token (因为 Token 里包含 AuthorityId，切换角色必须换 Token)
-	token, c, err := s.generateJwtToken(ctx, user)
-	if err != nil {
-		return nil, err
-	}
-
-	return &dto.LoginResponse{
-		Token:     token,
-		ExpiresAt: c.RegisteredClaims.ExpiresAt.Unix() * 1000,
-	}, nil
 }
 
 // DeleteUser 删除用户

@@ -145,6 +145,26 @@ func grantAccess(db *gorm.DB, roles []uint, menuIDs []uint, apis []sysModel.SysA
 	})
 }
 
+// removeAPI 删除下线的接口及其角色授权、Token 授权与 Casbin 规则；必须在 claims.PolicyTransaction 里调用。
+func removeAPI(tx *gorm.DB, path, method string) error {
+	var ids []uint
+	if err := tx.Unscoped().Model(&sysModel.SysApi{}).Where("path = ? AND method = ?", path, method).Pluck("id", &ids).Error; err != nil {
+		return err
+	}
+	if len(ids) > 0 {
+		if err := tx.Where("api_id IN ?", ids).Delete(&sysModel.SysAuthorityApi{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("api_id IN ?", ids).Delete(&sysModel.SysApiTokenApi{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Unscoped().Where("id IN ?", ids).Delete(&sysModel.SysApi{}).Error; err != nil {
+			return err
+		}
+	}
+	return tx.Where("ptype = ? AND v1 = ? AND v2 = ?", "p", path, method).Delete(&sysModel.SysCasbinRule{}).Error
+}
+
 // rolesWithAPI 返回已授予某接口的角色，用于“新接口授予能调用某个旧接口的角色”。
 func rolesWithAPI(tx *gorm.DB, path, method string) ([]uint, error) {
 	var roles []uint
