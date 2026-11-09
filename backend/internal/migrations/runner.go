@@ -31,6 +31,7 @@ func latestVersion(steps []step) string {
 	}
 	return steps[len(steps)-1].Version
 }
+
 const i18nVersion = "20260910_cms_i18n_v1"
 const baselineVersion = "20260910_sessions_policy_bootstrap_v1"
 
