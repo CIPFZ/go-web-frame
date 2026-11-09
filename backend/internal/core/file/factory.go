@@ -12,6 +12,12 @@ func NewFileService(cfg config.FileConfig, logger *zap.Logger) OSS {
 	case "minio":
 		// ✨ 注册 MinIO
 		return NewMinioDriver(cfg.Minio, logger)
+	case "cos":
+		driver, err := NewCOSDriver(cfg.COS)
+		if err != nil {
+			logger.Panic("cos init failed", zap.Error(err))
+		}
+		return driver
 	default:
 		return NewLocalDriver(cfg.Local, logger)
 	}

@@ -93,6 +93,7 @@ type FileConfig struct {
 	AllowExt []string    `json:"allow_ext" yaml:"allow_ext" toml:"allow_ext" mapstructure:"allow_ext"`
 	Local    LocalConfig `json:"local" yaml:"local" toml:"local" mapstructure:"local"`
 	Minio    MinioConfig `json:"minio" yaml:"minio" toml:"minio" mapstructure:"minio"`
+	COS      COSConfig   `json:"cos" yaml:"cos" toml:"cos" mapstructure:"cos"`
 }
 
 type LocalConfig struct {
@@ -107,6 +108,15 @@ type MinioConfig struct {
 	Bucket          string `mapstructure:"bucket" json:"bucket" yaml:"bucket"`                                  // e.g. gowebframe
 	UseSSL          bool   `mapstructure:"use_ssl" json:"use_ssl" yaml:"use_ssl"`                               // false
 	PreviewBasePath string `mapstructure:"preview_base_path" json:"preview_base_path" yaml:"preview_base_path"` // 访问域名前缀 (http://localhost:9000/bucket)
+}
+
+// COSConfig 腾讯云对象存储（driver: cos）。公网/内网域名与 APPID 由 bucket + region 推导。
+type COSConfig struct {
+	SecretID  string `mapstructure:"secret_id" json:"-" yaml:"secret_id"`
+	SecretKey string `mapstructure:"secret_key" json:"-" yaml:"secret_key"`
+	Bucket    string `mapstructure:"bucket" json:"bucket" yaml:"bucket"`             // <name>-<appid>
+	Region    string `mapstructure:"region" json:"region" yaml:"region"`             // 如 ap-guangzhou
+	KeyPrefix string `mapstructure:"key_prefix" json:"key_prefix" yaml:"key_prefix"` // 经后端上传的文件放在这个前缀下，可为空
 }
 
 type Email struct {

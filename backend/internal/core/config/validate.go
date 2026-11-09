@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -39,7 +40,37 @@ func ValidateServer(c *Config) error {
 	if c.System.UseRedis && c.Redis.Addr == "" && len(c.Redis.ClusterAddrs) == 0 {
 		return fmt.Errorf("redis address is required")
 	}
+	if c.File.Driver == "cos" {
+		return validateCOS(c.File.COS)
+	}
 	return nil
+}
+
+var (
+	cosBucketPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*-([0-9]{6,})$`)
+	cosRegionPattern = regexp.MustCompile(`^[a-z]+-[a-z0-9-]+$`)
+)
+
+func validateCOS(c COSConfig) error {
+	if strings.TrimSpace(c.SecretID) == "" || strings.TrimSpace(c.SecretKey) == "" {
+		return fmt.Errorf("file.cos requires secret_id and secret_key")
+	}
+	if _, err := c.AppID(); err != nil {
+		return err
+	}
+	if !cosRegionPattern.MatchString(c.Region) {
+		return fmt.Errorf("file.cos.region %q is invalid", c.Region)
+	}
+	return nil
+}
+
+// AppID 返回桶名后缀中的 APPID（COS 桶名格式为 <name>-<appid>）。
+func (c COSConfig) AppID() (string, error) {
+	m := cosBucketPattern.FindStringSubmatch(c.Bucket)
+	if m == nil {
+		return "", fmt.Errorf("file.cos.bucket %q must be <name>-<appid>", c.Bucket)
+	}
+	return m[1], nil
 }
 
 func configDuration(s string) (time.Duration, error) {
