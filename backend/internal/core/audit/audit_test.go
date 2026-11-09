@@ -18,6 +18,7 @@ func TestSanitizeBody(t *testing.T) {
 	for _, input := range []string{
 		`{"password":"private-value","name":"kept","nested":[{"access_token":"private-value"}],"id":9007199254740993}`,
 		`{"oldPassword":"private-value","new-password":"private-value","secretKey":"private-value"}`,
+		`{"apiKey":"private-value","api_key":"private-value","x-api-key":"private-value"}`,
 		`{"password":"private-value`,
 		`password=private-value`,
 		strings.Repeat(" ", MaxBodySize) + `{"password":"private-value"}`,

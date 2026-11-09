@@ -10,3 +10,5 @@ migrate
 *.sqlite*
 *.test
 coverage.out
+# 本地 / 部署专用的配置里有真实凭据：运行时挂载，不打进镜像
+configs/*.local.yaml

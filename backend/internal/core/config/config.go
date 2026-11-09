@@ -15,8 +15,6 @@ type Config struct {
 	Mongo      Mongo           `mapstructure:"mongo" json:"mongo" yaml:"mongo"`
 	Redis      Redis           `mapstructure:"redis" json:"redis" yaml:"redis"`
 	File       FileConfig      `mapstructure:"file" json:"file" yaml:"file"`
-	Email      Email           `mapstructure:"email" json:"email" yaml:"email"`
-	Captcha    Captcha         `mapstructure:"captcha" json:"captcha" yaml:"captcha"`
 	Cors       CORS            `mapstructure:"cors" json:"cors" yaml:"cors"`
 	Observable Observability   `mapstructure:"observable" json:"observable" yaml:"observable"`
 	RateLimit  RateLimitConfig `mapstructure:"rate_limit" json:"rate_limit" yaml:"rate_limit"`
@@ -36,12 +34,8 @@ type System struct {
 	Environment       string   `mapstructure:"environment" json:"environment" yaml:"environment"`
 	Port              int      `mapstructure:"port" json:"port" yaml:"port"` // 端口值
 	RouterPrefix      string   `mapstructure:"router_prefix" json:"router_prefix" yaml:"router_prefix"`
-	LimitCountIP      int      `mapstructure:"iplimit_count" json:"iplimit_count" yaml:"iplimit_count"`
-	LimitTimeIP       int      `mapstructure:"iplimit_time" json:"iplimit_time" yaml:"iplimit_time"`
-	DbType            string   `mapstructure:"db_type" json:"db_type" yaml:"db_type"`                      // 数据库类型:mysql(默认)|sqlite|postgresql
-	UseRedis          bool     `mapstructure:"use_redis" json:"use_redis" yaml:"use_redis"`                // 使用redis
-	UseMongo          bool     `mapstructure:"use_mongo" json:"use_mongo" yaml:"use_mongo"`                // 使用mongo
-	UseMultipoint     bool     `mapstructure:"use_multipoint" json:"use_multipoint" yaml:"use_multipoint"` // 多点登录拦截
+	UseRedis          bool     `mapstructure:"use_redis" json:"use_redis" yaml:"use_redis"` // 使用redis
+	UseMongo          bool     `mapstructure:"use_mongo" json:"use_mongo" yaml:"use_mongo"` // 使用mongo
 }
 
 type JWT struct {
@@ -117,25 +111,6 @@ type COSConfig struct {
 	Bucket    string `mapstructure:"bucket" json:"bucket" yaml:"bucket"`             // <name>-<appid>
 	Region    string `mapstructure:"region" json:"region" yaml:"region"`             // 如 ap-guangzhou
 	KeyPrefix string `mapstructure:"key_prefix" json:"key_prefix" yaml:"key_prefix"` // 经后端上传的文件放在这个前缀下，可为空
-}
-
-type Email struct {
-	To          string `mapstructure:"to" json:"to" yaml:"to"`                               // 收件人:多个以英文逗号分隔 例：a@qq.com b@qq.com 正式开发中请把此项目作为参数使用
-	From        string `mapstructure:"from" json:"from" yaml:"from"`                         // 发件人  你自己要发邮件的邮箱
-	Host        string `mapstructure:"host" json:"host" yaml:"host"`                         // 服务器地址 例如 smtp.qq.com  请前往QQ或者你要发邮件的邮箱查看其smtp协议
-	Secret      string `mapstructure:"secret" json:"secret" yaml:"secret"`                   // 密钥    用于登录的密钥 最好不要用邮箱密码 去邮箱smtp申请一个用于登录的密钥
-	Nickname    string `mapstructure:"nickname" json:"nickname" yaml:"nickname"`             // 昵称    发件人昵称 通常为自己的邮箱
-	Port        int    `mapstructure:"port" json:"port" yaml:"port"`                         // 端口     请前往QQ或者你要发邮件的邮箱查看其smtp协议 大多为 465
-	IsSSL       bool   `mapstructure:"is_ssl" json:"is_ssl" yaml:"is_ssl"`                   // 是否SSL   是否开启SSL
-	IsLoginAuth bool   `mapstructure:"is_loginauth" json:"is_loginauth" yaml:"is_loginauth"` // 是否LoginAuth   是否使用LoginAuth认证方式（适用于IBM、微软邮箱服务器等）
-}
-
-type Captcha struct {
-	KeyLong            int `mapstructure:"key_long" json:"key_long" yaml:"key_long"`                                     // 验证码长度
-	ImgWidth           int `mapstructure:"img_width" json:"img_width" yaml:"img_width"`                                  // 验证码宽度
-	ImgHeight          int `mapstructure:"img_height" json:"img_height" yaml:"img_height"`                               // 验证码高度
-	OpenCaptcha        int `mapstructure:"open_captcha" json:"open_captcha" yaml:"open_captcha"`                         // 防爆破验证码开启此数，0代表每次登录都需要验证码，其他数字代表错误密码次数，如3代表错误三次后出现验证码
-	OpenCaptchaTimeOut int `mapstructure:"open_captcha_timeout" json:"open_captcha_timeout" yaml:"open_captcha_timeout"` // 防爆破验证码超时时间，单位：s(秒)
 }
 
 type CORS struct {

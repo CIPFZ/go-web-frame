@@ -3,11 +3,8 @@
   environment: production
   port: 8080
   router_prefix: /api/v1
-  iplimit_count: 8000
-  iplimit_time: 3600
   use_redis: true
   use_mongo: false
-  use_multipoint: true
 
 logger:
   level: info
@@ -110,22 +107,7 @@ file:
     region: ap-guangzhou
     key_prefix: uploads
 
-email:
-  to: ops@example.com
-  from: noreply@example.com
-  host: smtp.example.com
-  secret: CHANGE_ME_EMAIL_SECRET
-  nickname: GoWebFrame
-  port: 465
-  is_ssl: true
-  is_loginauth: false
 
-captcha:
-  key_long: 6
-  img_width: 240
-  img_height: 80
-  open_captcha: 3
-  open_captcha_timeout: 3600
 
 cors:
   mode: strict-whitelist
