@@ -39,6 +39,9 @@ Nexus 跑批、阶段 Agent 和多轮进展等功能可在独立业务分支上�
 `GET /api/v1/sys/menu/getMenu` 返回当前用户全部角色可访问的菜单树（多个角色取并集），包含 `path`、`component`、
 `routes`、`hideInMenu` 等字段。前端通过 `fetchMenuData` 获取数据，`buildRoutes` 生成页面路由，
 `patchClientRoutes` 注入布局，`menuDataRender` 渲染导航。
+有子菜单的分组本身没有页面：直接访问分组地址时跳到它的第一个子页面，面包屑里分组只显示文字。
+需要在同一分组的页面间来回切换、又不想每次重新请求和重画图表时，把分组 path 登记到
+`front-end/src/routing/keepAlive.ts`：去过的页面切走时不卸载，页面可用 `useRouteActive()` 只在显示时轮询。
 
 `front-end/config/routes.ts` 仅保留认证页、根布局与 404。API Token、个人设置等业务页面也由
 后端菜单注册，隐藏菜单不代表没有路由。新增业务时需同步添加组件映射、后端菜单、API 和角色授权。
