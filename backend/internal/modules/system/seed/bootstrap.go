@@ -192,6 +192,7 @@ func ensureBaseMenus(tx *gorm.DB) (map[string]uint, error) {
 		{Key: "sys_operation", ParentKey: "sys_root", Path: "/sys/operation", Name: "menu.system.operation", Component: "sys/operation", Icon: "HistoryOutlined", Locale: "menu.system.operation"},
 		{Key: "sys_notice", ParentKey: "sys_root", Path: "/sys/notice", Name: "menu.system.notice", Component: "sys/notice", Icon: "NotificationOutlined", Locale: "menu.system.notice"},
 		{Key: "account_settings", Path: "/account/settings", Name: "menu.account.settings", Component: "user/info", Icon: "ProfileOutlined", Locale: "menu.account.settings", HideInMenu: true},
+		{Key: "account_tokens", Path: "/account/tokens", Name: "menu.account.tokens", Component: "account/tokens", Icon: "KeyOutlined", Locale: "menu.account.tokens", HideInMenu: true},
 	}
 
 	menuIDs := make(map[string]uint, len(menus))
@@ -238,10 +239,10 @@ func ensureBaseMenus(tx *gorm.DB) (map[string]uint, error) {
 
 func bindAuthorityMenus(tx *gorm.DB, menuIDs map[string]uint, adminAuthorityID uint) error {
 	roleMenuKeys := map[uint][]string{
-		adminAuthorityID: {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_api_token", "sys_operation", "sys_notice", "account_settings"},
-		9528:             {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_api_token", "sys_operation", "sys_notice", "account_settings"},
-		888:              {"dashboard", "state", "about", "account_settings"},
-		8881:             {"dashboard", "about", "account_settings"},
+		adminAuthorityID: {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_api_token", "sys_operation", "sys_notice", "account_settings", "account_tokens"},
+		9528:             {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_api_token", "sys_operation", "sys_notice", "account_settings", "account_tokens"},
+		888:              {"dashboard", "state", "about", "account_settings", "account_tokens"},
+		8881:             {"dashboard", "about", "account_settings", "account_tokens"},
 	}
 
 	relations := make([]model.SysAuthorityMenu, 0)
@@ -299,6 +300,9 @@ func ensureBaseApis(tx *gorm.DB) (map[string]uint, error) {
 		{Path: "/api/v1/sys/api-token/reset", Method: "POST", ApiGroup: "system-api-token", Description: "Reset API token"},
 		{Path: "/api/v1/sys/api-token/enable", Method: "POST", ApiGroup: "system-api-token", Description: "Enable API token"},
 		{Path: "/api/v1/sys/api-token/disable", Method: "POST", ApiGroup: "system-api-token", Description: "Disable API token"},
+		{Path: "/api/v1/sys/api-token/all", Method: "POST", ApiGroup: "system-api-token", Description: "List everyone's API tokens"},
+		{Path: "/api/v1/sys/api-token/limits/get", Method: "POST", ApiGroup: "system-api-token", Description: "Get token limits"},
+		{Path: "/api/v1/sys/api-token/limits/update", Method: "PUT", ApiGroup: "system-api-token", Description: "Update token limits"},
 
 		{Path: "/api/v1/sys/casbin/getPolicyPathByAuthorityId", Method: "POST", ApiGroup: "system-casbin", Description: "Get casbin policy list"},
 		{Path: "/api/v1/sys/casbin/updateCasbin", Method: "POST", ApiGroup: "system-casbin", Description: "Update casbin policy"},
@@ -367,6 +371,9 @@ func bindAuthorityApis(tx *gorm.DB, apiIDs map[string]uint, adminAuthorityID uin
 		apiSign("POST", "/api/v1/sys/api-token/reset"),
 		apiSign("POST", "/api/v1/sys/api-token/enable"),
 		apiSign("POST", "/api/v1/sys/api-token/disable"),
+		apiSign("POST", "/api/v1/sys/api-token/all"),
+		apiSign("POST", "/api/v1/sys/api-token/limits/get"),
+		apiSign("PUT", "/api/v1/sys/api-token/limits/update"),
 		apiSign("POST", "/api/v1/sys/casbin/getPolicyPathByAuthorityId"),
 		apiSign("POST", "/api/v1/sys/casbin/updateCasbin"),
 		apiSign("POST", "/api/v1/sys/operationLog/getOperationLogList"),
@@ -388,6 +395,15 @@ func bindAuthorityApis(tx *gorm.DB, apiIDs map[string]uint, adminAuthorityID uin
 		apiSign("POST", "/api/v1/sys/system/getServerInfo"),
 		apiSign("GET", "/api/v1/sys/notice/getMyNotices"),
 		apiSign("POST", "/api/v1/sys/notice/markRead"),
+		// 每个人管理自己的 API Token
+		apiSign("POST", "/api/v1/sys/api-token/getApiTokenList"),
+		apiSign("GET", "/api/v1/sys/api-token/detail"),
+		apiSign("POST", "/api/v1/sys/api-token/create"),
+		apiSign("PUT", "/api/v1/sys/api-token/update"),
+		apiSign("DELETE", "/api/v1/sys/api-token/delete"),
+		apiSign("POST", "/api/v1/sys/api-token/reset"),
+		apiSign("POST", "/api/v1/sys/api-token/enable"),
+		apiSign("POST", "/api/v1/sys/api-token/disable"),
 	}
 
 	roleAccess := map[uint][]string{
@@ -449,6 +465,9 @@ func ensureCasbinPolicies(tx *gorm.DB, apiIDs map[string]uint, adminAuthorityID 
 		{"POST", "/api/v1/sys/api-token/reset"},
 		{"POST", "/api/v1/sys/api-token/enable"},
 		{"POST", "/api/v1/sys/api-token/disable"},
+		{"POST", "/api/v1/sys/api-token/all"},
+		{"POST", "/api/v1/sys/api-token/limits/get"},
+		{"PUT", "/api/v1/sys/api-token/limits/update"},
 		{"POST", "/api/v1/sys/casbin/getPolicyPathByAuthorityId"},
 		{"POST", "/api/v1/sys/casbin/updateCasbin"},
 		{"POST", "/api/v1/sys/operationLog/getOperationLogList"},
@@ -470,6 +489,15 @@ func ensureCasbinPolicies(tx *gorm.DB, apiIDs map[string]uint, adminAuthorityID 
 		{"POST", "/api/v1/sys/system/getServerInfo"},
 		{"GET", "/api/v1/sys/notice/getMyNotices"},
 		{"POST", "/api/v1/sys/notice/markRead"},
+		// 每个人管理自己的 API Token
+		{"POST", "/api/v1/sys/api-token/getApiTokenList"},
+		{"GET", "/api/v1/sys/api-token/detail"},
+		{"POST", "/api/v1/sys/api-token/create"},
+		{"PUT", "/api/v1/sys/api-token/update"},
+		{"DELETE", "/api/v1/sys/api-token/delete"},
+		{"POST", "/api/v1/sys/api-token/reset"},
+		{"POST", "/api/v1/sys/api-token/enable"},
+		{"POST", "/api/v1/sys/api-token/disable"},
 	}
 
 	rolePolicies := map[uint][][]string{

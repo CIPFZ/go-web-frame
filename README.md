@@ -59,8 +59,9 @@ python3 deploy/local/smoke.py
 `python3 deploy/local/e2e.py`：复用已构建镜像，在随机 Compose 项目中创建独立数据库与随机本机端口，
 测试结束后删除该测试项目及其持久卷，避免测试用户和通知进入共享 CMS。需要本机安装前端依赖和 Playwright Chromium。
 
-API Token 管理保留为后续 Worker 集成的基础能力；当前系统接口使用 JWT / Casbin，
-新增外部接口需要显式接入 `ApiTokenAuth`，仅勾选 API 授权不会改变接口的认证方式。
+API Token 跟人绑定：每个人申请自己的 Token，能做的事不超过本人现在的权限，管理员可以设置申请限制。
+当前系统接口使用 JWT / Casbin，新增外部接口需要显式接入 `ApiTokenAuth` 并用 `token.Expose` 声明，
+仅勾选 API 授权不会改变接口的认证方式。详见 [API Token 使用和接入](docs/apitoken-design.md)。
 
 ## 基础分支与业务分支
 

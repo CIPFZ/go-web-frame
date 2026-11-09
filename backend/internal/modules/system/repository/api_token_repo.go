@@ -3,13 +3,15 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/CIPFZ/gowebframe/internal/core/claims"
 	tokenCore "github.com/CIPFZ/gowebframe/internal/core/token"
-	"time"
+
+	"gorm.io/gorm"
 
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
-	"gorm.io/gorm"
 )
 
 type IApiTokenRepository interface {
@@ -22,6 +24,10 @@ type IApiTokenRepository interface {
 	UpdateColumns(ctx context.Context, id uint, updates map[string]interface{}) error
 	DeleteByIDs(ctx context.Context, ids []uint) error
 	TouchLastUsedAt(ctx context.Context, id uint, usedAt time.Time) error
+	CountByOwner(ctx context.Context, ownerID uint) (int64, error)
+	OwnerNames(ctx context.Context, ownerIDs []uint) (map[uint]string, error)
+	GetLimit(ctx context.Context, userID uint) (*model.SysTokenLimit, error)
+	SaveLimit(ctx context.Context, limit *model.SysTokenLimit) error
 }
 
 type ApiTokenRepository struct {
@@ -56,6 +62,9 @@ func (r *ApiTokenRepository) GetList(ctx context.Context, req dto.SearchApiToken
 	}
 	if req.Enabled != nil {
 		base = base.Where("enabled = ?", *req.Enabled)
+	}
+	if req.OwnerID != 0 {
+		base = base.Where("created_by = ?", req.OwnerID)
 	}
 
 	if err := base.Count(&total).Error; err != nil {
@@ -134,6 +143,42 @@ func (r *ApiTokenRepository) TouchLastUsedAt(ctx context.Context, id uint, usedA
 		Where("id = ?", id).
 		Update("last_used_at", usedAt).
 		Error
+}
+
+func (r *ApiTokenRepository) CountByOwner(ctx context.Context, ownerID uint) (int64, error) {
+	var n int64
+	err := r.db.WithContext(ctx).Model(&model.SysApiToken{}).Where("created_by = ?", ownerID).Count(&n).Error
+	return n, err
+}
+
+// OwnerNames 返回主人的显示名（昵称，没有时用用户名）。
+func (r *ApiTokenRepository) OwnerNames(ctx context.Context, ownerIDs []uint) (map[uint]string, error) {
+	var users []model.SysUser
+	if err := r.db.WithContext(ctx).Unscoped().Select("id", "username", "nick_name").Where("id IN ?", ownerIDs).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	out := make(map[uint]string, len(users))
+	for _, u := range users {
+		out[u.ID] = u.NickName
+		if u.NickName == "" {
+			out[u.ID] = u.Username
+		}
+	}
+	return out, nil
+}
+
+// GetLimit 返回一份限制设置；没有设置过时返回空设置。
+func (r *ApiTokenRepository) GetLimit(ctx context.Context, userID uint) (*model.SysTokenLimit, error) {
+	limit := model.SysTokenLimit{UserID: userID}
+	err := r.db.WithContext(ctx).Where("user_id = ?", userID).First(&limit).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &limit, nil
+	}
+	return &limit, err
+}
+
+func (r *ApiTokenRepository) SaveLimit(ctx context.Context, limit *model.SysTokenLimit) error {
+	return r.db.WithContext(ctx).Save(limit).Error
 }
 
 func validateTokenAPIs(tx *gorm.DB, apis []model.SysApi, prefix string) error {

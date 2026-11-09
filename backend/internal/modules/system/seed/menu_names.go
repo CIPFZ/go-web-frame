@@ -14,6 +14,7 @@ var MenuNames = map[string]string{
 	"menu.system.operation":    "操作日志",
 	"menu.system.notice":       "通知公告",
 	"menu.account.settings":    "个人设置",
+	"menu.account.tokens":      "我的 Token",
 }
 
 // MenuNamesEn is shared by new installations and the additive locale migration.
@@ -22,4 +23,5 @@ var MenuNamesEn = map[string]string{
 	"menu.system": "System", "menu.system.user": "Users", "menu.system.authority": "Roles",
 	"menu.system.menu": "Menus", "menu.system.api": "APIs", "menu.system.apiToken": "API Tokens",
 	"menu.system.operation": "Operation Logs", "menu.system.notice": "Notices", "menu.account.settings": "Account settings",
+	"menu.account.tokens": "My API tokens",
 }

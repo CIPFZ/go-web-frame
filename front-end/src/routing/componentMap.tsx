@@ -19,6 +19,7 @@ export const componentMap: Record<string, React.LazyExoticComponent<any>> = {
   'virtualization/storage': React.lazy(() => import('@/pages/virtualization/storage')),
 
   'user/info': React.lazy(() => import('@/pages/account/settings')),
+  'account/tokens': React.lazy(() => import('@/pages/account/tokens')),
 };
 
 export const getComponent = (name?: string) => {

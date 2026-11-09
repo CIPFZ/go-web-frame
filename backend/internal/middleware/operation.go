@@ -68,9 +68,17 @@ func OperationRecord(svcCtx *svc.ServiceContext) gin.HandlerFunc {
 			Agent: truncateString(c.Request.UserAgent(), 512),
 			Body:  audit.SanitizeBody(requestBody.Bytes()), Resp: audit.SanitizeBody(writer.body.Bytes()),
 			Status: c.Writer.Status(), Latency: time.Since(start),
-			UserID: utils.GetUserID(c), TraceID: traceID, SpanID: spanID, ErrorMsg: errorSummary,
+			UserID: utils.GetUserID(c), TokenID: tokenOf(c), TraceID: traceID, SpanID: spanID, ErrorMsg: errorSummary,
 		})
 	}
+}
+
+// tokenOf 是这次操作经过的 API Token（网页操作为空）。
+func tokenOf(c *gin.Context) *uint {
+	if id := c.GetUint(CtxKeyAPITokenID); id != 0 {
+		return &id
+	}
+	return nil
 }
 
 func truncateString(s string, max int) string {

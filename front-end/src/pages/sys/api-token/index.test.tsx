@@ -2,13 +2,15 @@ import { render } from '../../../../tests/render';
 import { screen, waitFor } from '@testing-library/react';
 
 import ApiTokenPage from './index';
-import { getApiTokenList } from '@/services/system/apiToken';
+import { getAllApiTokens } from '@/services/system/apiToken';
 
 const mockProFormDateTimePicker = jest.fn((_: any) => null);
 let capturedColumns: any[] = [];
 
 jest.mock('@/services/system/apiToken', () => ({
-  getApiTokenList: jest.fn(),
+  getAllApiTokens: jest.fn(),
+  getTokenLimit: jest.fn(),
+  updateTokenLimit: jest.fn(),
   createApiToken: jest.fn(),
   getApiTokenDetail: jest.fn(),
   updateApiToken: jest.fn(),
@@ -49,7 +51,12 @@ jest.mock('@ant-design/pro-components', () => {
     ProForm: {
       Item: ({ children }: any) =>
         ReactLib.createElement('div', null, children),
+      Group: ({ children }: any) =>
+        ReactLib.createElement('div', null, children),
     },
+    ModalForm: () => null,
+    ProFormDependency: () => null,
+    ProFormRadio: { Group: () => null },
     ProFormText: () => null,
     ProFormTextArea: () => null,
     ProFormDigit: () => null,
@@ -64,7 +71,7 @@ describe('sys/api-token page', () => {
   });
 
   it('renders and requests list data', async () => {
-    (getApiTokenList as jest.Mock).mockResolvedValue({
+    (getAllApiTokens as jest.Mock).mockResolvedValue({
       code: 0,
       data: { list: [], total: 0 },
     });
@@ -76,12 +83,12 @@ describe('sys/api-token page', () => {
     expect(screen.getByText('新建 Token')).toBeTruthy();
 
     await waitFor(() => {
-      expect(getApiTokenList).toHaveBeenCalledTimes(1);
+      expect(getAllApiTokens).toHaveBeenCalledTimes(1);
     });
   });
 
   it('marks expiresAt as required in the token form', async () => {
-    (getApiTokenList as jest.Mock).mockResolvedValue({
+    (getAllApiTokens as jest.Mock).mockResolvedValue({
       code: 0,
       data: { list: [], total: 0 },
     });
@@ -101,7 +108,7 @@ describe('sys/api-token page', () => {
   });
 
   it('places authorized api column before status and usage metadata', async () => {
-    (getApiTokenList as jest.Mock).mockResolvedValue({
+    (getAllApiTokens as jest.Mock).mockResolvedValue({
       code: 0,
       data: { list: [], total: 0 },
     });
