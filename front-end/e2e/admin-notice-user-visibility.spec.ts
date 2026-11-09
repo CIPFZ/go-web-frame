@@ -103,9 +103,13 @@ test('admin notice list and user workplace visibility', async ({ page }) => {
   await page.getByRole('button', { name: /登\s*录/ }).click();
   await page.waitForURL(/#\//, { timeout: 20_000 });
 
-  await expect(page.getByText('我的通知')).toBeVisible();
+  // 弹窗通知直接弹出；工作台的“我的通知”小组件里也有这条
   await expect(page.getByRole('dialog', { name: noticeTitle })).toBeVisible();
-  await expect(page.getByRole('heading', { name: noticeTitle })).toBeVisible();
+  await expect(
+    page
+      .getByRole('region', { name: '我的通知', exact: true })
+      .getByRole('button', { name: noticeTitle }),
+  ).toBeVisible();
 
   await adminApi.dispose();
   await bootstrapApi.dispose();
