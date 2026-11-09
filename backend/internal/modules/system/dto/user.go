@@ -70,6 +70,11 @@ type UpdateUiConfigReq struct {
 	Settings map[string]any `json:"settings" binding:"required"`
 }
 
+// SetPresetAvatarReq 选一个内置头像（见 model.PresetAvatars）。
+type SetPresetAvatarReq struct {
+	Avatar string `json:"avatar" binding:"required"`
+}
+
 // UpdateWorkplaceReq 保存本人的工作台布局（JSON 对象，内容由前端定义）。
 type UpdateWorkplaceReq struct {
 	Workplace json.RawMessage `json:"workplace" binding:"required"`

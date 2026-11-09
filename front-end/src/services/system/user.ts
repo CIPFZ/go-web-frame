@@ -65,6 +65,14 @@ export async function resetPassword(body: { id: number, password: string }) {
   return request('/api/v1/sys/user/resetPassword', { method: 'POST', data: body });
 }
 
+/** 把头像换成内置头像之一（public/avatars） */
+export async function setPresetAvatar(avatar: string) {
+  return request<API.CommonResponse>('/api/v1/sys/user/avatar/preset', {
+    method: 'PUT',
+    data: { avatar },
+  });
+}
+
 /** 更新个人基本信息 (昵称、简介) */
 export async function updateSelfInfo(body: API.UpdateSelfInfoParams) {
   return request<API.CommonResponse>('/api/v1/sys/user/info', {

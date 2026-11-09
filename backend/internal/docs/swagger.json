@@ -1760,6 +1760,27 @@
         "summary": "POST /sys/user/avatar"
       }
     },
+    "/sys/user/avatar/preset": {
+      "put": {
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "CMS response; code 0 means success",
+            "schema": {
+              "$ref": "#/definitions/Response"
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "PUT /sys/user/avatar/preset"
+      }
+    },
     "/sys/user/deleteUser": {
       "delete": {
         "produces": [

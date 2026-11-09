@@ -10,6 +10,7 @@ import (
 	logger "github.com/CIPFZ/gowebframe/internal/core/log"
 	"github.com/CIPFZ/gowebframe/internal/modules/common"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
+	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/service"
 	"github.com/CIPFZ/gowebframe/internal/svc"
 	"github.com/CIPFZ/gowebframe/pkg/response"
@@ -256,6 +257,25 @@ func (u *UserApi) UpdateWorkplace(c *gin.Context) {
 		return
 	}
 	response.OkWithMessage("已保存", c)
+}
+
+// SetPresetAvatar 把头像换成内置头像之一。
+func (u *UserApi) SetPresetAvatar(c *gin.Context) {
+	var req dto.SetPresetAvatarReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailWithValidation(err, c)
+		return
+	}
+	if !model.IsPresetAvatar(req.Avatar) {
+		response.FailWithMessage("请选择一个内置头像", c)
+		return
+	}
+	if err := u.userService.UpdateAvatar(c.Request.Context(), utils.GetUserUUID(c), req.Avatar); err != nil {
+		logger.GetLogger(c).Error("avatar_update_db_failed", zap.Error(err))
+		response.FailWithMessage("更新用户资料失败", c)
+		return
+	}
+	response.OkWithData(gin.H{"url": req.Avatar}, c)
 }
 
 func (u *UserApi) UploadAvatar(c *gin.Context) {

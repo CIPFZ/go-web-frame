@@ -584,4 +584,7 @@ export default {
   'cms.roleDesk.save': 'Save',
   'cms.roleDesk.saved': 'Default workplace saved',
   'cms.roleDesk.title': 'Default workplace of “{name}”',
+  'cms.avatarPresets': 'Built-in avatars',
+  'cms.avatarPresetOne': 'Built-in avatar {n}',
+  'cms.avatarSaved': 'Avatar updated',
 } satisfies Record<keyof typeof zh, string>;
