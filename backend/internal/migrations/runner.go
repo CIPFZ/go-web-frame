@@ -15,7 +15,23 @@ import (
 	"time"
 )
 
-const Latest = "20261007_agent_gateway_link_v1"
+// legacyVersion 及之前的迁移合并成几块执行；之后的每一步各自带版本号（见 steps）。
+const legacyVersion = "20261007_agent_gateway_link_v1"
+
+// steps 是 legacyVersion 之后的一次性迁移，按顺序执行，每一步成功后单独记录版本号。
+// 新增迁移追加到末尾，已发布的步骤不要修改或调换顺序。
+var steps = []step{}
+
+// Latest 是最后一步迁移的版本号：服务启动前用它确认迁移已经完成。
+var Latest = latestVersion(steps)
+
+func latestVersion(steps []step) string {
+	if len(steps) == 0 {
+		return legacyVersion
+	}
+	return steps[len(steps)-1].Version
+}
+
 const i18nVersion = "20260910_cms_i18n_v1"
 const baselineVersion = "20260910_sessions_policy_bootstrap_v1"
 
@@ -151,11 +167,18 @@ func applyI18n(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error {
 }
 
 func apply(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error {
+	if err := applyLegacy(db, cfg, logger); err != nil {
+		return err
+	}
+	return runSteps(db, cfg, logger, steps)
+}
+
+func applyLegacy(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error {
 	if err := applyI18n(db, cfg, logger); err != nil {
 		return err
 	}
 	var count int64
-	if err := db.Model(&schemaMigration{}).Where("name = ?", Latest).Count(&count).Error; err != nil {
+	if err := db.Model(&schemaMigration{}).Where("name = ?", legacyVersion).Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
@@ -179,5 +202,5 @@ func apply(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error {
 	if err := migrateVirtualizationAccess(db, cfg, logger); err != nil {
 		return err
 	}
-	return db.Create(&schemaMigration{Name: Latest, AppliedAt: time.Now()}).Error
+	return db.Create(&schemaMigration{Name: legacyVersion, AppliedAt: time.Now()}).Error
 }
