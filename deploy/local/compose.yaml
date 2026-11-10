@@ -1,4 +1,4 @@
-name: nexus-cms
+name: base-frame
 
 x-logging: &logging
   driver: json-file

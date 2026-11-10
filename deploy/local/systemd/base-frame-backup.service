@@ -1,0 +1,11 @@
+[Unit]
+Description=Consistent CMS database and uploads backup
+Requires=docker.service
+After=docker.service
+[Service]
+Type=oneshot
+# 安装前把 /opt/base-frame 改成仓库的实际检出路径
+WorkingDirectory=/opt/base-frame
+ExecStart=/usr/bin/python3 /opt/base-frame/deploy/local/backup.py create --retain 14
+UMask=0077
+TimeoutStartSec=15min

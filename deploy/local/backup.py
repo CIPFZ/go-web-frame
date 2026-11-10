@@ -36,7 +36,7 @@ def snapshot(retain):
                 run(BASE + ['stop', 'backend']); paused = True
             with (temp / 'database.sql').open('wb') as out:
                 run(BASE + ['exec', '-T', 'mysql', 'sh', '-c',
-                    'MYSQL_PWD="$MYSQL_PASSWORD" exec mysqldump -unexus_cms --single-transaction --quick --no-tablespaces --routines --triggers --set-gtid-purged=OFF nexus_cms'], stdout=out)
+                    'MYSQL_PWD="$MYSQL_PASSWORD" exec mysqldump -u"$MYSQL_USER" --single-transaction --quick --no-tablespaces --routines --triggers --set-gtid-purged=OFF "$MYSQL_DATABASE"'], stdout=out)
             with (temp / 'uploads.tar').open('wb') as out:
                 run(BASE + ['exec', '-T', 'frontend', 'tar', 'cf', '-', '-C', '/srv/uploads', '.'], stdout=out)
             shutil.copyfile(LOCAL / '.env', temp / 'environment.env')
@@ -67,7 +67,7 @@ def verify(path):
 
 def rehearse(path, mysql_image):
     verify(path)
-    project = 'nexus-cms-restore-' + uuid.uuid4().hex[:10]
+    project = 'base-frame-restore-' + uuid.uuid4().hex[:10]
     work = Path(tempfile.mkdtemp(prefix=project, dir=LOCAL / 'runtime'))
     config = json.loads((path / 'backend.yaml').read_text())
     config['observable']['exporter'] = 'none'
@@ -82,7 +82,7 @@ def rehearse(path, mysql_image):
     try:
         run(compose + ['up','-d','--wait','--wait-timeout','180','mysql','redis'])
         with (path / 'database.sql').open('rb') as source:
-            run(compose + ['exec','-T','mysql','sh','-c','MYSQL_PWD="$MYSQL_PASSWORD" exec mysql -unexus_cms nexus_cms'], stdin=source)
+            run(compose + ['exec','-T','mysql','sh','-c','MYSQL_PWD="$MYSQL_PASSWORD" exec mysql -u"$MYSQL_USER" "$MYSQL_DATABASE"'], stdin=source)
         with (path / 'uploads.tar').open('rb') as source:
             run(compose + ['run','--rm','--no-deps','-T','--entrypoint','tar','backend','xf','-','-C','/app/uploads'], stdin=source)
         # Verify restored bytes before HTTP startup can create new files.
