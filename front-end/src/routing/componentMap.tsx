@@ -13,10 +13,6 @@ export const componentMap: Record<string, React.LazyExoticComponent<any>> = {
   'sys/api-token': React.lazy(() => import('@/pages/sys/api-token')),
   'sys/operation': React.lazy(() => import('@/pages/sys/operation')),
   'sys/notice': React.lazy(() => import('@/pages/sys/notice')),
-  'novel/books': React.lazy(() => import('@/pages/novel/books')),
-  'virtualization/agent': React.lazy(() => import('@/pages/virtualization/agent')),
-  'virtualization/vms': React.lazy(() => import('@/pages/virtualization/vms')),
-  'virtualization/storage': React.lazy(() => import('@/pages/virtualization/storage')),
 
   'user/info': React.lazy(() => import('@/pages/account/settings')),
   'account/tokens': React.lazy(() => import('@/pages/account/tokens')),
