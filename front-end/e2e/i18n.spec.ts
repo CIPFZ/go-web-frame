@@ -96,7 +96,7 @@ test('every CMS page and its creation dialogs respond to live language changes',
   test.setTimeout(180_000);
   await admin(page, request);
   const pages = [
-    ['/dashboard/workplace', '快捷入口', 'Quick access', '', ''],
+    ['/dashboard/workplace', '编辑工作台', 'Edit workplace', '', ''],
     ['/state', 'Go 运行环境', 'Go runtime', '', ''],
     ['/about', '技术栈', 'Technology stack', '', ''],
     ['/sys/user', '用户管理', 'Users', '新建用户', 'New user'],
@@ -227,9 +227,9 @@ test('English dynamic menu names and paths stay controlled by backend data', asy
   });
   await page.goto('/#/dashboard/workplace');
   await switchLanguage(page, 'English');
-  const nav = page.getByRole('navigation', { name: 'Workplace shortcuts' });
+  // 桌面上预置的图标按组件找到页面：英文名与地址都来自后端
   await expect(
-    nav.getByRole('link', { name: 'Team members', exact: true }),
+    page.getByRole('link', { name: 'Team members', exact: true }),
   ).toHaveAttribute('href', '#/sys/team-members');
   await page.setViewportSize({ width: 390, height: 844 });
   await expect
@@ -242,6 +242,6 @@ test('English dynamic menu names and paths stay controlled by backend data', asy
     fullPage: true,
   });
   await page.setViewportSize({ width: 1440, height: 1100 });
-  await nav.getByRole('link', { name: 'Team members', exact: true }).click();
+  await page.getByRole('link', { name: 'Team members', exact: true }).click();
   await expect(page.getByRole('button', { name: 'New user' })).toBeVisible();
 });

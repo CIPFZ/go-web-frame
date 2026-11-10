@@ -86,8 +86,21 @@ test('API Token real endpoint, CMS separation, rejection and lifecycle', async (
   expect(
     (await api('/sys/api-token/create', { ...payload, apiIds: [cms.ID] })).code,
   ).not.toBe(0);
+  // 不填有效期时按最长有效期（默认 180 天）签发；永久有效仍然不允许
+  const defaulted = await api('/sys/api-token/create', {
+    ...payload,
+    expiresAt: undefined,
+  });
+  expect(defaulted.code).toBe(0);
+  const days =
+    (new Date(defaulted.data.expiresAt).getTime() - Date.now()) / 86_400_000;
+  expect(days).toBeGreaterThan(179);
+  expect(days).toBeLessThanOrEqual(180);
+  expect(
+    (await api('/sys/api-token/delete', { id: defaulted.data.ID }, 'DELETE'))
+      .code,
+  ).toBe(0);
   for (const invalid of [
-    { expiresAt: undefined },
     { neverExpire: true },
     { name: '   ' },
     { maxConcurrency: -1 },
