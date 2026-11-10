@@ -30,21 +30,31 @@ export function useI18n(): AppLocale {
   return locale;
 }
 
+// 格式化器创建很慢（图表里每个点都要格式化一次）：按语言与选项缓存
+const dateFormats = new Map<string, Intl.DateTimeFormat>();
+
 export function formatDate(
   value: string | number | Date,
   options?: Intl.DateTimeFormatOptions,
 ): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
-  return new Intl.DateTimeFormat(
-    currentLocale(),
-    options ?? {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    },
-  ).format(date);
+  const locale = currentLocale();
+  const key = `${locale}|${options ? JSON.stringify(options) : ''}`;
+  let format = dateFormats.get(key);
+  if (!format) {
+    format = new Intl.DateTimeFormat(
+      locale,
+      options ?? {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      },
+    );
+    dateFormats.set(key, format);
+  }
+  return format.format(date);
 }

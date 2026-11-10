@@ -1,6 +1,9 @@
 import { getIcon } from '../utils/iconMap';
+import KeepAliveOutlet from '@/components/KeepAliveOutlet';
 import { getComponent } from './componentMap';
+import { KEEP_ALIVE_GROUPS } from './keepAlive';
 import {MenuDataItem} from "@ant-design/pro-components";
+import { Navigate } from '@umijs/max';
 import React from "react";
 
 // @ts-ignore
@@ -32,6 +35,17 @@ export function processMenuData(menuData: any[] | null): any[] {
   });
 }
 
+/** 有子菜单的分组路径（如 /sys）：它们没有自己的页面，面包屑里只显示文字、不可点击。 */
+export function menuGroupPaths(menuData: any[] | null | undefined, out = new Set<string>()): Set<string> {
+  for (const item of menuData || []) {
+    if (item.routes?.length) {
+      out.add(item.path);
+      menuGroupPaths(item.routes, out);
+    }
+  }
+  return out;
+}
+
 /**
  * [新函数] 递归构建 React Router v6 路由
  * 将 { path: "...", component: "state", routes: [...] }
@@ -49,8 +63,8 @@ export function buildRoutes(menuData: any[] | null): any[] {
       return null;
     }
 
-    // 2. 查找要渲染的 React 组件
-    const Component = getComponent(component);
+    // 2. 查找要渲染的 React 组件（保活分组用 KeepAliveOutlet 代替普通的 Outlet）
+    const Component = KEEP_ALIVE_GROUPS.has(path) && routes?.length ? KeepAliveOutlet : getComponent(component);
 
     // 3. 构建 React Router v6 路由对象
     const newRoute: any = {
@@ -75,6 +89,11 @@ export function buildRoutes(menuData: any[] | null): any[] {
     // 6. 递归处理子路由 (json:"routes" -> v6 "children")
     if (routes && routes.length > 0) {
       newRoute.children = buildRoutes(routes);
+      // 菜单分组（如“系统管理”）本身没有页面：直接访问分组地址时跳到第一个子页面，而不是一片空白
+      const first = routes.find((r: any) => r.path && !r.path.startsWith('http'));
+      if (first) {
+        newRoute.children.unshift({ index: true, element: React.createElement(Navigate, { to: first.path, replace: true }) });
+      }
     }
 
     return newRoute;

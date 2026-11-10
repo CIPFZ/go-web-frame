@@ -19,7 +19,7 @@ import { getCurrentUserInfo } from '@/services/system/user';
 import defaultSettings from '../config/defaultSettings';
 import { errorConfig } from './requestErrorConfig';
 import '@ant-design/v5-patch-for-react-19';
-import { processMenuData, buildRoutes } from '@/routing/menuHelpers';
+import { processMenuData, buildRoutes, menuGroupPaths } from '@/routing/menuHelpers';
 import { fetchMenuData } from '@/routing/menuDataStore';
 import { withMenuIcon } from '@/routing/menuIcon';
 import { updateUiConfig } from '@/services/system/user';
@@ -213,6 +213,13 @@ export const layout: RunTimeLayoutConfig = ({
       : [],
     menuHeaderRender: undefined,
     menuDataRender: () => localizeMenus(initialState?.menuData || []),
+    // 面包屑：菜单分组（如“系统管理”）没有页面，只显示文字；其余上级用路由跳转（默认实现改 location.href，哈希路由下会落到空白页）
+    itemRender: (route: any, _params: any, routes: any[]) => {
+      const text = route.title || route.breadcrumbName;
+      const last = routes[routes.length - 1]?.linkPath === route.path;
+      if (last || !route.path || menuGroupPaths(initialState?.menuData).has(route.path)) return <span>{text}</span>;
+      return <Link to={route.path}>{text}</Link>;
+    },
     subMenuItemRender: (item, defaultDom) =>
       withMenuIcon(item.icon, defaultDom),
     menuItemRender: (item, defaultDom) => {
