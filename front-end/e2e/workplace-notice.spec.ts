@@ -27,7 +27,7 @@ async function apiLogin(
   return body.data.token;
 }
 
-test('workplace respects role menus and supports notice pagination and confirmation', async ({
+test('desk respects role menus and supports notice paging and confirmation', async ({
   page,
 }, testInfo) => {
   test.setTimeout(150_000);
@@ -125,30 +125,16 @@ test('workplace respects role menus and supports notice pagination and confirmat
   expect((await response.json()).code).toBe(0);
   await page.waitForURL(/#\/dashboard\/workplace/, { timeout: 20_000 });
 
-  await expect(page.getByText('我的通知')).toBeVisible();
-  await expect(page.getByText(noticeTitle)).toBeVisible();
   const inbox = page.getByRole('region', { name: '我的通知', exact: true });
-  await expect(inbox.getByText('总数 6', { exact: true })).toBeVisible();
-  await expect(inbox.getByText('本页 5 条未读 · 未读优先')).toBeVisible();
-  const shortcuts = page.getByRole('navigation', { name: '工作台快捷入口' });
-  await expect(shortcuts.getByRole('link', { name: '用户管理' })).toHaveCount(
-    0,
-  );
-  await expect(shortcuts.getByRole('link', { name: '角色管理' })).toHaveCount(
-    0,
-  );
-  await expect(shortcuts.getByRole('link', { name: '系统状态' })).toBeVisible();
-  await expect(
-    shortcuts.getByRole('link', { name: '关于', exact: true }),
-  ).toBeVisible();
+  await expect(inbox.getByText(noticeTitle)).toBeVisible();
+  // 普通用户的桌面没有系统管理的图标
+  await expect(page.getByRole('link', { name: '用户管理' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: '角色管理' })).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath('workplace-notices.png'),
     fullPage: true,
   });
-  await inbox
-    .getByRole('article', { name: noticeTitle, exact: true })
-    .getByRole('button', { name: '查看详情' })
-    .click();
+  await inbox.getByRole('button', { name: noticeTitle }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByText('E2E directed notice payload')).toBeVisible();
   // A failed mutation must leave the notice available for retry.
@@ -161,19 +147,24 @@ test('workplace respects role menus and supports notice pagination and confirmat
   await page.unroute('**/sys/notice/markRead');
   await dialog.getByRole('button', { name: /确认已读/ }).click();
   await expect(dialog).not.toBeVisible();
-  await expect(inbox.getByText('总数 6', { exact: true })).toBeVisible();
-  await inbox.locator('.ant-pagination-item-2').click();
-  await expect(inbox.getByText('本页 0 条未读 · 未读优先')).toBeVisible();
-  await expect(
-    inbox.getByRole('article', { name: noticeTitle, exact: true }),
-  ).toContainText('已读');
-  await page.reload();
-  await expect(inbox.getByText('总数 6', { exact: true })).toBeVisible();
-  await inbox.locator('.ant-pagination-item-2').click();
-  await inbox
-    .getByRole('article', { name: noticeTitle, exact: true })
-    .getByRole('button', { name: '查看详情' })
+
+  // 大号的通知可以翻页：六条通知分两页；尺寸保存在本人账号上
+  await page.getByRole('button', { name: '编辑工作台' }).click();
+  await page
+    .getByRole('group', { name: '“我的通知”的尺寸' })
+    .getByText('大', { exact: true })
     .click();
+  await page.getByRole('button', { name: /完\s*成/ }).click();
+  // 未读在前：五条未读在第一页，已读的那条在第二页
+  const pager = inbox.locator('.ant-pagination');
+  await expect(pager).toBeVisible();
+  await expect(inbox.getByRole('button', { name: /Earlier notice/ })).toHaveCount(5);
+  await pager.locator('.ant-pagination-next').click();
+  await expect(inbox.getByRole('button', { name: noticeTitle })).toBeVisible();
+  await page.reload();
+  await expect(pager).toBeVisible();
+  await pager.locator('.ant-pagination-next').click();
+  await inbox.getByRole('button', { name: noticeTitle }).click();
   await expect(dialog.getByRole('button', { name: /确认已读/ })).toHaveCount(0);
   await expect(dialog.getByText('已读', { exact: true })).toBeVisible();
 

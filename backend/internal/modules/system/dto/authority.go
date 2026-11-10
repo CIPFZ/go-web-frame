@@ -1,5 +1,7 @@
 package dto
 
+import "encoding/json"
+
 // CreateAuthorityReq 创建角色
 type CreateAuthorityReq struct {
 	AuthorityId   uint   `json:"authorityId" binding:"required"` // 手动指定，例如 888
@@ -14,6 +16,12 @@ type UpdateAuthorityReq struct {
 	AuthorityName string `json:"authorityName"`
 	DefaultRouter string `json:"defaultRouter"`
 	// 通常不建议修改 ParentId，因为涉及复杂的树结构变更检查
+}
+
+// SetAuthorityWorkplaceReq 设置角色的默认工作台（JSON 对象；null 表示恢复预置的那一版）。
+type SetAuthorityWorkplaceReq struct {
+	AuthorityId uint            `json:"authorityId" binding:"required"`
+	Workplace   json.RawMessage `json:"workplace"`
 }
 
 // SetAuthorityMenusReq 设置角色菜单权限

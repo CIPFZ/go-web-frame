@@ -38,7 +38,7 @@ test.beforeEach(async ({ page, request }) => {
   }, login.data.token);
 });
 
-test('workplace follows backend menu names, paths and visibility', async ({
+test('desk follows backend menu names, paths and visibility; edits are saved per user', async ({
   page,
 }) => {
   await page.route('**/sys/menu/getMenu', async (route) => {
@@ -59,26 +59,53 @@ test('workplace follows backend menu names, paths and visibility', async ({
     await route.fulfill({ response, json: body });
   });
   await page.goto('/#/dashboard/workplace');
-  const shortcuts = page.getByRole('navigation', { name: '工作台快捷入口' });
+  // 预置的图标按组件找到页面：改了名字和地址也在，隐藏的菜单不出现
+  const members = page.getByRole('link', { name: '成员目录', exact: true });
+  await expect(members).toHaveAttribute('href', '#/sys/workplace-members');
   await expect(
-    shortcuts.getByRole('link', { name: '成员目录', exact: true }),
-  ).toHaveAttribute('href', '#/sys/workplace-members');
-  await expect(
-    shortcuts.getByRole('link', { name: '角色管理', exact: true }),
+    page.getByRole('link', { name: '角色管理', exact: true }),
   ).toHaveCount(0);
-  await expect(shortcuts.locator('a[href="#/sys/user"]')).toHaveCount(0);
   await expect(
-    page.getByRole('link', { name: '查看完整状态' }),
+    page
+      .getByRole('region', { name: '运行概览', exact: true })
+      .getByRole('link', { name: '运行概览' }),
   ).toHaveAttribute('href', '#/health-overview');
-  await expect(
-    page.getByRole('link', { name: /账号设置/ }),
-  ).toHaveAttribute('href', '#/my-profile');
-  await shortcuts.getByRole('link', { name: '成员目录', exact: true }).click();
+
+  // 编辑：图标不是链接；从组件库添加“当前账号”，完成后保存在本人账号上
+  await page.getByRole('button', { name: '编辑工作台' }).click();
+  await expect(members).toHaveCount(0);
+  await page.getByRole('button', { name: '添加小组件' }).click();
+  const gallery = page.getByRole('dialog');
+  await gallery
+    .getByRole('region', { name: '当前账号', exact: true })
+    .getByRole('button', { name: /添\s*加/ })
+    .click();
+  await page.keyboard.press('Escape');
+  const saved = page.waitForResponse(
+    (r) => r.url().endsWith('/sys/user/workplace') && r.request().method() === 'PUT',
+  );
+  await page.getByRole('button', { name: /完\s*成/ }).click();
+  expect((await (await saved).json()).code).toBe(0);
+  const account = page.getByRole('region', { name: '当前账号', exact: true });
+  await expect(account.getByRole('link', { name: '当前账号' })).toHaveAttribute(
+    'href',
+    '#/my-profile',
+  );
+  await page.reload();
+  await expect(account).toBeVisible();
+
+  // 恢复默认：回到角色的默认工作台
+  await page.getByRole('button', { name: '编辑工作台' }).click();
+  await page.getByRole('button', { name: '恢复默认' }).click();
+  await page.getByRole('button', { name: /完\s*成/ }).click();
+  await expect(account).toHaveCount(0);
+
+  await members.click();
   await expect(page).toHaveURL(/#\/sys\/workplace-members$/);
   await expect(page.getByRole('button', { name: '新建用户' })).toBeVisible();
 });
 
-test('workplace handles empty and failed requests on desktop, mobile and dark theme', async ({
+test('desk handles empty and failed requests on desktop, mobile and dark theme', async ({
   page,
 }, testInfo) => {
   let noticeFailure = false;
@@ -89,20 +116,18 @@ test('workplace handles empty and failed requests on desktop, mobile and dark th
         : { code: 0, data: { list: null, total: 0, page: 1, pageSize: 5 } },
     }),
   );
+  const notices = page.getByRole('region', { name: '我的通知', exact: true });
+  const service = page.getByRole('region', { name: '运行概览', exact: true });
   await page.setViewportSize({ width: 1440, height: 1450 });
   await page.goto('/#/dashboard/workplace');
-  await expect(page.getByText('暂时没有通知', { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole('status').filter({ hasText: '服务运行正常' }),
-  ).toBeVisible();
+  await expect(notices.getByText('暂时没有通知', { exact: true })).toBeVisible();
+  await expect(service.getByText('正常', { exact: true }).first()).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath('workplace-desktop.png'),
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(
-    page.getByRole('heading', { name: '快捷入口', exact: true }),
-  ).toBeVisible();
+  await expect(notices).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -110,34 +135,27 @@ test('workplace handles empty and failed requests on desktop, mobile and dark th
   ).toBe(true);
   await page.screenshot({
     path: testInfo.outputPath('workplace-mobile.png'),
-    fullPage: false,
+    fullPage: true,
   });
-  await page
-    .getByRole('region', { name: '当前账号', exact: true })
-    .scrollIntoViewIfNeeded();
-  await page.screenshot({
-    path: testInfo.outputPath('workplace-mobile-bottom.png'),
-  });
+
   noticeFailure = true;
-  await page.getByRole('button', { name: '刷新通知' }).click();
-  await expect(page.getByText('通知加载失败', { exact: true })).toBeVisible();
-  await expect(page.getByText('暂时没有通知', { exact: true })).toHaveCount(0);
+  await page.reload();
+  await expect(notices.getByText('通知加载失败', { exact: true })).toBeVisible();
+  await expect(notices.getByText('暂时没有通知', { exact: true })).toHaveCount(0);
   noticeFailure = false;
-  await page.getByRole('button', { name: /^重\s*试$/ }).click();
-  await expect(page.getByText('暂时没有通知', { exact: true })).toBeVisible();
+  await notices.getByRole('button', { name: /重\s*试/ }).click();
+  await expect(notices.getByText('暂时没有通知', { exact: true })).toBeVisible();
+
   await page.route('**/sys/system/getServerInfo', (route) =>
     route.fulfill({ json: { code: 1000, msg: 'temporary failure' } }),
   );
-  await page.getByRole('button', { name: '刷新运行概览' }).click();
-  await expect(
-    page.getByRole('status').filter({ hasText: '状态待确认' }),
-  ).toBeVisible();
-  await expect(
-    page
-      .getByRole('region', { name: '运行概览', exact: true })
-      .getByText('正常', { exact: true }),
-  ).toHaveCount(0);
+  await page.reload();
+  await expect(service.getByText('状态待确认', { exact: true })).toBeVisible();
+  await expect(service.getByText('正常', { exact: true })).toHaveCount(0);
   await page.unroute('**/sys/system/getServerInfo');
+  await service.getByRole('button', { name: /重\s*试/ }).click();
+  await expect(service.getByText('正常', { exact: true }).first()).toBeVisible();
+
   await page.route('**/sys/user/getSelfInfo', async (route) => {
     const response = await route.fetch();
     const body = await response.json();
@@ -146,10 +164,7 @@ test('workplace handles empty and failed requests on desktop, mobile and dark th
   });
   await page.setViewportSize({ width: 1440, height: 1450 });
   await page.reload();
-  await expect(page.getByText('暂时没有通知', { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole('status').filter({ hasText: '服务运行正常' }),
-  ).toBeVisible();
+  await expect(notices.getByText('暂时没有通知', { exact: true })).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath('workplace-dark.png'),
     fullPage: true,

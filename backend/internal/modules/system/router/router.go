@@ -92,6 +92,7 @@ func (s *SystemRouter) initUserRoutes(group *gin.RouterGroup) {
 		userRouter.POST("logout", s.apis.UserApi.Logout)
 		userRouter.PUT("info", s.apis.UserApi.UpdateSelfInfo)
 		userRouter.PUT("ui-config", s.apis.UserApi.UpdateUiConfig)
+		userRouter.PUT("workplace", s.apis.UserApi.UpdateWorkplace)
 		userRouter.POST("avatar", s.apis.UserApi.UploadAvatar)
 
 		// --- "写" 操作 (统一应用操作日志中间件) ---
@@ -138,6 +139,7 @@ func (s *SystemRouter) initAuthorityRoutes(group *gin.RouterGroup) {
 			authWriteGroup.PUT("updateAuthority", s.apis.AuthorityApi.UpdateAuthority)      // 建议: PUT
 			authWriteGroup.DELETE("deleteAuthority", s.apis.AuthorityApi.DeleteAuthority)   // 建议: DELETE
 			authWriteGroup.POST("setAuthorityMenus", s.apis.AuthorityApi.SetAuthorityMenus) // 分配菜单权限
+			authWriteGroup.PUT("workplace", s.apis.AuthorityApi.SetAuthorityWorkplace)      // 角色的默认工作台
 		}
 	}
 }

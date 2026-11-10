@@ -16,6 +16,7 @@ import {
   CopyOutlined,
   EditOutlined,
   DeleteOutlined,
+  LayoutOutlined,
 } from '@ant-design/icons';
 import {
   getAuthorityList,
@@ -25,11 +26,14 @@ import {
 } from '@/services/system/authority';
 // ✨ 导入尚未创建的 PermissionDrawer
 import PermissionDrawer from './components/PermissionDrawer';
+import RoleDeskDrawer, { RoleDeskTag } from './components/RoleDeskDrawer';
 export type AuthorityItem = {
   authorityId: number;
   authorityName: string;
   parentId: number;
   defaultRouter: string;
+  /** 角色的默认工作台；为空时用预置的 */
+  workplace?: unknown;
   children: AuthorityItem[] | null;
 };
 
@@ -46,6 +50,7 @@ const AuthorityTableList: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [permissionRow, setPermissionRow] = useState<AuthorityItem>();
   const [roles, setRoles] = useState<AuthorityItem[]>([]);
+  const [deskRole, setDeskRole] = useState<AuthorityItem>();
   const roleName = (id: number) => roles.find((r) => r.authorityId === id)?.authorityName || String(id);
 
   // --- CRUD 操作 ---
@@ -128,12 +133,21 @@ const AuthorityTableList: React.FC = () => {
       dataIndex: 'defaultRouter',
     },
     {
+      title: t('cms.roleDesk.column'),
+      width: 120,
+      render: (_, record) => <RoleDeskTag role={record} />,
+    },
+    {
       title: t('cms.actions'),
       valueType: 'option',
-      width: 350,
+      width: 460,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
+          <a onClick={() => setDeskRole(record)}>
+            <LayoutOutlined />
+            {t('cms.roleDesk.action')}
+          </a>
           <a
             onClick={() => {
               setPermissionRow(record);
@@ -258,6 +272,7 @@ const AuthorityTableList: React.FC = () => {
           }}
         />
       )}
+      {deskRole ? <RoleDeskDrawer role={deskRole} roleName={roleName} onClose={() => setDeskRole(undefined)} onSaved={() => actionRef.current?.reload()} /> : null}
     </PageContainer>
   );
 };

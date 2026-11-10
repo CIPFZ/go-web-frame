@@ -86,6 +86,7 @@ git switch -c my-project
 - [架构评审与技术栈升级记录](docs/BASE_FRAME_REVIEW.md)
 - [目录结构与模块边界](docs/DIRECTORY_STRUCTURE.md)
 - [数据库迁移写法](docs/MIGRATIONS.md)
+- [工作台与项目扩展](docs/WORKPLACE.md)
 - [质量检查与独立测试环境](TEMPLATE_QUALITY.md)
 
 后端使用 Go 1.27.1，前端构建使用 Node 24.21.0 LTS。业务菜单和路由仍由后端下发。

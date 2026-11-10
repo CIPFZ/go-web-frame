@@ -34,6 +34,7 @@ type IUserService interface {
 	ResetPassword(ctx context.Context, req dto.ResetPasswordReq) error
 	UpdateSelfInfo(ctx context.Context, uid uuid.UUID, req dto.UpdateSelfInfoReq) error
 	UpdateUiConfig(ctx context.Context, uid uuid.UUID, req dto.UpdateUiConfigReq) error
+	UpdateWorkplace(ctx context.Context, uid uuid.UUID, req dto.UpdateWorkplaceReq) error
 	UpdateAvatar(ctx context.Context, uid uuid.UUID, avatarUrl string) error
 }
 
@@ -272,6 +273,26 @@ func (s *UserService) UpdateUiConfig(ctx context.Context, uid uuid.UUID, req dto
 	return s.userRepo.UpdateColumn(ctx, uid, map[string]interface{}{
 		"settings": datatypes.JSON(jsonBytes),
 	})
+}
+
+// maxWorkplaceBytes 是工作台布局的上限（小组件与应用图标，正常只有几 KB）。
+const maxWorkplaceBytes = 16 << 10
+
+// ErrInvalidWorkplace 是工作台布局不是 JSON 对象或太大。
+var ErrInvalidWorkplace = errors.New("工作台布局无效")
+
+// validWorkplace 判断布局是不是不超过上限的 JSON 对象。
+func validWorkplace(raw []byte) bool {
+	var obj map[string]json.RawMessage
+	return len(raw) <= maxWorkplaceBytes && json.Unmarshal(raw, &obj) == nil && obj != nil
+}
+
+// UpdateWorkplace 保存本人的工作台布局。
+func (s *UserService) UpdateWorkplace(ctx context.Context, uid uuid.UUID, req dto.UpdateWorkplaceReq) error {
+	if !validWorkplace(req.Workplace) {
+		return ErrInvalidWorkplace
+	}
+	return s.userRepo.UpdateColumn(ctx, uid, map[string]interface{}{"workplace": datatypes.JSON(req.Workplace)})
 }
 
 // UpdateAvatar 更新用户头像

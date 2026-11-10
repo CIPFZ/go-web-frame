@@ -965,6 +965,27 @@
         "summary": "PUT /sys/authority/updateAuthority"
       }
     },
+    "/sys/authority/workplace": {
+      "put": {
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "CMS response; code 0 means success",
+            "schema": {
+              "$ref": "#/definitions/Response"
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "PUT /sys/authority/workplace"
+      }
+    },
     "/sys/casbin/getPolicyPathByAuthorityId": {
       "post": {
         "consumes": [
@@ -2042,6 +2063,27 @@
           }
         ],
         "summary": "PUT /sys/user/updateUser"
+      }
+    },
+    "/sys/user/workplace": {
+      "put": {
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "CMS response; code 0 means success",
+            "schema": {
+              "$ref": "#/definitions/Response"
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "PUT /sys/user/workplace"
       }
     },
     "/user/login": {

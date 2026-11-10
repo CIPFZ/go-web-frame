@@ -132,6 +132,20 @@ func (a *AuthorityApi) DeleteAuthority(c *gin.Context) {
 // @Param data body dto.SetAuthorityMenusReq true "角色ID和菜单ID列表"
 // @Success 200 {object} response.Response{} "设置成功"
 // @Router /authority/setDataAuthority [post]
+// SetAuthorityWorkplace 设置角色的默认工作台。
+func (a *AuthorityApi) SetAuthorityWorkplace(c *gin.Context) {
+	var req dto.SetAuthorityWorkplaceReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailWithValidation(err, c)
+		return
+	}
+	if err := a.authService.SetAuthorityWorkplace(c.Request.Context(), req); err != nil {
+		response.FailWithMessage("保存失败: "+err.Error(), c)
+		return
+	}
+	response.OkWithMessage("已保存", c)
+}
+
 func (a *AuthorityApi) SetAuthorityMenus(c *gin.Context) {
 	var req dto.SetAuthorityMenusReq
 	if err := c.ShouldBindJSON(&req); err != nil {

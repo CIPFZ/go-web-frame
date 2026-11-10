@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/datatypes"
+)
 
 type SysAuthority struct {
 	CreatedAt time.Time  `json:"createdAt"` // 创建时间
@@ -12,6 +16,8 @@ type SysAuthority struct {
 	AuthorityName string `json:"authorityName" gorm:"comment:角色名"`
 	ParentId      uint   `json:"parentId" gorm:"default:0;comment:父角色ID"` // 推荐使用 uint default 0 而非指针
 	DefaultRouter string `json:"defaultRouter" gorm:"comment:默认菜单;default:dashboard"`
+	// Workplace 是这个角色的默认工作台（没改过工作台的人用；内容由前端定义）；为空时用前端预置的那一版
+	Workplace datatypes.JSON `json:"workplace" gorm:"type:json;comment:角色的默认工作台"`
 
 	// 数据权限 (多对多自关联)
 	DataAuthorityId []*SysAuthority `json:"dataAuthorityId" gorm:"many2many:sys_data_authority_id;"`

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/repository"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -24,6 +26,8 @@ type IAuthorityService interface {
 	DeleteAuthority(ctx context.Context, authId uint) error
 	// SetAuthorityMenus 设置角色的菜单权限
 	SetAuthorityMenus(ctx context.Context, req dto.SetAuthorityMenusReq) error
+	// SetAuthorityWorkplace 设置角色的默认工作台
+	SetAuthorityWorkplace(ctx context.Context, req dto.SetAuthorityWorkplaceReq) error
 }
 
 // AuthorityService 是 IAuthorityService 的实现
@@ -117,6 +121,24 @@ func (s *AuthorityService) DeleteAuthority(ctx context.Context, authId uint) err
 
 	// 3. 执行删除操作
 	return s.authRepo.Delete(ctx, authId)
+}
+
+// SetAuthorityWorkplace 设置角色的默认工作台：没改过工作台的人（以及“恢复默认”）用它；null 恢复预置的那一版。
+func (s *AuthorityService) SetAuthorityWorkplace(ctx context.Context, req dto.SetAuthorityWorkplaceReq) error {
+	if _, err := s.authRepo.FindById(ctx, req.AuthorityId); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("角色不存在")
+		}
+		return err
+	}
+	var value any
+	if raw := bytes.TrimSpace(req.Workplace); len(raw) > 0 && !bytes.Equal(raw, []byte("null")) {
+		if !validWorkplace(raw) {
+			return ErrInvalidWorkplace
+		}
+		value = datatypes.JSON(raw)
+	}
+	return s.authRepo.Update(ctx, &model.SysAuthority{AuthorityId: req.AuthorityId}, map[string]interface{}{"workplace": value})
 }
 
 // SetAuthorityMenus 设置指定角色的菜单权限

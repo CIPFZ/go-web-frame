@@ -24,6 +24,8 @@ export namespace API {
     children: any;
     menus: any;
     defaultRouter: string;
+    /** 角色的默认工作台（见 pages/dashboard/workplace/layout.ts）；为空时用预置的 */
+    workplace?: unknown;
   };
 
   // -------- 用户登录 ------------------
@@ -47,6 +49,8 @@ export namespace API {
     email?: string;
     status: number;
     settings?: any;
+    /** 本人的工作台布局（见 pages/dashboard/workplace/layout.ts） */
+    workplace?: unknown;
   };
 
   export type CurrentUser = UserInfo;

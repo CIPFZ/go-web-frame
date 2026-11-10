@@ -1,6 +1,10 @@
 package dto
 
-import "github.com/CIPFZ/gowebframe/internal/modules/common"
+import (
+	"encoding/json"
+
+	"github.com/CIPFZ/gowebframe/internal/modules/common"
+)
 
 type RegisterReq struct {
 	Username string `json:"username" binding:"required,min=3,max=64"`
@@ -64,6 +68,11 @@ type UpdateUiConfigReq struct {
 	// 前端传来的是一个 JSON 对象，我们用 map[string]any 接收
 	// 或者直接用 json.RawMessage 接收
 	Settings map[string]any `json:"settings" binding:"required"`
+}
+
+// UpdateWorkplaceReq 保存本人的工作台布局（JSON 对象，内容由前端定义）。
+type UpdateWorkplaceReq struct {
+	Workplace json.RawMessage `json:"workplace" binding:"required"`
 }
 
 // ----------------

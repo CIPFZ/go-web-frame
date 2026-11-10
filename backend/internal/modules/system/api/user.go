@@ -244,6 +244,20 @@ func (u *UserApi) UpdateUiConfig(c *gin.Context) {
 	response.OkWithMessage("保存", c)
 }
 
+// UpdateWorkplace 保存本人的工作台布局。
+func (u *UserApi) UpdateWorkplace(c *gin.Context) {
+	var req dto.UpdateWorkplaceReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailWithValidation(err, c)
+		return
+	}
+	if err := u.userService.UpdateWorkplace(c.Request.Context(), utils.GetUserUUID(c), req); err != nil {
+		response.FailWithMessage("保存失败: "+err.Error(), c)
+		return
+	}
+	response.OkWithMessage("已保存", c)
+}
+
 func (u *UserApi) UploadAvatar(c *gin.Context) {
 	log := logger.GetLogger(c)
 
