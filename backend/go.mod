@@ -6,7 +6,6 @@ require (
 	github.com/alicebob/miniredis/v2 v2.40.0
 	github.com/casbin/casbin/v3 v3.11.0
 	github.com/casbin/gorm-adapter/v3 v3.41.0
-	github.com/digitalocean/go-libvirt v0.0.0-20260814190004-1a83157e1858
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/glebarez/sqlite v1.11.0

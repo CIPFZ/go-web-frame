@@ -17,6 +17,9 @@ const multiRoleVersion = "20261109_multi_role_v1"
 // applyMultiRole 删除“切换角色”接口及其授权，并把已有子角色超出父角色的接口与菜单收回。
 func applyMultiRole(db *gorm.DB, cfg *config.Config, _ *zap.Logger) error {
 	prefix := strings.TrimRight(cfg.System.RouterPrefix, "/")
+	if err := ensurePolicyRevision(db); err != nil {
+		return err
+	}
 	return claims.PolicyTransaction(db.Statement.Context, db, func(tx *gorm.DB) error {
 		if err := removeAPI(tx, prefix+"/sys/user/switchAuthority", "POST"); err != nil {
 			return err
