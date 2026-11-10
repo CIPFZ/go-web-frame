@@ -14,3 +14,24 @@ func TestValidateServer(t *testing.T) {
 		t.Run(name, func(t *testing.T) { c := valid(); change(c); require.Error(t, ValidateServer(c)) })
 	}
 }
+
+func TestValidateCOS(t *testing.T) {
+	ok := COSConfig{SecretID: "id", SecretKey: "key", Bucket: "files-1250000000", Region: "ap-guangzhou"}
+	appID, err := ok.AppID()
+	if err != nil || appID != "1250000000" {
+		t.Fatalf("appID = %q, %v", appID, err)
+	}
+	if err := validateCOS(ok); err != nil {
+		t.Fatal(err)
+	}
+	for name, bad := range map[string]COSConfig{
+		"missing key":   {SecretID: "id", Bucket: ok.Bucket, Region: ok.Region},
+		"bucket appid":  {SecretID: "id", SecretKey: "key", Bucket: "files", Region: ok.Region},
+		"bucket format": {SecretID: "id", SecretKey: "key", Bucket: "Files_1250000000", Region: ok.Region},
+		"region":        {SecretID: "id", SecretKey: "key", Bucket: ok.Bucket, Region: "guangzhou"},
+	} {
+		if validateCOS(bad) == nil {
+			t.Errorf("%s: expected an error", name)
+		}
+	}
+}

@@ -90,7 +90,7 @@ redis:
   clusterAddrs: []
 
 file:
-  driver: minio
+  driver: minio # local | minio | cos
   max_mb: 10
   allow_ext: [".jpg", ".png", ".jpeg", ".gif"]
   local:
@@ -103,6 +103,12 @@ file:
     bucket: gowebframe
     use_ssl: false
     preview_base_path: https://files.example.com/gowebframe
+  cos: # driver: cos 时使用；密钥只写在 config.local.yaml
+    secret_id: CHANGE_ME_COS_SECRET_ID
+    secret_key: CHANGE_ME_COS_SECRET_KEY
+    bucket: files-1250000000 # <name>-<appid>
+    region: ap-guangzhou
+    key_prefix: uploads
 
 email:
   to: ops@example.com
