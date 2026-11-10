@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/CIPFZ/gowebframe/internal/core/extlogin"
 	tokenCore "github.com/CIPFZ/gowebframe/internal/core/token"
 	"github.com/CIPFZ/gowebframe/internal/docs"
 	"github.com/CIPFZ/gowebframe/internal/middleware"
@@ -43,7 +44,7 @@ func InitRouters(svcCtx *svc.ServiceContext) *gin.Engine {
 	routerPrefix := svcCtx.Config.System.RouterPrefix
 	publicGroup := r.Group(routerPrefix)
 	publicGroup.GET("/public/config", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"registrationEnabled": svcCtx.Config.System.AllowRegistration}})
+		c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"registrationEnabled": svcCtx.Config.System.AllowRegistration, "externalLogins": extlogin.List()}})
 	})
 	publicGroup.Use(middleware.LoginRateLimit(svcCtx.Redis))
 	privateGroup := r.Group(routerPrefix)

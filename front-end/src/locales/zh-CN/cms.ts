@@ -553,4 +553,10 @@ export default {
   'cms.avatarPresets': '内置头像',
   'cms.avatarPresetOne': '内置头像 {n}',
   'cms.avatarSaved': '头像已更换',
+  'cms.extLogin.or': '或',
+  'cms.extLogin.with': '使用 {name} 登录',
+  'cms.extLogin.failed': '外部登录失败，请重试',
+  'cms.extLogin.expired': '登录已超时或来源无效，请重新登录',
+  'cms.extLogin.notLinked': '这个外部账号还没有关联本系统的账号，请联系管理员',
+  'cms.extLogin.userDisabled': '账号已被禁用，请联系管理员',
 };

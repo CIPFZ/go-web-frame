@@ -89,6 +89,20 @@ export async function updateUiConfig(body: API.UpdateUiConfigParams) {
   });
 }
 
+/** 登录页需要的公开配置：是否开放注册、可用的外部登录提供方 */
+export type PublicConfig = {
+  registrationEnabled: boolean;
+  externalLogins?: { key: string; name: string }[];
+};
+
 export function getPublicConfig() {
- return request<{code: number; data: {registrationEnabled: boolean}}>('/api/v1/public/config');
+  return request<{ code: number; data: PublicConfig }>('/api/v1/public/config');
+}
+
+/** 外部登录：回调带回的一次性票据换登录凭证 */
+export async function extTicket(ticket: string) {
+  return request<API.CommonResponse>('/api/v1/user/ext-ticket', {
+    method: 'POST',
+    data: { ticket },
+  });
 }

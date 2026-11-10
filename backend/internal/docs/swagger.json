@@ -2107,6 +2107,54 @@
         "summary": "PUT /sys/user/workplace"
       }
     },
+    "/user/ext-callback/:provider": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "CMS response; code 0 means success",
+            "schema": {
+              "$ref": "#/definitions/Response"
+            }
+          }
+        },
+        "summary": "GET /user/ext-callback/:provider"
+      }
+    },
+    "/user/ext-login/:provider": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "CMS response; code 0 means success",
+            "schema": {
+              "$ref": "#/definitions/Response"
+            }
+          }
+        },
+        "summary": "GET /user/ext-login/:provider"
+      }
+    },
+    "/user/ext-ticket": {
+      "post": {
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "CMS response; code 0 means success",
+            "schema": {
+              "$ref": "#/definitions/Response"
+            }
+          }
+        },
+        "summary": "POST /user/ext-ticket"
+      }
+    },
     "/user/login": {
       "post": {
         "consumes": [

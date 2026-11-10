@@ -70,6 +70,11 @@ type UpdateUiConfigReq struct {
 	Settings map[string]any `json:"settings" binding:"required"`
 }
 
+// LoginTicketReq 外部登录回调带回的一次性票据。
+type LoginTicketReq struct {
+	Ticket string `json:"ticket" binding:"required"`
+}
+
 // SetPresetAvatarReq 选一个内置头像（见 model.PresetAvatars）。
 type SetPresetAvatarReq struct {
 	Avatar string `json:"avatar" binding:"required"`
