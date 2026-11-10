@@ -21,6 +21,8 @@ import (
 const (
 	CtxKeyAuditModule = "audit.module"
 	CtxKeyAuditRemark = "audit.remark"
+	// CtxKeyAuditOmitBodies 为真时只记录“谁调用了什么”，不记录请求与响应正文（如返回秘密值的接口）
+	CtxKeyAuditOmitBodies = "audit.omit_bodies"
 )
 
 // Capture at most one extra byte so oversized bodies can be omitted altogether.
@@ -72,12 +74,20 @@ func OperationRecord(svcCtx *svc.ServiceContext) gin.HandlerFunc {
 			Ip: c.ClientIP(), Method: c.Request.Method,
 			Path:  truncateString(c.Request.URL.Path, 2048),
 			Agent: truncateString(c.Request.UserAgent(), 512),
-			Body:  audit.SanitizeBody(requestBody.Bytes()), Resp: audit.SanitizeBody(writer.body.Bytes()),
+			Body:  bodyOf(c, requestBody.Bytes()), Resp: bodyOf(c, writer.body.Bytes()),
 			Status: c.Writer.Status(), Latency: time.Since(start),
 			UserID: utils.GetUserID(c), TokenID: tokenOf(c), TraceID: traceID, SpanID: spanID, ErrorMsg: errorSummary,
 			Module: truncateString(c.GetString(CtxKeyAuditModule), 64), Remark: truncateString(c.GetString(CtxKeyAuditRemark), 128),
 		})
 	}
+}
+
+// bodyOf 是记录进操作日志的正文：按字段名脱敏；接口声明不记录正文时只留占位。
+func bodyOf(c *gin.Context, body []byte) string {
+	if c.GetBool(CtxKeyAuditOmitBodies) {
+		return "[body omitted: contains secrets]"
+	}
+	return audit.SanitizeBody(body)
 }
 
 // tokenOf 是这次操作经过的 API Token（网页操作为空）。

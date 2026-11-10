@@ -5,11 +5,8 @@
   environment: dev
   port: 8080
   router_prefix: /api/v1
-  iplimit_count: 15000
-  iplimit_time: 3600
   use_redis: true
   use_mongo: false
-  use_multipoint: false
 
 logger:
   level: debug
@@ -112,22 +109,7 @@ file:
     region: ap-guangzhou
     key_prefix: uploads
 
-email:
-  to: test@example.com
-  from: test@example.com
-  host: smtp.example.com
-  secret: placeholder
-  nickname: tester
-  port: 465
-  is_ssl: true
-  is_loginauth: false
 
-captcha:
-  key_long: 6
-  img_width: 240
-  img_height: 80
-  open_captcha: 0
-  open_captcha_timeout: 3600
 
 cors:
   mode: allow-all

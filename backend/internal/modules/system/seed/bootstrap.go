@@ -241,7 +241,7 @@ func bindAuthorityMenus(tx *gorm.DB, menuIDs map[string]uint, adminAuthorityID u
 	roleMenuKeys := map[uint][]string{
 		adminAuthorityID: {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_api_token", "sys_operation", "sys_notice", "account_settings", "account_tokens"},
 		9528:             {"dashboard", "state", "about", "sys_root", "sys_user", "sys_authority", "sys_menu", "sys_api", "sys_api_token", "sys_operation", "sys_notice", "account_settings", "account_tokens"},
-		888:              {"dashboard", "state", "about", "account_settings", "account_tokens"},
+		888:              {"dashboard", "about", "account_settings", "account_tokens"},
 		8881:             {"dashboard", "about", "account_settings", "account_tokens"},
 	}
 
@@ -397,7 +397,6 @@ func bindAuthorityApis(tx *gorm.DB, apiIDs map[string]uint, adminAuthorityID uin
 		apiSign("PUT", "/api/v1/sys/user/workplace"),
 		apiSign("POST", "/api/v1/sys/user/avatar"),
 		apiSign("GET", "/api/v1/sys/menu/getMenu"),
-		apiSign("POST", "/api/v1/sys/system/getServerInfo"),
 		apiSign("GET", "/api/v1/sys/notice/getMyNotices"),
 		apiSign("POST", "/api/v1/sys/notice/markRead"),
 		// 每个人管理自己的 API Token
@@ -494,7 +493,6 @@ func ensureCasbinPolicies(tx *gorm.DB, apiIDs map[string]uint, adminAuthorityID 
 		{"PUT", "/api/v1/sys/user/workplace"},
 		{"POST", "/api/v1/sys/user/avatar"},
 		{"GET", "/api/v1/sys/menu/getMenu"},
-		{"POST", "/api/v1/sys/system/getServerInfo"},
 		{"GET", "/api/v1/sys/notice/getMyNotices"},
 		{"POST", "/api/v1/sys/notice/markRead"},
 		// 每个人管理自己的 API Token

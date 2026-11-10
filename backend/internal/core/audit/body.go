@@ -38,7 +38,7 @@ func redact(value any) {
 		for key, child := range v {
 			k := strings.ToLower(strings.NewReplacer("_", "", "-", "").Replace(key))
 			sensitive := false
-			for _, word := range []string{"password", "passwd", "token", "secret", "authorization", "cookie", "credential", "privatekey", "accesskey"} {
+			for _, word := range []string{"password", "passwd", "token", "secret", "authorization", "cookie", "credential", "privatekey", "accesskey", "apikey"} {
 				if strings.Contains(k, word) {
 					sensitive = true
 					break

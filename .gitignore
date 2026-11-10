@@ -77,6 +77,9 @@ front-end/.env
 *.sqlite
 *.sqlite3
 
+# Local / deployment-only backend configuration with real credentials
+backend/configs/*.local.yaml
+
 # Private local Docker deployment configuration and verification artifacts
 deploy/local/.env
 deploy/local/runtime/

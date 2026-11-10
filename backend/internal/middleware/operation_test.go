@@ -54,3 +54,44 @@ func TestOperationRecordPreservesBodiesAndRedactsAudit(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, audit.MaxBodySize+1, buffer.Len())
 }
+
+func TestOperationRecordLabelsAndOmitsSecretBodies(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, _ := db.DB()
+	sqlDB.SetMaxOpenConns(1)
+	defer sqlDB.Close()
+	require.NoError(t, db.AutoMigrate(&model.SysOperationLog{}))
+	recorder := audit.NewAuditRecorder(db, zap.NewNop())
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set(CtxKeyAuditModule, "orders")
+		c.Set(CtxKeyAuditRemark, "user:u1 CreateOrder")
+		c.Set(CtxKeyAPITokenID, uint(7))
+		if c.Request.URL.Path == "/secret" {
+			c.Set(CtxKeyAuditOmitBodies, true)
+		}
+		c.Next()
+	}, OperationRecord(&svc.ServiceContext{AuditRecorder: recorder}))
+	for _, path := range []string{"/plain", "/secret"} {
+		r.POST(path, func(c *gin.Context) {
+			_, _ = io.ReadAll(c.Request.Body)
+			c.Data(200, "application/json", []byte(`{"value":"returned-value"}`))
+		})
+		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"name":"sent-value"}`))
+		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(httptest.NewRecorder(), req)
+	}
+	require.NoError(t, recorder.Close(context.Background()))
+	var rows []model.SysOperationLog
+	require.NoError(t, db.Order("id").Find(&rows).Error)
+	require.Len(t, rows, 2)
+	require.Equal(t, "orders", rows[0].Module)
+	require.Equal(t, "user:u1 CreateOrder", rows[0].Remark)
+	require.NotNil(t, rows[0].TokenID)
+	require.EqualValues(t, 7, *rows[0].TokenID)
+	require.Contains(t, rows[0].Body, "sent-value")
+	require.NotContains(t, rows[1].Body, "sent-value")
+	require.NotContains(t, rows[1].Resp, "returned-value")
+}
