@@ -32,6 +32,8 @@ export type AuthorityItem = {
   defaultRouter: string;
   children: AuthorityItem[] | null;
 };
+
+const flatten = (list: AuthorityItem[]): AuthorityItem[] => list.flatMap((r) => [r, ...flatten(r.children || [])]);
 const AuthorityTableList: React.FC = () => {
   const localeFormRef1 = useFormLocale();
   useI18n();
@@ -43,6 +45,8 @@ const AuthorityTableList: React.FC = () => {
   // 权限抽屉状态
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [permissionRow, setPermissionRow] = useState<AuthorityItem>();
+  const [roles, setRoles] = useState<AuthorityItem[]>([]);
+  const roleName = (id: number) => roles.find((r) => r.authorityId === id)?.authorityName || String(id);
 
   // --- CRUD 操作 ---
   const handleAddNew = () => {
@@ -186,6 +190,7 @@ const AuthorityTableList: React.FC = () => {
         }}
         request={async () => {
           const res = await getAuthorityList();
+          setRoles(flatten(res.data?.list || []));
           return {
             data: res.data?.list || [],
             success: res.code === 0,
@@ -243,6 +248,7 @@ const AuthorityTableList: React.FC = () => {
         <PermissionDrawer
           open={isDrawerOpen}
           role={permissionRow}
+          parentName={permissionRow.parentId ? roleName(permissionRow.parentId) : undefined}
           onClose={() => {
             setIsDrawerOpen(false);
             setPermissionRow(undefined);

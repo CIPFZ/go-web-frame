@@ -34,7 +34,7 @@ type SysUser struct {
 	Settings datatypes.JSON `json:"settings" gorm:"type:json;comment:个性化设置"`
 
 	// --- 权限关联 ---
-	AuthorityID uint         `json:"authorityId" gorm:"default:888;comment:当前角色ID"`
+	AuthorityID uint         `json:"authorityId" gorm:"default:888;comment:主角色ID（决定默认首页；权限取全部角色的并集）"`
 	Authority   SysAuthority `json:"authority" gorm:"belongsTo:SysAuthority;foreignKey:AuthorityID;references:AuthorityId;comment:当前角色"`
 
 	// 多对多关联：用户 <-> 角色

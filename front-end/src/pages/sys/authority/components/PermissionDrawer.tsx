@@ -4,6 +4,7 @@ import { loadPagedOptions } from '@/utils/pagedOptions';
 import React, { useEffect, useState } from 'react';
 import { HomeOutlined, HomeFilled } from '@ant-design/icons';
 import {
+  Alert,
   Drawer,
   Tree,
   Spin,
@@ -36,7 +37,26 @@ type TreeDataItem = {
   title: string;
   key: string | number;
   path?: string;
+  disableCheckbox?: boolean;
   children?: TreeDataItem[];
+};
+
+/** 子角色只能从父角色已有的里面选：父角色没有的节点不能勾（分组下一个都没有时整组不能勾）。 */
+const limitTree = (tree: TreeDataItem[], allowed: Set<string | number> | null): TreeDataItem[] =>
+  !allowed
+    ? tree
+    : tree.map((n) => {
+        const children = n.children ? limitTree(n.children, allowed) : undefined;
+        const isGroup = String(n.key).startsWith('group:');
+        const usable = isGroup ? !!children?.some((c) => !c.disableCheckbox) : allowed.has(n.key);
+        return { ...n, children, disableCheckbox: !usable };
+      });
+
+const okData = (res: any) => {
+  const r = res?.code !== undefined ? res : res?.data;
+  if (r?.code !== 0) return null;
+  const raw = r.data;
+  return Array.isArray(raw) ? raw : raw?.list || [];
 };
 
 // --- 辅助函数 ---
@@ -84,6 +104,8 @@ const getAllKeys = (tree: TreeDataItem[]): (string | number)[] => {
 type PermissionDrawerProps = {
   open: boolean;
   role: AuthorityItem;
+  /** 父角色的名称（子角色时） */
+  parentName?: string;
   onClose: () => void;
   // 成功回调
   onSuccess?: () => void;
@@ -91,13 +113,18 @@ type PermissionDrawerProps = {
 const PermissionDrawer: React.FC<PermissionDrawerProps> = ({
   open,
   role,
+  parentName,
   onClose,
   onSuccess,
 }) => {
   useI18n();
   const [activeTab, setActiveTab] = useState<string>('menu');
   const [rawMenus, setRawMenus] = useState<any[]>([]);
-  const menuTree = normalizeMenuTree(rawMenus);
+  // 子角色：父角色已有的菜单与接口（超级管理员的子角色不限）
+  const limited = !!role.parentId && role.parentId !== 1;
+  const [parentMenus, setParentMenus] = useState<Set<string | number> | null>(null);
+  const [parentApis, setParentApis] = useState<Set<string | number> | null>(null);
+  const menuTree = limitTree(normalizeMenuTree(rawMenus), limited ? parentMenus : null);
   const [menuCheckedKeys, setMenuCheckedKeys] = useState<React.Key[]>([]);
   const [allMenuKeys, setAllMenuKeys] = useState<React.Key[]>([]);
   const [apiTree, setApiTree] = useState<TreeDataItem[]>([]);
@@ -115,9 +142,8 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({
       }),
     {
       onSuccess: (res: any) => {
-        const tree = normalizeMenuTree(res);
         setRawMenus(res || []);
-        setAllMenuKeys(getAllKeys(tree));
+        setAllMenuKeys(getAllKeys(normalizeMenuTree(res)));
       },
     },
   );
@@ -134,6 +160,18 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({
   );
 
   // --- 3. 回显当前角色的权限 ---
+  useEffect(() => {
+    if (open && role && limited) {
+      getPolicyPathByAuthorityId({ authorityId: String(role.parentId) }).then((res: any) => {
+        setParentApis(new Set((okData(res) || []).map((item: any) => `${item.path}:${item.method}`)));
+      });
+      getMenuAuthority({ authorityId: role.parentId }).then((res: any) => {
+        setParentMenus(new Set((okData(res) || []).map((item: any) => item.ID)));
+      });
+    }
+  }, [open, role, limited]);
+  const selectableMenuKeys = limited && parentMenus ? allMenuKeys.filter((k) => parentMenus.has(k as string | number)) : allMenuKeys;
+
   useEffect(() => {
     if (open && role) {
       setDefaultRouter(role.defaultRouter || 'dashboard/workplace');
@@ -168,7 +206,7 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({
     setMenuCheckedKeys(checked.checked ? checked.checked : checked);
   };
   const onMenuSelectAll = (e: CheckboxChangeEvent) => {
-    setMenuCheckedKeys(e.target.checked ? allMenuKeys : []);
+    setMenuCheckedKeys(e.target.checked ? selectableMenuKeys : []);
   };
   const onApiCheck = (checked: any) => {
     setApiCheckedKeys(checked.checked ? checked.checked : checked);
@@ -188,7 +226,12 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({
           authorityName: role.authorityName,
           defaultRouter: defaultRouter,
         });
-        await Promise.all([p1, p2]);
+        const [r1, r2]: any[] = await Promise.all([p1, p2]);
+        const failed = [r1, r2].find((r) => r && r.code !== 0);
+        if (failed) {
+          message.error(failed.msg || t('cms.unableToSavePleaseRetry'));
+          return;
+        }
         message.success(t('cms.menuPermissionsAndHomePageSaved'));
         // ✨ 关键修改：如果存在 onSuccess 回调，则调用它
         if (onSuccess) {
@@ -205,10 +248,14 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({
               method,
             };
           });
-        await updateCasbin({
+        const res: any = await updateCasbin({
           authorityId: String(role.authorityId),
           casbinInfos,
         });
+        if (res && res.code !== 0) {
+          message.error(res.msg || t('cms.unableToSavePleaseRetry'));
+          return;
+        }
         message.success(t('cms.apiPermissionsSaved'));
       }
     } catch (error) {
@@ -287,12 +334,12 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({
             <Checkbox
               onChange={onMenuSelectAll}
               checked={
-                allMenuKeys.length > 0 &&
-                menuCheckedKeys.length === allMenuKeys.length
+                selectableMenuKeys.length > 0 &&
+                menuCheckedKeys.length === selectableMenuKeys.length
               }
               indeterminate={
                 menuCheckedKeys.length > 0 &&
-                menuCheckedKeys.length < allMenuKeys.length
+                menuCheckedKeys.length < selectableMenuKeys.length
               }
             >
               {t('cms.selectAllClearAll')}
@@ -338,7 +385,7 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({
           <Tree
             checkable
             defaultExpandAll={false}
-            treeData={apiTree}
+            treeData={limitTree(apiTree, limited ? parentApis : null)}
             checkedKeys={apiCheckedKeys}
             onCheck={onApiCheck}
             // ✨ 移除 height，使用样式控制
@@ -374,6 +421,14 @@ const PermissionDrawer: React.FC<PermissionDrawerProps> = ({
       }
     >
       <Spin spinning={isLoading}>
+        {limited ? (
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message={t('cms.childRoleSubset', { parent: parentName || String(role.parentId) })}
+          />
+        ) : null}
         <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
       </Spin>
     </Drawer>

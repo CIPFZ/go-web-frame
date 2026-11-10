@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/CIPFZ/gowebframe/internal/middleware"
 	"github.com/CIPFZ/gowebframe/internal/modules/common"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/dto"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/service"
@@ -34,15 +35,15 @@ func NewMenuApi(svcCtx *svc.ServiceContext, menuService service.IMenuService) *M
 // @Success 200 {object} response.Response{data=[]dto.SysMenuTree} "成功, 返回菜单树"
 // @Router /menu/getMenu [get]
 func (a *MenuApi) GetMenu(c *gin.Context) {
-	// 1. 从 JWT Claims 中获取当前用户的角色 ID
-	authorityId := utils.GetAuthorityId(c)
-	if authorityId == 0 {
+	// 1. 当前用户的全部角色（同时生效，菜单取并集）
+	roles, err := middleware.UserRoles(c.Request.Context(), a.svcCtx.DB, utils.GetUserID(c))
+	if err != nil || len(roles) == 0 {
 		response.FailWithMessage("无法获取用户角色信息, 请重新登录", c)
 		return
 	}
 
-	// 2. 调用 Service 层获取该角色的菜单树
-	menus, err := a.menuService.GetUserMenuTree(c.Request.Context(), authorityId)
+	// 2. 调用 Service 层获取菜单树
+	menus, err := a.menuService.GetUserMenuTree(c.Request.Context(), roles)
 	if err != nil {
 		// 错误日志已在 Service 层记录
 		response.FailWithMessage("获取菜单失败: "+err.Error(), c)

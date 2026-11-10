@@ -65,14 +65,6 @@ export async function resetPassword(body: { id: number, password: string }) {
   return request('/api/v1/sys/user/resetPassword', { method: 'POST', data: body });
 }
 
-// 切换角色
-export async function switchAuthority(body: { authorityId: number }) {
-  return request<API.CommonResponse>('/api/v1/sys/user/switchAuthority', {
-    method: 'POST',
-    data: body,
-  });
-}
-
 /** 更新个人基本信息 (昵称、简介) */
 export async function updateSelfInfo(body: API.UpdateSelfInfoParams) {
   return request<API.CommonResponse>('/api/v1/sys/user/info', {

@@ -212,32 +212,6 @@ func (u *UserApi) ResetPassword(c *gin.Context) {
 	response.OkWithMessage("重置成功", c)
 }
 
-func (u *UserApi) SwitchAuthority(c *gin.Context) {
-	type reqBody struct {
-		AuthorityID uint `json:"authorityId" binding:"required"`
-	}
-
-	var req reqBody
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithValidation(err, c)
-		return
-	}
-
-	userUUID := utils.GetUserUUID(c)
-	resp, err := u.userService.SwitchAuthority(c.Request.Context(), userUUID, req.AuthorityID)
-	if err != nil {
-		response.FailWithMessage("切换失败: "+err.Error(), c)
-		return
-	}
-
-	now := time.Now().Unix()
-	maxAge := int((resp.ExpiresAt / 1000) - now)
-	u.setTokenHelper(c, resp.Token, maxAge)
-	c.Header("new-token", resp.Token)
-
-	response.OkWithData(resp, c)
-}
-
 func (u *UserApi) UpdateSelfInfo(c *gin.Context) {
 	var req dto.UpdateSelfInfoReq
 	if err := c.ShouldBindJSON(&req); err != nil {

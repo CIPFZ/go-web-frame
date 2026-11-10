@@ -97,7 +97,6 @@ func (s *SystemRouter) initUserRoutes(group *gin.RouterGroup) {
 		// --- "写" 操作 (统一应用操作日志中间件) ---
 		userWriteGroup := userRouter.Group("", middleware.OperationRecord(s.svcCtx))
 		{
-			userWriteGroup.POST("switchAuthority", s.apis.UserApi.SwitchAuthority)
 			userWriteGroup.POST("addUser", s.apis.UserApi.AddUser)
 			userWriteGroup.PUT("updateUser", s.apis.UserApi.UpdateUser)    // 建议: PUT
 			userWriteGroup.DELETE("deleteUser", s.apis.UserApi.DeleteUser) // 建议: DELETE

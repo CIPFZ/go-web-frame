@@ -14,7 +14,7 @@ import (
 )
 
 type IMenuService interface {
-	GetUserMenuTree(ctx context.Context, authorityId uint) ([]model.SysMenu, error)
+	GetUserMenuTree(ctx context.Context, authorityIds []uint) ([]model.SysMenu, error)
 	GetMenuList(ctx context.Context) ([]model.SysMenu, error)
 	AddBaseMenu(ctx context.Context, req dto.AddMenuReq) error
 	UpdateBaseMenu(ctx context.Context, req dto.UpdateMenuReq) error
@@ -34,8 +34,9 @@ func NewMenuService(svcCtx *svc.ServiceContext, menuRepo repository.IMenuReposit
 	}
 }
 
-func (s *MenuService) GetUserMenuTree(ctx context.Context, authorityId uint) ([]model.SysMenu, error) {
-	allMenus, err := s.menuRepo.GetByAuthorityId(ctx, authorityId)
+// GetUserMenuTree 返回这些角色拥有的菜单树（多个角色取并集）。
+func (s *MenuService) GetUserMenuTree(ctx context.Context, authorityIds []uint) ([]model.SysMenu, error) {
+	allMenus, err := s.menuRepo.GetByAuthorityIds(ctx, authorityIds)
 	if err != nil {
 		s.svcCtx.Logger.Error("get_menu_tree_repo_error", zap.Error(err))
 		return nil, errors.New("获取菜单数据失败")

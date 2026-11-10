@@ -182,7 +182,7 @@ const UserTableList: React.FC = () => {
         <Space wrap>
           {/* 遍历所有角色 */}
           {record.authorities?.map((auth) => {
-            // 如果是当前角色，高亮显示
+            // 主角色（决定默认首页）高亮显示；权限取全部角色的并集
             const isCurrent = auth.authorityId === record.authorityId;
             return (
               <Tag

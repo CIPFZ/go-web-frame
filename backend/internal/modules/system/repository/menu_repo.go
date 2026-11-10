@@ -20,6 +20,8 @@ type IMenuRepository interface {
 	GetAll(ctx context.Context) ([]model.SysMenu, error)
 	// GetByAuthorityId 根据角色 ID 获取该角色拥有的所有菜单
 	GetByAuthorityId(ctx context.Context, authorityId uint) ([]model.SysMenu, error)
+	// GetByAuthorityIds 获取这些角色拥有的菜单（并集，不重复）
+	GetByAuthorityIds(ctx context.Context, authorityIds []uint) ([]model.SysMenu, error)
 	// CountByParentId 统计指定父菜单下的子菜单数量
 	CountByParentId(ctx context.Context, parentId uint) (int64, error)
 
@@ -82,6 +84,14 @@ func (r *MenuRepository) GetByAuthorityId(ctx context.Context, authorityId uint)
 		Order("sys_menus.sort").
 		Order("sys_menus.id").
 		Find(&menus).Error
+	return menus, err
+}
+
+// GetByAuthorityIds 获取这些角色拥有的菜单（并集，不重复），排序与 GetByAuthorityId 相同
+func (r *MenuRepository) GetByAuthorityIds(ctx context.Context, authorityIds []uint) ([]model.SysMenu, error) {
+	var menus []model.SysMenu
+	granted := r.db.WithContext(ctx).Model(&model.SysAuthorityMenu{}).Select("menu_id").Where("authority_id IN ?", authorityIds)
+	err := r.db.WithContext(ctx).Where("id IN (?)", granted).Order("sort").Order("id").Find(&menus).Error
 	return menus, err
 }
 

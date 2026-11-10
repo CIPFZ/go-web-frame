@@ -28,6 +28,10 @@ func (r *CasbinRepository) ReplacePolicy(ctx context.Context, subject string, ru
 		if err := tx.Where("authority_id = ? AND deleted_at IS NULL", roleID).First(&role).Error; err != nil {
 			return err
 		}
+		allowed, err := parentAPIs(tx, role)
+		if err != nil {
+			return err
+		}
 		policies := make([]model.SysCasbinRule, 0, len(rules))
 		relations := make([]model.SysAuthorityApi, 0, len(rules))
 		seen := map[string]bool{}
@@ -41,6 +45,9 @@ func (r *CasbinRepository) ReplacePolicy(ctx context.Context, subject string, ru
 				continue
 			}
 			seen[key] = true
+			if allowed != nil && !allowed[key] {
+				return errAPIsNotInParent
+			}
 			var api model.SysApi
 			if err := tx.Where("path = ? AND method = ?", path, method).First(&api).Error; err != nil {
 				return errors.New("策略引用了不存在的 API")
@@ -62,7 +69,8 @@ func (r *CasbinRepository) ReplacePolicy(ctx context.Context, subject string, ru
 				return err
 			}
 		}
-		return nil
+		// 父角色收回的接口，各级子角色一起收回
+		return pruneChildren(tx, uint(roleID))
 	})
 }
 func (r *CasbinRepository) GetPolicy(ctx context.Context, subject string) ([][]string, error) {

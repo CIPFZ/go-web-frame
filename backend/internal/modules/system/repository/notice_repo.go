@@ -164,9 +164,20 @@ func (r *NoticeRepository) ListAllActiveUserIDs(ctx context.Context) ([]uint, er
 	return ids, err
 }
 
+// ListUserIDsByAuthorityIDs 返回拥有这些角色的启用用户；子角色是父角色权限的一部分，发给某角色的通知也发给它的各级子角色。
 func (r *NoticeRepository) ListUserIDsByAuthorityIDs(ctx context.Context, authorityIDs []uint) ([]uint, error) {
 	if len(authorityIDs) == 0 {
 		return []uint{}, nil
+	}
+	authorityIDs = append([]uint(nil), authorityIDs...)
+	for frontier := authorityIDs; len(frontier) > 0; {
+		var children []uint
+		if err := r.db.WithContext(ctx).Model(&model.SysAuthority{}).
+			Where("parent_id IN ? AND authority_id NOT IN ?", frontier, authorityIDs).Pluck("authority_id", &children).Error; err != nil {
+			return nil, err
+		}
+		authorityIDs = append(authorityIDs, children...)
+		frontier = children
 	}
 	var ids []uint
 	err := r.db.WithContext(ctx).
