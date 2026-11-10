@@ -176,6 +176,14 @@ token.quota: "The token concurrency limit has been reached"
 
 token.limiterUnavailable: "Token concurrency control is temporarily unavailable"
 
+token.tooMany: "You have reached the maximum number of tokens; delete unused tokens or contact an administrator"
+
+token.quotaTooHigh: "The concurrency limit exceeds your maximum; lower it or contact an administrator"
+
+token.expiryTooLong: "The validity period exceeds your maximum; shorten it or contact an administrator"
+
+token.permissionDenied: "You can only choose permissions you have"
+
 notice.unavailable: "Notice not found or currently unavailable"
 
 notice.invalidTargets: "Invalid recipients; select existing roles or active users"

@@ -6,7 +6,6 @@ import React, { useMemo, useRef, useState } from 'react';
 import {
   DrawerForm,
   ProCard,
-  ProForm,
   ProFormDateTimePicker,
   ProFormDigit,
   ProFormText,
@@ -40,18 +39,17 @@ import {
   deleteApiToken,
   disableApiToken,
   enableApiToken,
+  getAllApiTokens,
   getApiOptions,
   getApiTokenDetail,
-  getApiTokenList,
   resetApiToken,
   updateApiToken,
   type ApiTokenItem,
 } from '@/services/system/apiToken';
 import { ApiPermissionSummary } from './components/ApiPermissionSummary';
-import {
-  ApiPermissionTransfer,
-  type ApiPermissionOption,
-} from './components/ApiPermissionTransfer';
+import type { ApiPermissionOption } from './components/ApiPermissionTransfer';
+import { TokenLimitForm } from './components/TokenLimitForm';
+import { TokenPermissionFields } from './components/TokenPermissionFields';
 import {
   API_TOKEN_TABLE_LAYOUT,
   buildTokenFormInitialValues,
@@ -265,6 +263,13 @@ const ApiTokenPage: React.FC = () => {
       ),
     },
     {
+      title: t('cms.tokenOwner'),
+      dataIndex: 'ownerName',
+      width: 120,
+      search: false,
+      render: (_, record) => record.ownerName || '-',
+    },
+    {
       title: t('cms.tokenPrefix'),
       dataIndex: 'tokenPrefix',
       width: API_TOKEN_TABLE_LAYOUT.tokenPrefixWidth,
@@ -286,7 +291,8 @@ const ApiTokenPage: React.FC = () => {
       dataIndex: 'apis',
       width: API_TOKEN_TABLE_LAYOUT.apisWidth,
       search: false,
-      render: (_, record) => <ApiPermissionSummary apis={record.apis} />,
+      render: (_, record) =>
+        record.followOwner ? <Tag color="blue">{t('cms.tokenPermissionFollowOwner')}</Tag> : <ApiPermissionSummary apis={record.apis} />,
     },
     {
       title: t('cms.status'),
@@ -457,7 +463,7 @@ const ApiTokenPage: React.FC = () => {
               params.enabled === undefined
                 ? undefined
                 : params.enabled === 'true' || params.enabled === true;
-            const res = await getApiTokenList({
+            const res = await getAllApiTokens({
               page: params.current,
               pageSize: params.pageSize,
               name: params.name as string,
@@ -476,6 +482,7 @@ const ApiTokenPage: React.FC = () => {
             x: API_TOKEN_TABLE_LAYOUT.scrollX,
           }}
           toolBarRender={() => [
+            <TokenLimitForm key="limits" userId={0} title={t('cms.tokenLimits.apply')} trigger={<Button>{t('cms.tokenLimits.apply')}</Button>} />,
             <Button key="create" type="primary" onClick={openCreateDrawer}>
               <PlusOutlined />
               {t('cms.newToken')}
@@ -559,21 +566,7 @@ const ApiTokenPage: React.FC = () => {
             },
           ]}
         />
-        <ProForm.Item
-          name="apiIds"
-          label={t('cms.authorizedApis.653b57')}
-          rules={[
-            {
-              required: true,
-              message: t('cms.selectAtLeastOneApi'),
-            },
-          ]}
-        >
-          <ApiPermissionTransfer
-            loading={apiOptionsLoading}
-            options={apiOptions}
-          />
-        </ProForm.Item>
+        <TokenPermissionFields options={apiOptions} loading={apiOptionsLoading} followLabel={t('cms.tokenPermissionFollowOwner')} />
       </DrawerForm>
       <Modal
         open={!!plainToken}

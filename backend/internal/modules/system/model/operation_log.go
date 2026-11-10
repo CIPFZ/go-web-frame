@@ -31,8 +31,11 @@ type SysOperationLog struct {
 	Resp string `json:"resp" gorm:"type:text;comment:响应Body"`
 
 	// --- 关联用户 ---
-	UserID uint    `json:"userId" gorm:"column:user_id;index;comment:用户ID"`
-	User   SysUser `json:"user" gorm:"foreignKey:UserID;references:ID"`
+	UserID uint `json:"userId" gorm:"column:user_id;index;comment:用户ID"` // 操作人；通过 Token 的操作是 Token 的主人
+	// TokenID 是经过的 API Token（网页操作为空）
+	TokenID *uint        `json:"tokenId" gorm:"column:token_id;index;comment:经过的 API Token"`
+	Token   *SysApiToken `json:"token,omitempty" gorm:"foreignKey:TokenID;references:ID"`
+	User    SysUser      `json:"user" gorm:"foreignKey:UserID;references:ID"`
 }
 
 func (SysOperationLog) TableName() string {

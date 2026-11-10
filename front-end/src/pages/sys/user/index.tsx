@@ -1,3 +1,4 @@
+import { TokenLimitForm } from '../api-token/components/TokenLimitForm';
 import { useFormLocale } from '@/i18n/useFormLocale';
 import { t, useI18n } from '@/i18n';
 import type { API } from '@/services/system/types';
@@ -258,7 +259,7 @@ const UserTableList: React.FC = () => {
     {
       title: t('cms.actions'),
       valueType: 'option',
-      width: 220,
+      width: 300,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
@@ -270,6 +271,9 @@ const UserTableList: React.FC = () => {
             <KeyOutlined />
             {t('cms.resetPassword')}
           </a>
+          {record.ID ? (
+            <TokenLimitForm userId={record.ID} title={`${t('cms.tokenLimits.user')} · ${record.nickName || record.username}`} trigger={<a>{t('cms.tokenLimits.user')}</a>} />
+          ) : null}
           <Popconfirm
             title={t('cms.deleteThisUser')}
             description={t('cms.thisActionCannotBeUndone')}

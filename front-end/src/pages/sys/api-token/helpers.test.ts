@@ -25,6 +25,7 @@ describe('api-token helpers', () => {
 
   it('builds create form initial values with safe defaults', () => {
     expect(buildTokenFormInitialValues()).toEqual({
+      permissionMode: 'follow',
       maxConcurrency: 5,
       apiIds: [],
     });
@@ -50,6 +51,7 @@ describe('api-token helpers', () => {
       description: 'used by scripts',
       maxConcurrency: 8,
       expiresAt: expiresAt.toISOString(),
+      followOwner: false,
       apiIds: [2, 5],
     });
   });

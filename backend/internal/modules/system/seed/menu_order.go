@@ -8,6 +8,7 @@ var MenuOrder = map[string]int{
 	"/state":               90,
 	"/about":               100,
 	"/account/settings":    999,
+	"/account/tokens":      999,
 	"/sys/user":            10,
 	"/sys/authority":       20,
 	"/sys/menu":            30,

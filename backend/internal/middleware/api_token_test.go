@@ -8,13 +8,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+
 	"github.com/CIPFZ/gowebframe/internal/core/config"
 	"github.com/CIPFZ/gowebframe/internal/core/db"
 	tokenCore "github.com/CIPFZ/gowebframe/internal/core/token"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/CIPFZ/gowebframe/internal/svc"
-	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 func TestApiTokenAuthRejectsMissingToken(t *testing.T) {
@@ -108,6 +109,9 @@ func newAPITokenMiddlewareTestEngine(t *testing.T, registerRoutes func(group *gi
 		&model.SysApi{},
 		&model.SysApiToken{},
 		&model.SysApiTokenApi{},
+		&model.SysUser{},
+		&model.SysAuthority{},
+		&model.SysUserAuthority{},
 	); err != nil {
 		t.Fatalf("AutoMigrate() error = %v", err)
 	}
@@ -118,6 +122,17 @@ func newAPITokenMiddlewareTestEngine(t *testing.T, registerRoutes func(group *gi
 	t.Cleanup(func() {
 		_ = sqlDB.Close()
 	})
+
+	owner := model.SysUser{Username: "owner", Status: model.UserActive, AuthorityID: SuperAdminAuthorityID}
+	if err := gormDB.Create(&owner).Error; err != nil {
+		t.Fatalf("create token owner error = %v", err)
+	}
+	if err := gormDB.Create(&model.SysAuthority{AuthorityId: SuperAdminAuthorityID, AuthorityName: "admin"}).Error; err != nil {
+		t.Fatalf("create role error = %v", err)
+	}
+	if err := gormDB.Create(&model.SysUserAuthority{UserId: owner.ID, AuthorityId: SuperAdminAuthorityID}).Error; err != nil {
+		t.Fatalf("create user role error = %v", err)
+	}
 
 	api := model.SysApi{
 		Path:        "/api/v1/test/resources",
@@ -134,6 +149,7 @@ func newAPITokenMiddlewareTestEngine(t *testing.T, registerRoutes func(group *gi
 		TokenHash:      tokenCore.HashToken("cms_allow_token"),
 		TokenPrefix:    "cms_allo",
 		Name:           "allowed",
+		CreatedBy:      owner.ID,
 		MaxConcurrency: 1,
 		Enabled:        true,
 		ExpiresAt:      &expiresAt,
@@ -147,6 +163,7 @@ func newAPITokenMiddlewareTestEngine(t *testing.T, registerRoutes func(group *gi
 		TokenHash:      tokenCore.HashToken("cms_forbidden_token"),
 		TokenPrefix:    "cms_forb",
 		Name:           "forbidden",
+		CreatedBy:      owner.ID,
 		MaxConcurrency: 1,
 		Enabled:        true,
 		ExpiresAt:      &expiresAt,
@@ -158,6 +175,7 @@ func newAPITokenMiddlewareTestEngine(t *testing.T, registerRoutes func(group *gi
 	svcCtx := svc.NewServiceContext()
 	svcCtx.DB = gormDB
 	svcCtx.Logger = zap.NewNop()
+	svcCtx.Config = &config.Config{System: config.System{RouterPrefix: "/api/v1"}}
 
 	engine := gin.New()
 	group := engine.Group("/api/v1")

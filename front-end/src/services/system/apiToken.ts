@@ -10,6 +10,11 @@ export type ApiTokenItem = {
   maxConcurrency?: number;
   expiresAt?: string;
   lastUsedAt?: string;
+  /** 主人（Token 跟人绑定） */
+  createdBy?: number;
+  ownerName?: string;
+  /** 权限跟随主人的角色；否则只能调用 apis 里选的接口 */
+  followOwner?: boolean;
   apis?: Array<{
     ID: number;
     path: string;
@@ -25,6 +30,7 @@ export type ApiTokenListParams = {
   name?: string;
   description?: string;
   enabled?: boolean;
+  ownerId?: number;
 };
 
 export type ApiTokenFormPayload = {
@@ -33,8 +39,46 @@ export type ApiTokenFormPayload = {
   description?: string;
   maxConcurrency?: number;
   expiresAt?: string;
+  followOwner?: boolean;
   apiIds?: number[];
 };
+
+/** 生效的 Token 申请限制 */
+export type TokenLimits = {
+  maxTokens: number;
+  maxTtlDays: number;
+  maxConcurrency: number;
+};
+
+/** 一份限制设置（userId 为 0 是全局默认）；字段为空表示跟随默认 */
+export type TokenLimitSettings = { userId: number } & Partial<TokenLimits>;
+
+export type TokenLimitDetail = TokenLimitSettings & { effective: TokenLimits; default: TokenLimits };
+
+/** 所有人的 Token（管理员） */
+export async function getAllApiTokens(body: ApiTokenListParams) {
+  return request<API.CommonResponse>('/api/v1/sys/api-token/all', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: body,
+  });
+}
+
+export async function getTokenLimit(userId: number) {
+  return request<API.CommonResponse>('/api/v1/sys/api-token/limits/get', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { userId },
+  });
+}
+
+export async function updateTokenLimit(body: TokenLimitSettings) {
+  return request<API.CommonResponse>('/api/v1/sys/api-token/limits/update', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    data: body,
+  });
+}
 
 export async function getApiTokenList(body: ApiTokenListParams, options?: { [key: string]: any }) {
   return request<API.CommonResponse>('/api/v1/sys/api-token/getApiTokenList', {

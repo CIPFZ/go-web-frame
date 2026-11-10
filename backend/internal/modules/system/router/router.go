@@ -165,6 +165,8 @@ func (s *SystemRouter) initApiTokenRoutes(group *gin.RouterGroup) {
 		apiTokenRouter.POST("getApiTokenList", s.apis.ApiTokenApi.GetApiTokenList)
 		apiTokenRouter.POST("options", s.apis.ApiTokenApi.GetOptions)
 		apiTokenRouter.GET("detail", s.apis.ApiTokenApi.GetApiTokenDetail)
+		apiTokenRouter.POST("all", s.apis.ApiTokenApi.GetAllApiTokens)
+		apiTokenRouter.POST("limits/get", s.apis.ApiTokenApi.GetLimit)
 
 		apiTokenWriteGroup := apiTokenRouter.Group("", middleware.OperationRecord(s.svcCtx))
 		{
@@ -174,6 +176,7 @@ func (s *SystemRouter) initApiTokenRoutes(group *gin.RouterGroup) {
 			apiTokenWriteGroup.POST("reset", s.apis.ApiTokenApi.ResetApiToken)
 			apiTokenWriteGroup.POST("enable", s.apis.ApiTokenApi.EnableApiToken)
 			apiTokenWriteGroup.POST("disable", s.apis.ApiTokenApi.DisableApiToken)
+			apiTokenWriteGroup.PUT("limits/update", s.apis.ApiTokenApi.UpdateLimit)
 		}
 	}
 }

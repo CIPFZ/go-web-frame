@@ -61,6 +61,15 @@ func TestSecurityAndMigrationMatrix(t *testing.T) {
 				require.NoError(t, e)
 			}
 			require.NoError(t, migrations.Check(db))
+			// 新装：普通用户管理自己的 Token，但看不到所有人的 Token、改不了申请限制
+			for _, admin := range []string{"/api/v1/sys/api-token/all", "/api/v1/sys/api-token/limits/get", "/api/v1/sys/api-token/limits/update"} {
+				var leaked int64
+				require.NoError(t, db.Model(&model.SysCasbinRule{}).Where("v0 = ? AND v1 = ?", "888", admin).Count(&leaked).Error)
+				require.Zero(t, leaked, admin)
+			}
+			var own int64
+			require.NoError(t, db.Model(&model.SysCasbinRule{}).Where("v0 = ? AND v1 = ?", "888", "/api/v1/sys/api-token/create").Count(&own).Error)
+			require.EqualValues(t, 1, own)
 			var users int64
 			require.NoError(t, db.Model(&model.SysUser{}).Count(&users).Error)
 			require.EqualValues(t, 1, users)
@@ -187,14 +196,15 @@ func verifyNoticesAndTokenSchema(t *testing.T, db *gorm.DB, ctx context.Context)
 	require.Error(t, notices.MarkRead(ctx, id, admin.ID))
 	var external model.SysApi
 	require.NoError(t, db.Where("path = ?", "/api/v1/open/token-info").First(&external).Error)
-	tokens := service.NewApiTokenService(repository.NewApiTokenRepository(db))
+	tokens := service.NewApiTokenService(repository.NewApiTokenRepository(db), func(context.Context, uint, string, string) (bool, error) { return true, nil })
+	tokenAdmin := service.TokenActor{UserID: admin.ID, Manage: true}
 	expiry := time.Now().Add(time.Hour).Format(time.RFC3339)
-	created, err := tokens.CreateApiToken(ctx, admin.ID, dto.CreateApiTokenReq{Name: "matrix", ExpiresAt: &expiry, MaxConcurrency: 1, ApiIds: []uint{external.ID}})
+	created, err := tokens.CreateApiToken(ctx, tokenAdmin, dto.CreateApiTokenReq{Name: "matrix", ExpiresAt: &expiry, MaxConcurrency: 1, ApiIds: []uint{external.ID}})
 	require.NoError(t, err)
-	require.NoError(t, tokens.DisableApiToken(ctx, created.ID))
-	require.NoError(t, tokens.DisableApiToken(ctx, created.ID))
-	_, err = tokens.ResetApiToken(ctx, created.ID)
+	require.NoError(t, tokens.DisableApiToken(ctx, tokenAdmin, created.ID))
+	require.NoError(t, tokens.DisableApiToken(ctx, tokenAdmin, created.ID))
+	_, err = tokens.ResetApiToken(ctx, tokenAdmin, created.ID)
 	require.NoError(t, err)
-	require.NoError(t, tokens.DeleteApiToken(ctx, dto.DeleteApiTokenReq{ID: created.ID}))
-	require.Error(t, tokens.EnableApiToken(ctx, created.ID))
+	require.NoError(t, tokens.DeleteApiToken(ctx, tokenAdmin, dto.DeleteApiTokenReq{ID: created.ID}))
+	require.Error(t, tokens.EnableApiToken(ctx, tokenAdmin, created.ID))
 }

@@ -1,5 +1,6 @@
 import { t, useI18n } from '@/i18n';
 import {
+  KeyOutlined,
   LogoutOutlined,
   SettingOutlined,
   UserOutlined,
@@ -94,6 +95,10 @@ export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({
       if (settingsPath) history.push(settingsPath);
       return;
     }
+    if (key === 'tokens') {
+      if (tokensPath) history.push(tokensPath);
+      return;
+    }
   };
   const loading = (
     <span className={styles.action}>
@@ -114,15 +119,17 @@ export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({
     return loading;
   }
 
-  const findSettings = (menus: any[]): string | undefined => {
+  // 按组件找到菜单地址（个人设置、我的 Token 都是隐藏菜单，有权限才有地址）
+  const findPath = (menus: any[], component: string): string | undefined => {
     for (const item of menus) {
-      if (item.component === 'user/info') return item.path;
-      const child = findSettings(item.routes || []);
+      if (item.component === component) return item.path;
+      const child = findPath(item.routes || [], component);
       if (child) return child;
     }
     return undefined;
   };
-  const settingsPath = findSettings(initialState.menuData || []);
+  const settingsPath = findPath(initialState.menuData || [], 'user/info');
+  const tokensPath = findPath(initialState.menuData || [], 'account/tokens');
 
   // 组装所有菜单
   const menuItems: MenuProps['items'] = [
@@ -132,6 +139,7 @@ export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({
       icon: <UserOutlined />,
       label: t('cms.accountSettings'),
     },
+    ...(tokensPath ? [{ key: 'tokens', icon: <KeyOutlined />, label: t('cms.myTokens.title') }] : []),
     {
       type: 'divider' as const, // ✨ 修复点 2
     },

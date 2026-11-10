@@ -92,6 +92,27 @@
         "summary": "GET /public/config"
       }
     },
+    "/sys/api-token/all": {
+      "post": {
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "CMS response; code 0 means success",
+            "schema": {
+              "$ref": "#/definitions/Response"
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "POST /sys/api-token/all"
+      }
+    },
     "/sys/api-token/create": {
       "post": {
         "consumes": [
@@ -115,6 +136,9 @@
                 "expiresAt": {
                   "type": "string"
                 },
+                "followOwner": {
+                  "type": "boolean"
+                },
                 "maxConcurrency": {
                   "type": "integer"
                 },
@@ -126,9 +150,7 @@
                 }
               },
               "required": [
-                "name",
-                "maxConcurrency",
-                "apiIds"
+                "name"
               ],
               "type": "object"
             }
@@ -320,6 +342,9 @@
                 "name": {
                   "type": "string"
                 },
+                "ownerId": {
+                  "type": "integer"
+                },
                 "page": {
                   "type": "integer"
                 },
@@ -348,6 +373,48 @@
           }
         ],
         "summary": "POST /sys/api-token/getApiTokenList"
+      }
+    },
+    "/sys/api-token/limits/get": {
+      "post": {
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "CMS response; code 0 means success",
+            "schema": {
+              "$ref": "#/definitions/Response"
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "POST /sys/api-token/limits/get"
+      }
+    },
+    "/sys/api-token/limits/update": {
+      "put": {
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "CMS response; code 0 means success",
+            "schema": {
+              "$ref": "#/definitions/Response"
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "PUT /sys/api-token/limits/update"
       }
     },
     "/sys/api-token/options": {
@@ -435,6 +502,9 @@
                 "expiresAt": {
                   "type": "string"
                 },
+                "followOwner": {
+                  "type": "boolean"
+                },
                 "id": {
                   "type": "integer"
                 },
@@ -450,9 +520,7 @@
               },
               "required": [
                 "id",
-                "name",
-                "maxConcurrency",
-                "apiIds"
+                "name"
               ],
               "type": "object"
             }

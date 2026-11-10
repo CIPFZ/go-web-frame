@@ -35,6 +35,8 @@ type OperationLogItem = {
     nickName: string;
     userName: string;
   };
+  /** 经过的 API Token（网页操作为空）；操作人是 Token 的主人 */
+  token?: { name: string };
   traceId?: string;
   error_msg?: string;
 };
@@ -82,7 +84,7 @@ const OperationLogTable: React.FC = () => {
     {
       title: t('cms.operator'),
       dataIndex: 'user_id',
-      width: 120,
+      width: 200,
       // 固定宽度
       ellipsis: true,
       // 超出显示省略号
@@ -96,6 +98,7 @@ const OperationLogTable: React.FC = () => {
           }}
         >
           {record.user?.nickName || record.user?.userName || t('cms.unknown')}
+          {record.token ? <Text type="secondary" style={{ fontSize: 12 }}> · {t('cms.viaToken', { token: record.token.name })}</Text> : null}
         </Tag>
       ),
     },

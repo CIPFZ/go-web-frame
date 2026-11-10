@@ -10,8 +10,12 @@ export type TokenFormValues = {
   description?: string;
   maxConcurrency?: number;
   expiresAt?: string;
+  /** follow 跟随本人的权限；custom 自己选接口 */
+  permissionMode?: PermissionMode;
   apiIds?: number[];
 };
+
+export type PermissionMode = 'follow' | 'custom';
 
 export type PermissionSummaryItem = {
   key: number;
@@ -31,7 +35,7 @@ export const API_TOKEN_TABLE_LAYOUT = {
   lastUsedWidth: 120,
   apisWidth: 360,
   actionWidth: 220,
-  scrollX: 1360,
+  scrollX: 1550,
 } as const;
 
 export const formatApiLabel = (method?: string, path?: string) =>
@@ -63,6 +67,7 @@ export const buildTokenFormInitialValues = (currentRow?: ApiTokenItem): TokenFor
   if (!currentRow) {
     return {
       maxConcurrency: DEFAULT_MAX_CONCURRENCY,
+      permissionMode: 'follow',
       apiIds: [],
     };
   }
@@ -72,6 +77,7 @@ export const buildTokenFormInitialValues = (currentRow?: ApiTokenItem): TokenFor
     description: currentRow.description,
     maxConcurrency: currentRow.maxConcurrency,
     expiresAt: currentRow.expiresAt,
+    permissionMode: currentRow.followOwner ? 'follow' : 'custom',
     apiIds: (currentRow.apis || []).map((api) => api.ID),
   };
 };
@@ -85,5 +91,6 @@ export const buildTokenSubmitPayload = (
   description: values.description,
   maxConcurrency: values.maxConcurrency,
   expiresAt: values.expiresAt ? dayjs(values.expiresAt).toISOString() : undefined,
-  apiIds: values.apiIds || [],
+  followOwner: (values.permissionMode ?? 'custom') === 'follow',
+  apiIds: values.permissionMode === 'follow' ? [] : values.apiIds || [],
 });

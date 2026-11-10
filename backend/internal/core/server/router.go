@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	agentApi "github.com/CIPFZ/gowebframe/internal/modules/agent/api"
 	agentRouter "github.com/CIPFZ/gowebframe/internal/modules/agent/router"
@@ -142,7 +143,9 @@ func wireSystemModule(svcCtx *svc.ServiceContext) *systemRouter.SystemRouter {
 	menuService := systemService.NewMenuService(svcCtx, menuRepo)
 	authService := systemService.NewAuthorityService(authRepo)
 	apiService := systemService.NewApiService(apiRepo)
-	apiTokenService := systemService.NewApiTokenService(apiTokenRepo)
+	apiTokenService := systemService.NewApiTokenService(apiTokenRepo, func(ctx context.Context, userID uint, path, method string) (bool, error) {
+		return middleware.UserAllows(ctx, svcCtx, userID, path, method)
+	})
 	casbinService := systemService.NewCasbinService(casbinRepo)
 	noticeService := systemService.NewNoticeService(noticeRepo)
 

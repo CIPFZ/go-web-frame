@@ -2,18 +2,20 @@ package server
 
 import (
 	"encoding/json"
+	"net/http/httptest"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+
 	"github.com/CIPFZ/gowebframe/internal/core/config"
 	"github.com/CIPFZ/gowebframe/internal/core/db"
 	tokenCore "github.com/CIPFZ/gowebframe/internal/core/token"
 	"github.com/CIPFZ/gowebframe/internal/modules/system/model"
 	"github.com/CIPFZ/gowebframe/internal/svc"
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
-	"net/http/httptest"
-	"path/filepath"
-	"testing"
-	"time"
 )
 
 func TestActualRouterTokenBoundary(t *testing.T) {
@@ -22,7 +24,9 @@ func TestActualRouterTokenBoundary(t *testing.T) {
 	require.NoError(t, err)
 	sqlDB, _ := database.DB()
 	t.Cleanup(func() { sqlDB.Close() })
-	require.NoError(t, database.AutoMigrate(&model.SysApi{}, &model.SysApiToken{}, &model.SysApiTokenApi{}))
+	require.NoError(t, database.AutoMigrate(&model.SysApi{}, &model.SysApiToken{}, &model.SysApiTokenApi{}, &model.SysUser{}))
+	owner := model.SysUser{Username: "owner", Status: model.UserActive}
+	require.NoError(t, database.Create(&owner).Error)
 	sc := svc.NewServiceContext()
 	sc.DB = database
 	sc.Logger = zap.NewNop()
@@ -32,7 +36,7 @@ func TestActualRouterTokenBoundary(t *testing.T) {
 	api := model.SysApi{Path: path, Method: "GET"}
 	require.NoError(t, database.Create(&api).Error)
 	expires := time.Now().Add(time.Hour)
-	token := model.SysApiToken{Name: "test", TokenHash: tokenCore.HashToken("secret"), Enabled: true, MaxConcurrency: 1, ExpiresAt: &expires, Apis: []model.SysApi{api}}
+	token := model.SysApiToken{Name: "test", CreatedBy: owner.ID, TokenHash: tokenCore.HashToken("secret"), Enabled: true, MaxConcurrency: 1, ExpiresAt: &expires, Apis: []model.SysApi{api}}
 	require.NoError(t, database.Create(&token).Error)
 	call := func(method, path, header, value string) (int, int) {
 		t.Helper()

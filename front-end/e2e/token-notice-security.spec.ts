@@ -141,10 +141,49 @@ test('API Token real endpoint, CMS separation, rejection and lifecycle', async (
     request,
     await login(request, reader.username, password),
   );
-  expect((await readerApi('/sys/api-token/create', payload)).code).toBe(1004);
-  expect((await readerApi('/sys/api-token/getApiTokenList', {})).code).toBe(
+  // Tokens belong to their owner: every user manages only their own tokens.
+  const readerOptions = await readerApi('/sys/api-token/options', {});
+  expect(readerOptions.code).toBe(0);
+  expect(readerOptions.data.list.map((item: any) => item.path)).toEqual([
+    endpoint.path,
+  ]);
+  expect(readerOptions.data.limits.maxTokens).toBeGreaterThan(0);
+  expect(
+    (await readerApi('/sys/api-token/create', { ...payload, apiIds: [cms.ID] }))
+      .code,
+  ).not.toBe(0);
+  const own = await readerApi('/sys/api-token/create', {
+    name: payload.name,
+    followOwner: true,
+  });
+  expect(own.code).toBe(0);
+  expect(own.data.expiresAt).toBeTruthy();
+  expect((await call(own.data.token)).data.tokenId).toBe(own.data.ID);
+  const mine = await readerApi('/sys/api-token/getApiTokenList', {
+    page: 1,
+    pageSize: 100,
+  });
+  expect(mine.data.list.map((item: any) => item.ID)).toEqual([own.data.ID]);
+  expect((await readerApi('/sys/api-token/all', {})).code).toBe(1004);
+  expect((await readerApi('/sys/api-token/limits/get', { userId: 0 })).code).toBe(
     1004,
   );
+  const everyone = await api('/sys/api-token/all', { page: 1, pageSize: 100 });
+  expect(everyone.data.list.map((item: any) => item.ID)).toContain(own.data.ID);
+  // A token stops working when its owner is disabled.
+  expect(
+    (
+      await api(
+        '/sys/user/updateUser',
+        { id: reader.id, authorityIds: [888], status: 0 },
+        'PUT',
+      )
+    ).code,
+  ).toBe(0);
+  expect((await call(own.data.token)).code).toBe(1003);
+  expect(
+    (await api('/sys/api-token/delete', { id: own.data.ID }, 'DELETE')).code,
+  ).toBe(0);
   const badEn = await (
     await request.post('/api/v1/sys/api-token/create', {
       headers: { 'x-token': admin, 'Accept-Language': 'en-US' },
