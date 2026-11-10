@@ -107,6 +107,7 @@ var messageKeys = map[string]string{
 	"请先删除子角色":       "api.removeChildRolesFirst",
 	"请至少选择一个 API":   "api.selectAtLeastOneApi",
 	"请至少选择一个角色":     "api.selectAtLeastOneRole",
+	"请选择一个内置头像":     "api.chooseBuiltinAvatar",
 	"请选择要上传的图片":     "api.selectAnImageToUpload",
 	"请选择要上传的文件":     "api.selectAFileToUpload.face48",
 	"路由Path已存在":     "api.routePathAlreadyExists",

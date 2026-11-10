@@ -94,6 +94,7 @@ func (s *SystemRouter) initUserRoutes(group *gin.RouterGroup) {
 		userRouter.PUT("ui-config", s.apis.UserApi.UpdateUiConfig)
 		userRouter.PUT("workplace", s.apis.UserApi.UpdateWorkplace)
 		userRouter.POST("avatar", s.apis.UserApi.UploadAvatar)
+		userRouter.PUT("avatar/preset", s.apis.UserApi.SetPresetAvatar)
 
 		// --- "写" 操作 (统一应用操作日志中间件) ---
 		userWriteGroup := userRouter.Group("", middleware.OperationRecord(s.svcCtx))

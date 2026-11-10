@@ -550,4 +550,7 @@ export default {
   'cms.roleDesk.save': '保存',
   'cms.roleDesk.saved': '默认工作台已保存',
   'cms.roleDesk.title': '「{name}」的默认工作台',
+  'cms.avatarPresets': '内置头像',
+  'cms.avatarPresetOne': '内置头像 {n}',
+  'cms.avatarSaved': '头像已更换',
 };

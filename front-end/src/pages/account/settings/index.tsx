@@ -14,8 +14,16 @@ import { createStyles } from 'antd-style';
 import { MobileOutlined, MailOutlined } from '@ant-design/icons';
 import UploadImage from '@/components/Upload/UploadImage';
 // ✨ 引入 API
-import { updateSelfInfo } from '@/services/system/user';
+import { setPresetAvatar, updateSelfInfo } from '@/services/system/user';
 const { Title } = Typography;
+/** 内置头像（public/avatars）：12 个几何图形 + 12 个动物头像，与后端 model.PresetAvatars 一致。 */
+const PRESET_AVATARS = [
+  ...Array.from({ length: 12 }, (_, i) => `/avatars/a${String(i + 1).padStart(2, '0')}.svg`),
+  ...['bear', 'capybara', 'cat', 'dog', 'fox', 'koala', 'otter', 'panda', 'penguin', 'pig', 'rabbit', 'tiger'].map(
+    (a) => `/avatars/animal-${a}.svg`,
+  ),
+];
+
 const useStyles = createStyles(({ token }) => {
   return {
     avatarWrapper: {
@@ -54,6 +62,28 @@ const useStyles = createStyles(({ token }) => {
       fontSize: 12,
       textAlign: 'center',
     },
+    presets: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(6, 36px)',
+      gap: 8,
+      margin: '16px 0 0',
+      padding: 0,
+      border: 0,
+      minWidth: 0,
+    },
+    preset: {
+      width: 36,
+      height: 36,
+      padding: 0,
+      borderRadius: '50%',
+      overflow: 'hidden',
+      cursor: 'pointer',
+      border: '2px solid transparent',
+      background: 'none',
+      img: { width: '100%', height: '100%', display: 'block' },
+      '&:hover': { borderColor: token.colorPrimaryBorder },
+    },
+    presetActive: { borderColor: `${token.colorPrimary} !important` },
   };
 });
 
@@ -64,7 +94,7 @@ const BaseView: React.FC<{
 }> = ({ currentUser, refresh }) => {
   const localeFormRef1 = useFormLocale();
   useI18n();
-  const { styles } = useStyles();
+  const { styles, cx } = useStyles();
   const handleFinish = async (values: any) => {
     try {
       // ✨ 调用后端接口更新
@@ -210,6 +240,27 @@ const BaseView: React.FC<{
           <br />
           {t('cms.maximumSize2Mb')}
         </div>
+        {/* 也可以从内置头像里选一个 */}
+        <fieldset className={styles.presets} aria-label={t('cms.avatarPresets')}>
+          {PRESET_AVATARS.map((src, i) => (
+            <button
+              key={src}
+              type="button"
+              className={cx(styles.preset, currentUser?.avatar === src && styles.presetActive)}
+              aria-label={t('cms.avatarPresetOne', { n: i + 1 })}
+              aria-pressed={currentUser?.avatar === src}
+              onClick={async () => {
+                const res = await setPresetAvatar(src);
+                if (res.code === 0) {
+                  message.success(t('cms.avatarSaved'));
+                  refresh();
+                }
+              }}
+            >
+              <img src={src} alt="" />
+            </button>
+          ))}
+        </fieldset>
       </div>
     </div>
   );
