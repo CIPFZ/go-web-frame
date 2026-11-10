@@ -87,6 +87,7 @@ git switch -c my-project
 - [目录结构与模块边界](docs/DIRECTORY_STRUCTURE.md)
 - [数据库迁移写法](docs/MIGRATIONS.md)
 - [工作台与项目扩展](docs/WORKPLACE.md)
+- [资源接口契约（core/apispec）](docs/API_SPEC.md)
 - [质量检查与独立测试环境](TEMPLATE_QUALITY.md)
 
 后端使用 Go 1.27.1，前端构建使用 Node 24.21.0 LTS。业务菜单和路由仍由后端下发。
